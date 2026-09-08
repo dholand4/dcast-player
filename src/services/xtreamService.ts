@@ -286,27 +286,83 @@ export const xtreamService = {
       return [];
     }
   },
+
+  // 7. Informações detalhadas de VOD (incluindo trailer do YouTube)
+  async getVodInfo(
+    creds: IAccountCredentials,
+    vodId: string | number
+  ): Promise<{ info?: { youtube_trailer?: string; plot?: string; duration_secs?: number; rating?: string; releasedate?: string; genre?: string; director?: string; cast?: string } }> {
+    try {
+      const { serverUrl, username, password } = creds;
+      const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(
+        username
+      )}&password=${encodeURIComponent(password)}&action=get_vod_info&vod_id=${encodeURIComponent(vodId)}`;
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) return {};
+      const data = await res.json();
+      return data || {};
+    } catch {
+      return {};
+    }
+  },
 };
 
-export function safeDecodeBase64(str?: string): string {
+export function cleanHtmlEntities(str: string): string {
   if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
+export function safeDecodeBase64(str?: string): string {
+  if (!str || typeof str !== 'string') return '';
   const trimmed = str.trim();
-  try {
-    if (/^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length % 4 === 0) {
-      if (typeof atob === 'function') {
-        const decoded = atob(trimmed);
-        if (/^[\x20-\x7E\s\u00A0-\u024F\u1E00-\u1EFF]+$/.test(decoded)) {
-          return decoded;
+  if (!trimmed) return '';
+
+  // Se já contém espaços, acentos, pontuação de frase ou caracteres especiais comuns em títulos, é texto puro!
+  if (/[\s\u00C0-\u017F:;!?()[\]{}]/.test(trimmed)) {
+    return cleanHtmlEntities(trimmed);
+  }
+
+  // Candidato a Base64: tamanho >= 8, múltiplo de 4, sem caracteres estranhos
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) && trimmed.length >= 8 && trimmed.length % 4 === 0) {
+    try {
+      let decoded = '';
+      if (typeof Buffer !== 'undefined') {
+        decoded = Buffer.from(trimmed, 'base64').toString('utf-8');
+      } else if (typeof atob === 'function') {
+        const bin = atob(trimmed);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) {
+          bytes[i] = bin.charCodeAt(i);
         }
-      } else if (typeof Buffer !== 'undefined') {
-        const decoded = Buffer.from(trimmed, 'base64').toString('utf-8');
-        if (/^[\x20-\x7E\s\u00A0-\u024F\u1E00-\u1EFF]+$/.test(decoded)) {
-          return decoded;
+        if (typeof TextDecoder !== 'undefined') {
+          decoded = new TextDecoder('utf-8').decode(bytes);
+        } else {
+          decoded = decodeURIComponent(escape(bin));
         }
       }
+
+      // Validar se o texto decodificado é legível e não lixo binário
+      if (decoded && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/.test(decoded)) {
+        const lettersAndSpaces = (decoded.match(/[A-Za-z0-9\u00C0-\u017F\s.,'\"-]/g) || []).length;
+        if (lettersAndSpaces / decoded.length > 0.85) {
+          const vowelCount = (decoded.match(/[aeiouAEIOU\u00C0-\u017F]/g) || []).length;
+          if (vowelCount > 0) {
+            return cleanHtmlEntities(decoded);
+          }
+        }
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // fallback
   }
-  return str;
+
+  return cleanHtmlEntities(trimmed);
 }

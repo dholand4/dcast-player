@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
@@ -45,12 +45,15 @@ describe('HomeScreen', () => {
     expect(getByTestId('home-screen')).toBeTruthy();
   });
 
-  it('does not render the search button on HomeScreen header', () => {
-    const { queryByTestId } = wrap(
+  it('renders the search button on HomeScreen header and navigates to SearchScreen', () => {
+    const { getByTestId } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    expect(queryByTestId('header-search-button')).toBeNull();
+    const searchBtn = getByTestId('header-search-button');
+    expect(searchBtn).toBeTruthy();
+    fireEvent.press(searchBtn);
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('SearchScreen');
   });
 });
 

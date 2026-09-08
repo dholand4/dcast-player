@@ -7,6 +7,12 @@ import { DetailsScreen } from '../index';
 
 import { DetailsScreenProps } from '../../../routes/types';
 
+jest.mock('../../../hooks/useAuth', () => ({
+  useAuth: () => ({
+    account: { serverUrl: 'http://test.com', username: 'user', password: 'pass', label: 'Test' },
+  }),
+}));
+
 const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
@@ -68,6 +74,27 @@ describe('DetailsScreen', () => {
     );
 
     expect(getByText('Começar a Assistir')).toBeTruthy();
+  });
+
+  it('renders trailer button and movie info when available', async () => {
+    const { xtreamService } = require('../../../services/xtreamService');
+    jest.spyOn(xtreamService, 'getVodInfo').mockResolvedValueOnce({
+      info: {
+        youtube_trailer: 'dQw4w9WgXcQ',
+        plot: 'Sinopse incrível do Matrix',
+        rating: '8.7',
+        director: 'Lana Wachowski',
+      },
+    });
+
+    const { findByTestId, findByText } = wrap(
+      <DetailsScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(await findByTestId('details-trailer-button')).toBeTruthy();
+    expect(await findByText('Ver Trailer')).toBeTruthy();
+    expect(await findByText('Sinopse incrível do Matrix')).toBeTruthy();
+    expect(await findByText(/Lana Wachowski/)).toBeTruthy();
   });
 });
 

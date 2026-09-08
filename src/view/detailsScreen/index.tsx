@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Platform, Linking, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { DetailsScreenProps } from '../../routes/types';
@@ -51,12 +52,69 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const { getProgress, getAllWatchProgress, saveProgress } = useWatchHistory();
 
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
+  const [movieInfo, setMovieInfo] = useState<{
+    youtube_trailer?: string;
+    plot?: string;
+    rating?: string;
+    genre?: string;
+    director?: string;
+    cast?: string;
+    duration_secs?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (type === 'series') {
       fetchSeriesInfo(id);
+    } else if (type === 'movie' && account) {
+      let isMounted = true;
+      xtreamService
+        .getVodInfo(account, id)
+        .then((data) => {
+          if (isMounted && data?.info) {
+            setMovieInfo(data.info);
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        isMounted = false;
+      };
     }
-  }, [id, type, fetchSeriesInfo]);
+  }, [id, type, account, fetchSeriesInfo]);
+
+  const rawTrailer =
+    type === 'series'
+      ? seriesInfo?.info?.youtube_trailer
+      : movieInfo?.youtube_trailer;
+
+  const trailerUrl = useMemo(() => {
+    if (!rawTrailer || typeof rawTrailer !== 'string') return null;
+    const trimmed = rawTrailer.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(trimmed)}`;
+  }, [rawTrailer]);
+
+  const handleOpenTrailer = async (url: string) => {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+      const can = await Linking.canOpenURL(url);
+      if (can) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch {
+      Alert.alert('Trailer', 'Não foi possível abrir o trailer no momento.');
+    }
+  };
 
   const isFav = isFavorite(id);
   const watchProgress = getProgress(id);
@@ -249,24 +307,35 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         <TitleText>{title}</TitleText>
 
         <MetaRow>
-          {type === 'series' && seriesInfo?.info?.rating && (
+          {type === 'series' && seriesInfo?.info?.rating ? (
             <BadgeGlobal
               text={`★ ${seriesInfo.info.rating}`}
               variant="rating"
             />
-          )}
+          ) : null}
+          {type === 'movie' && movieInfo?.rating ? (
+            <BadgeGlobal
+              text={`★ ${movieInfo.rating}`}
+              variant="rating"
+            />
+          ) : null}
           <BadgeGlobal text="HD" variant="hd" />
           {type === 'series' && (
             <MetaText>{availableSeasons.length} Temporadas</MetaText>
           )}
           {type === 'movie' && (
-            <MetaText>Filme Completo</MetaText>
+            <MetaText>
+              {movieInfo?.duration_secs
+                ? `${Math.floor(movieInfo.duration_secs / 60)} min`
+                : 'Filme Completo'}
+            </MetaText>
           )}
+          {movieInfo?.genre ? <MetaText>• {movieInfo.genre}</MetaText> : null}
         </MetaRow>
 
-        <ButtonRow>
+        <ButtonRow style={{ flexWrap: 'wrap' }}>
           {type === 'movie' && (
-            <ButtonFlex>
+            <ButtonFlex style={{ minWidth: 160, flex: 2 }}>
               <ButtonGlobal
                 label={watchProgress ? 'Continuar Assistindo' : 'Assistir'}
                 onPress={handlePlayMovie}
@@ -275,7 +344,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
             </ButtonFlex>
           )}
           {type === 'series' && (
-            <ButtonFlex>
+            <ButtonFlex style={{ minWidth: 160, flex: 2 }}>
               <ButtonGlobal
                 label={
                   latestSeriesProgress
@@ -288,7 +357,19 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
               />
             </ButtonFlex>
           )}
-          <ButtonFlex>
+          {trailerUrl ? (
+            <ButtonFlex style={{ minWidth: 120, flex: 1 }}>
+              <ButtonGlobal
+                label="Ver Trailer"
+                variant="ghost"
+                icon={<MaterialIcons name="ondemand-video" size={20} color="#FFFFFF" />}
+                onPress={() => handleOpenTrailer(trailerUrl)}
+                size="lg"
+                testID="details-trailer-button"
+              />
+            </ButtonFlex>
+          ) : null}
+          <ButtonFlex style={{ minWidth: 120, flex: 1 }}>
             <ButtonGlobal
               label={isFav ? 'Favoritado ❤️' : 'Favoritar'}
               variant={isFav ? 'secondary' : 'ghost'}
@@ -302,8 +383,22 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         <PlotText>
           {type === 'series'
             ? seriesInfo?.info?.plot || 'Carregando sinopse da série...'
-            : 'Prepare sua pipoca e transmita em alta definição para a sua TV.'}
+            : movieInfo?.plot || 'Prepare sua pipoca e transmita em alta definição para a sua TV.'}
         </PlotText>
+
+        {movieInfo?.director ? (
+          <MetaText style={{ marginBottom: 6 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>Direção: </Text>
+            {movieInfo.director}
+          </MetaText>
+        ) : null}
+
+        {movieInfo?.cast ? (
+          <MetaText style={{ marginBottom: 16 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>Elenco: </Text>
+            {movieInfo.cast}
+          </MetaText>
+        ) : null}
 
         {/* Seção de Séries: Temporadas e Episódios */}
         {type === 'series' && (

@@ -338,9 +338,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (typeof val === 'number') return val;
     const num = Number(val);
     if (!isNaN(num) && num > 1000000) return num;
-    const d = new Date(String(val).replace(' ', 'T'));
+    const strVal = String(val).trim();
+    const d = new Date(strVal.includes('T') ? strVal : strVal.replace(' ', 'T'));
     if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
     return 0;
+  };
+
+  const cleanProgramTitle = (rawTitle?: string) => {
+    if (!rawTitle) return '';
+    let t = rawTitle.replace(/^\[?\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}\]?\s*[-–:]?\s*/i, '');
+    t = t.replace(/^\[?\d{1,2}[:.]\d{2}\]?\s*[-–:]?\s*/i, '');
+    return t.trim();
   };
 
   const currentProgram = useMemo(() => {
@@ -379,18 +387,19 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const formatEpgTime = (val?: string | number) => {
     if (!val) return '';
     const ts = parseEpgTimestamp(val);
-    if (!ts) {
-      if (typeof val === 'string' && val.includes(':')) {
-        const parts = val.trim().split(' ');
-        const timePart = parts[parts.length - 1];
-        return timePart.slice(0, 5);
-      }
-      return '';
+    if (ts > 0) {
+      const d = new Date(ts * 1000);
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
     }
-    const d = new Date(ts * 1000);
-    const h = String(d.getHours()).padStart(2, '0');
-    const m = String(d.getMinutes()).padStart(2, '0');
-    return `${h}:${m}`;
+    if (typeof val === 'string' && val.includes(':')) {
+      const parts = val.trim().split(' ');
+      const timePart = parts[parts.length - 1];
+      const match = timePart.match(/(\d{1,2}:\d{2})/);
+      if (match) return match[1];
+    }
+    return '';
   };
 
   // Troca rápida de canal (Zapping)
@@ -1586,7 +1595,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     ) : null}
                   </EpgHeaderRow>
                   <EpgProgramTitle numberOfLines={1}>
-                    {currentProgram ? currentProgram.title : 'Programação ao vivo'}
+                    {currentProgram ? cleanProgramTitle(currentProgram.title) : 'Programação ao vivo'}
                   </EpgProgramTitle>
                   {currentProgram && (
                     <EpgTrack>
@@ -1596,7 +1605,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   {nextProgram ? (
                     <EpgNextText numberOfLines={1}>
                       A Seguir: {formatEpgTime(nextProgram.start_timestamp || nextProgram.start)} -{' '}
-                      {nextProgram.title}
+                      {cleanProgramTitle(nextProgram.title)}
                     </EpgNextText>
                   ) : !currentProgram && !epgLoading ? (
                     <EpgNextText>Programação não disponível para este canal</EpgNextText>

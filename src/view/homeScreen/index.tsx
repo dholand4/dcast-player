@@ -93,6 +93,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         title={account?.label || 'DCast Player'}
         subtitle={account?.username ? `@${account.username}` : undefined}
         extraInfo={formattedExpDate}
+        onSearchPress={() => navigation.navigate('SearchScreen')}
       />
 
       <ScrollArea>

@@ -46,6 +46,7 @@ export type RootStackParamList = {
     seriesEpisodes?: SeriesEpisodeItem[];
     liveChannels?: LiveChannelItem[];
   };
+  SearchScreen: undefined;
 };
 
 export type SetupScreenProps = NativeStackScreenProps<RootStackParamList, 'SetupScreen'>;
@@ -53,3 +54,4 @@ export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'HomeSc
 export type CategoryScreenProps = NativeStackScreenProps<RootStackParamList, 'CategoryScreen'>;
 export type DetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'DetailsScreen'>;
 export type PlayerScreenProps = NativeStackScreenProps<RootStackParamList, 'PlayerScreen'>;
+export type SearchScreenProps = NativeStackScreenProps<RootStackParamList, 'SearchScreen'>;

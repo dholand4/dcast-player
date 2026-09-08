@@ -31,7 +31,12 @@ import {
   EmptyText,
   EmptyActionButton,
   EmptyActionButtonText,
+  SortBarContainer,
+  SortPill,
+  SortPillText,
 } from './style';
+
+type SortMode = 'default' | 'name_asc' | 'name_desc' | 'recent' | 'rating';
 
 const HORIZONTAL_PADDING = 32;
 const GAP = 12;
@@ -73,6 +78,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   const { continueWatching, clearHistory, removeProgress } = useWatchHistory();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('default');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -309,8 +315,31 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         return name.includes(q);
       });
     }
+
+    if (sortMode === 'name_asc') {
+      result = [...result].sort((a, b) =>
+        (a?.name || '').localeCompare(b?.name || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
+      );
+    } else if (sortMode === 'name_desc') {
+      result = [...result].sort((a, b) =>
+        (b?.name || '').localeCompare(a?.name || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
+      );
+    } else if (sortMode === 'recent') {
+      result = [...result].sort((a, b) => {
+        const dateA = Number((a as any)?.added || (a as any)?.last_modified || 0) || 0;
+        const dateB = Number((b as any)?.added || (b as any)?.last_modified || 0) || 0;
+        return dateB - dateA;
+      });
+    } else if (sortMode === 'rating' && type !== 'live') {
+      result = [...result].sort((a, b) => {
+        const rateA = Number((a as any)?.rating || (a as any)?.rating_5based || 0) || 0;
+        const rateB = Number((b as any)?.rating || (b as any)?.rating_5based || 0) || 0;
+        return rateB - rateA;
+      });
+    }
+
     return result;
-  }, [items, selectedCategory, debouncedQuery, favorites, type, typeContinueWatchingList]);
+  }, [items, selectedCategory, debouncedQuery, favorites, type, typeContinueWatchingList, sortMode]);
 
   const handleRefresh = useCallback(() => {
     if (selectedCategory === 'favorites') {
@@ -752,6 +781,90 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           />
         </SearchInputContainer>
       </SearchRow>
+
+      <SortBarContainer testID="sort-bar-container">
+        <SortPill
+          isSelected={sortMode === 'default'}
+          onPress={() => setSortMode('default')}
+          accessibilityRole="button"
+          accessibilityLabel="Ordenar por Padrão"
+          testID="sort-pill-default"
+        >
+          <MaterialIcons
+            name="sort"
+            size={14}
+            color={sortMode === 'default' ? '#fff' : 'rgba(255, 255, 255, 0.6)'}
+            style={{ marginRight: 4 }}
+          />
+          <SortPillText isSelected={sortMode === 'default'}>Padrão</SortPillText>
+        </SortPill>
+
+        <SortPill
+          isSelected={sortMode === 'name_asc'}
+          onPress={() => setSortMode('name_asc')}
+          accessibilityRole="button"
+          accessibilityLabel="Ordenar de A a Z"
+          testID="sort-pill-name-asc"
+        >
+          <MaterialIcons
+            name="arrow-upward"
+            size={14}
+            color={sortMode === 'name_asc' ? '#fff' : 'rgba(255, 255, 255, 0.6)'}
+            style={{ marginRight: 4 }}
+          />
+          <SortPillText isSelected={sortMode === 'name_asc'}>A-Z</SortPillText>
+        </SortPill>
+
+        <SortPill
+          isSelected={sortMode === 'name_desc'}
+          onPress={() => setSortMode('name_desc')}
+          accessibilityRole="button"
+          accessibilityLabel="Ordenar de Z a A"
+          testID="sort-pill-name-desc"
+        >
+          <MaterialIcons
+            name="arrow-downward"
+            size={14}
+            color={sortMode === 'name_desc' ? '#fff' : 'rgba(255, 255, 255, 0.6)'}
+            style={{ marginRight: 4 }}
+          />
+          <SortPillText isSelected={sortMode === 'name_desc'}>Z-A</SortPillText>
+        </SortPill>
+
+        <SortPill
+          isSelected={sortMode === 'recent'}
+          onPress={() => setSortMode('recent')}
+          accessibilityRole="button"
+          accessibilityLabel="Ordenar por Recentes"
+          testID="sort-pill-recent"
+        >
+          <MaterialIcons
+            name="new-releases"
+            size={14}
+            color={sortMode === 'recent' ? '#fff' : 'rgba(255, 255, 255, 0.6)'}
+            style={{ marginRight: 4 }}
+          />
+          <SortPillText isSelected={sortMode === 'recent'}>Recentes</SortPillText>
+        </SortPill>
+
+        {type !== 'live' && (
+          <SortPill
+            isSelected={sortMode === 'rating'}
+            onPress={() => setSortMode('rating')}
+            accessibilityRole="button"
+            accessibilityLabel="Ordenar por Melhor Avaliados"
+            testID="sort-pill-rating"
+          >
+            <MaterialIcons
+              name="star"
+              size={14}
+              color={sortMode === 'rating' ? '#fff' : 'rgba(255, 255, 255, 0.6)'}
+              style={{ marginRight: 4 }}
+            />
+            <SortPillText isSelected={sortMode === 'rating'}>Melhor Avaliados</SortPillText>
+          </SortPill>
+        )}
+      </SortBarContainer>
 
       {/* Para Canais Ao Vivo, exibe o nome da categoria no topo */}
       {type === 'live' && renderCategoryFolderRow()}

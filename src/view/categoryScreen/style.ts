@@ -127,3 +127,31 @@ export const EmptyActionButtonText = styled.Text`
   font-size: ${({ theme }) => theme.typography.sizes.md}px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
+
+export const SortBarContainer = styled.ScrollView.attrs({
+  horizontal: true,
+  showsHorizontalScrollIndicator: false,
+  contentContainerStyle: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
+})`
+  flex-grow: 0;
+`;
+
+export const SortPill = styled.TouchableOpacity<{ isSelected?: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  padding-horizontal: 12px;
+  padding-vertical: 6px;
+  border-radius: 16px;
+  background-color: ${({ isSelected, theme }) =>
+    isSelected ? theme.colors.primary : 'rgba(255, 255, 255, 0.07)'};
+  border-width: 1px;
+  border-color: ${({ isSelected, theme }) =>
+    isSelected ? theme.colors.primary : 'rgba(255, 255, 255, 0.12)'};
+`;
+
+export const SortPillText = styled.Text<{ isSelected?: boolean }>`
+  color: ${({ isSelected }) => (isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.75)')};
+  font-size: 12px;
+  font-weight: ${({ isSelected }) => (isSelected ? 'bold' : '500')};
+`;
+

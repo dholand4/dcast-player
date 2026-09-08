@@ -59,5 +59,34 @@ describe('CategoryScreen', () => {
     expect(input).toBeTruthy();
     fireEvent.changeText(input, 'Globo');
   });
+
+  it('renders sort pills and handles clicking on sort options', () => {
+    const { getByTestId } = wrap(
+      <CategoryScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(getByTestId('sort-bar-container')).toBeTruthy();
+    expect(getByTestId('sort-pill-default')).toBeTruthy();
+    expect(getByTestId('sort-pill-name-asc')).toBeTruthy();
+    expect(getByTestId('sort-pill-name-desc')).toBeTruthy();
+    expect(getByTestId('sort-pill-recent')).toBeTruthy();
+
+    fireEvent.press(getByTestId('sort-pill-name-asc'));
+    fireEvent.press(getByTestId('sort-pill-recent'));
+  });
+
+  it('renders rating sort pill for movies and series', () => {
+    const movieRoute = {
+      ...mockRoute,
+      params: { type: 'movie', title: 'Filmes' },
+    } as unknown as CategoryScreenProps['route'];
+
+    const { getByTestId } = wrap(
+      <CategoryScreen navigation={mockNavigation} route={movieRoute} />
+    );
+
+    expect(getByTestId('sort-pill-rating')).toBeTruthy();
+    fireEvent.press(getByTestId('sort-pill-rating'));
+  });
 });
 

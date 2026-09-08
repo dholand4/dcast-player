@@ -40,4 +40,22 @@ describe('xtreamService', () => {
     expect(toArray(undefined)).toEqual([]);
     expect(toArray('invalid')).toEqual([]);
   });
+
+  it('safely decodes Base64 EPG titles without distorting plain text and handles HTML entities', () => {
+    const { safeDecodeBase64, cleanHtmlEntities } = require('../xtreamService');
+
+    // Base64 valid encoded
+    expect(safeDecodeBase64('Sm9ybmFsIE5hY2lvbmFs')).toBe('Jornal Nacional');
+    expect(safeDecodeBase64('U2Vzc8OjbyBkYSBUYXJkZQ==')).toBe('Sessão da Tarde');
+
+    // Plain text should NOT be altered
+    expect(safeDecodeBase64('Jornal Nacional')).toBe('Jornal Nacional');
+    expect(safeDecodeBase64('Fantástico')).toBe('Fantástico');
+    expect(safeDecodeBase64('News')).toBe('News');
+    expect(safeDecodeBase64('Batman')).toBe('Batman');
+
+    // HTML entities
+    expect(safeDecodeBase64('Telecine &amp; Pipoca')).toBe('Telecine & Pipoca');
+    expect(cleanHtmlEntities('Rock&#039;n&#x27;Roll &quot;Live&quot;')).toBe("Rock'n'Roll \"Live\"");
+  });
 });
