@@ -39,6 +39,12 @@ export default function App() {
             max-height: 100% !important;
             object-fit: contain;
             background-color: #000000;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            contain: strict;
           }
         `;
         document.head.appendChild(styleTag);

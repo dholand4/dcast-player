@@ -203,10 +203,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [contentFitMode, setContentFitMode] = useState<'contain' | 'cover'>('contain');
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const currentTimeRef = useRef(initialTime);
+  const durationRef = useRef(0);
+  const showControlsRef = useRef(showControls);
+  showControlsRef.current = showControls;
+
   // Auto-hide controls
   const resetHideTimer = useCallback(() => {
     if (hideControlsTimer.current) {
       clearTimeout(hideControlsTimer.current);
+    }
+    if (currentTimeRef.current !== undefined) {
+      setCurrentTime(currentTimeRef.current);
     }
     setShowControls(true);
     hideControlsTimer.current = setTimeout(() => {
@@ -271,6 +279,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
       videoEl.preload = 'auto';
       videoEl.playsInline = true;
+      videoEl.style.transform = 'translateZ(0)';
+      (videoEl.style as any).webkitTransform = 'translateZ(0)';
+      videoEl.style.willChange = 'transform';
+      videoEl.style.backfaceVisibility = 'hidden';
+      (videoEl.style as any).webkitBackfaceVisibility = 'hidden';
 
       if (initialTime > 0 && !applied && !hasAppliedInitialTimeRef.current) {
         const doSeek = () => {
@@ -326,6 +339,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
       videoEl.preload = 'auto';
       videoEl.playsInline = true;
+      videoEl.style.transform = 'translateZ(0)';
+      (videoEl.style as any).webkitTransform = 'translateZ(0)';
+      videoEl.style.willChange = 'transform';
+      videoEl.style.backfaceVisibility = 'hidden';
+      (videoEl.style as any).webkitBackfaceVisibility = 'hidden';
 
       const Hls = (window as any).Hls;
       if (Hls && Hls.isSupported()) {
@@ -344,6 +362,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             maxMaxBufferLength: 60, // Até 60s se a banda permitir
             maxBufferSize: 60 * 1000 * 1000, // 60MB de buffer na memória
             startFragPrefetch: true, // Pré-carrega o próximo segmento em paralelo para transições lisas
+            fpsDroppedMonitoring: true, // Monitora e recupera dropped frames para 60Hz/120Hz fluído
+            fpsDroppedMonitoringPeriod: 5000,
+            fpsDroppedMonitoringThreshold: 0.2,
+            capLevelToPlayerSize: false,
             manifestLoadingTimeOut: 20000,
             manifestLoadingMaxRetry: 5,
             manifestLoadingRetryDelay: 1000,
@@ -566,7 +588,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           hasAppliedInitialTimeRef.current = true;
         }
 
-        setCurrentTime(event.currentTime);
+        currentTimeRef.current = event.currentTime;
+
+        // Otimização crucial para 60/120Hz no Web:
+        // Só dispara re-renderização do React se os controles estiverem visíveis na tela.
+        // Quando os controles estão ocultos, zera o consumo de CPU da thread principal,
+        // garantindo que o vídeo rode com fluidez máxima de 60/120 FPS sem perda de quadros.
+        if (showControlsRef.current) {
+          setCurrentTime(event.currentTime);
+        }
+
         if (
           type === 'series' &&
           nextEpisodeRef.current &&
@@ -579,6 +610,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         }
       }
       if (player.duration > 0 && Number.isFinite(player.duration)) {
+        durationRef.current = player.duration;
         setDuration(player.duration);
       }
     });
@@ -656,11 +688,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   useEffect(() => {
     return () => {
-      if (currentTime > 0 && duration > 0) {
-        persistCurrentProgress(currentTime, duration);
+      const cur = currentTimeRef.current;
+      const dur = durationRef.current || duration;
+      if (cur > 0 && dur > 0) {
+        persistCurrentProgress(cur, dur);
       }
     };
-  }, [currentTime, duration, persistCurrentProgress]);
+  }, [duration, persistCurrentProgress]);
 
   const hasCastAutoAdvancedRef = useRef(false);
 
@@ -677,9 +711,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       handleGoToNextEpisode();
     }
   }, [isCasting, type, nextEpisode, streamDuration, streamPosition, handleGoToNextEpisode]);
-
-  const currentTimeRef = useRef(currentTime);
-  currentTimeRef.current = currentTime;
 
   // Gerenciar transição de desconexão da TV para retomar no celular
   useEffect(() => {

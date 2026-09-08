@@ -31,6 +31,12 @@
         max-height: 100% !important;
         object-fit: contain;
         background-color: #000000;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        contain: strict;
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
