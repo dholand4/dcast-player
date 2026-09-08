@@ -275,6 +275,70 @@ describe('PlayerScreen', () => {
     fireEvent.press(getByText('1.5x'));
     expect(getByText('1.5x')).toBeTruthy();
   });
+
+  it('handles screen lock and unlocking', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const lockBtn = getByTestId('lock-screen-button');
+    expect(lockBtn).toBeTruthy();
+
+    // Lock screen
+    fireEvent.press(lockBtn);
+    expect(getByTestId('lock-screen-backdrop')).toBeTruthy();
+    expect(queryByTestId('player-back-button')).toBeNull();
+
+    // Touch screen to show unlock button
+    fireEvent.press(getByTestId('lock-screen-backdrop'));
+    const unlockBtn = getByTestId('unlock-screen-button');
+    expect(unlockBtn).toBeTruthy();
+
+    // Unlock screen
+    fireEvent.press(unlockBtn);
+    expect(queryByTestId('lock-screen-backdrop')).toBeNull();
+  });
+
+  it('configures sleep timer and displays sleep timer badge', () => {
+    const { getByTestId, getByText, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(queryByTestId('sleep-timer-badge')).toBeNull();
+
+    // Open settings modal
+    fireEvent.press(getByTestId('settings-modal-button'));
+    expect(getByText('Temporizador para Dormir')).toBeTruthy();
+
+    // Select 15 min
+    fireEvent.press(getByTestId('sleep-timer-btn-15'));
+
+    // Close modal
+    fireEvent.press(getByTestId('settings-modal-backdrop'));
+
+    // Badge should now be visible
+    expect(getByTestId('sleep-timer-badge')).toBeTruthy();
+  });
+
+  it('cycles and selects aspect ratio content fit modes', () => {
+    const { getByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const aspectBtn = getByTestId('aspect-ratio-button');
+    expect(aspectBtn).toBeTruthy();
+
+    // Cycle through modes
+    fireEvent.press(aspectBtn); // to cover
+    fireEvent.press(aspectBtn); // to fill
+    fireEvent.press(aspectBtn); // to contain
+
+    // Open settings modal to select mode
+    fireEvent.press(getByTestId('settings-modal-button'));
+    const fillBtn = getByTestId('content-fit-btn-fill');
+    expect(fillBtn).toBeTruthy();
+    fireEvent.press(fillBtn);
+  });
 });
 
 

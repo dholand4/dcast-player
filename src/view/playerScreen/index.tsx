@@ -1,5 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, Platform, FlatList, TouchableOpacity, StyleSheet, View, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  View,
+  Text,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useVideoPlayer } from 'expo-video';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -73,6 +83,20 @@ import {
   SpeedButtonText,
   TrackItem,
   TrackItemText,
+  NextEpisodeContainer,
+  NextEpisodeHeader,
+  NextEpisodeCountdown,
+  NextEpisodeTitle,
+  NextEpisodeButtonRow,
+  NextEpisodePlayBtn,
+  NextEpisodePlayBtnText,
+  NextEpisodeCancelBtn,
+  NextEpisodeCancelBtnText,
+  LockScreenBackdrop,
+  UnlockButton,
+  UnlockButtonText,
+  SleepTimerBadge,
+  SleepTimerBadgeText,
 } from './style';
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
@@ -263,7 +287,31 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [currentTime, setCurrentTime] = useState(initialTime);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
-  const [contentFitMode, setContentFitMode] = useState<'contain' | 'cover'>('contain');
+  const [contentFitMode, setContentFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
+
+  // Sleep Timer states
+  type SleepTimerOption = 'off' | 15 | 30 | 45 | 60 | 'end';
+  const [sleepTimer, setSleepTimer] = useState<SleepTimerOption>('off');
+  const [sleepTimerRemainingSecs, setSleepTimerRemainingSecs] = useState<number | null>(null);
+  const sleepTimerRef = useRef<SleepTimerOption>('off');
+  sleepTimerRef.current = sleepTimer;
+
+  // Screen lock state
+  const [isScreenLocked, setIsScreenLocked] = useState(false);
+  const [showUnlockButton, setShowUnlockButton] = useState(false);
+  const isScreenLockedRef = useRef(false);
+  isScreenLockedRef.current = isScreenLocked;
+  const unlockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Next episode card states
+  const [showNextEpisodePrompt, setShowNextEpisodePrompt] = useState(false);
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(15);
+  const [nextEpisodeDismissed, setNextEpisodeDismissed] = useState(false);
+  const nextEpisodeDismissedRef = useRef(false);
+  nextEpisodeDismissedRef.current = nextEpisodeDismissed;
+  const showNextEpisodePromptRef = useRef(false);
+  showNextEpisodePromptRef.current = showNextEpisodePrompt;
+
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
 
   const currentTimeRef = useRef(initialTime);
@@ -308,6 +356,69 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       // ignore
     }
   }, []);
+
+  const cycleContentFit = useCallback(() => {
+    setContentFitMode((prev) => {
+      if (prev === 'contain') return 'cover';
+      if (prev === 'cover') return 'fill';
+      return 'contain';
+    });
+  }, []);
+
+  const handleSetSleepTimer = useCallback((option: SleepTimerOption) => {
+    setSleepTimer(option);
+    sleepTimerRef.current = option;
+    if (option === 'off' || option === 'end') {
+      setSleepTimerRemainingSecs(null);
+    } else {
+      setSleepTimerRemainingSecs(option * 60);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sleepTimer === 'off' || sleepTimer === 'end' || sleepTimerRemainingSecs === null) return;
+
+    const interval = setInterval(() => {
+      setSleepTimerRemainingSecs((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          try {
+            player.pause();
+          } catch {}
+          setSleepTimer('off');
+          sleepTimerRef.current = 'off';
+          Alert.alert(
+            'Temporizador para Dormir',
+            'A reprodução foi pausada automaticamente conforme configurado no temporizador.'
+          );
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sleepTimer, player]);
+
+  const handleScreenTouchWhenLocked = useCallback(() => {
+    setShowUnlockButton(true);
+    if (unlockTimeoutRef.current) {
+      clearTimeout(unlockTimeoutRef.current);
+    }
+    unlockTimeoutRef.current = setTimeout(() => {
+      setShowUnlockButton(false);
+    }, 3500);
+  }, []);
+
+  const handleUnlockScreen = useCallback(() => {
+    if (unlockTimeoutRef.current) {
+      clearTimeout(unlockTimeoutRef.current);
+    }
+    setIsScreenLocked(false);
+    isScreenLockedRef.current = false;
+    setShowUnlockButton(false);
+    resetHideTimer();
+  }, [resetHideTimer]);
 
   // Carregamento de EPG (Guia de Programação) para Canais Ao Vivo
   const fetchEpg = useCallback(
@@ -829,6 +940,51 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     episodesList,
   ]);
 
+  const handleConfirmNextEpisode = useCallback(() => {
+    setShowNextEpisodePrompt(false);
+    showNextEpisodePromptRef.current = false;
+    if (!hasAutoAdvancedRef.current) {
+      hasAutoAdvancedRef.current = true;
+      handleGoToNextEpisode();
+    }
+  }, [handleGoToNextEpisode]);
+
+  const handleCancelNextEpisode = useCallback(() => {
+    setShowNextEpisodePrompt(false);
+    showNextEpisodePromptRef.current = false;
+    setNextEpisodeDismissed(true);
+    nextEpisodeDismissedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!showNextEpisodePrompt) return;
+
+    const interval = setInterval(() => {
+      setNextEpisodeCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setShowNextEpisodePrompt(false);
+          showNextEpisodePromptRef.current = false;
+          if (!hasAutoAdvancedRef.current) {
+            hasAutoAdvancedRef.current = true;
+            handleGoToNextEpisodeRef.current();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showNextEpisodePrompt]);
+
+  useEffect(() => {
+    setShowNextEpisodePrompt(false);
+    showNextEpisodePromptRef.current = false;
+    setNextEpisodeDismissed(false);
+    nextEpisodeDismissedRef.current = false;
+  }, [contentId]);
+
   const handleGoToPrevEpisode = useCallback(() => {
     if (!prevEpisode || isNavigatingEpisodeRef.current) return;
     isNavigatingEpisodeRef.current = true;
@@ -896,14 +1052,34 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           setCurrentTime(event.currentTime);
         }
 
+        // Notificação automática de Próximo Episódio nos últimos 25 segundos
+        if (
+          type === 'series' &&
+          nextEpisodeRef.current &&
+          player.duration > 30 &&
+          event.currentTime >= player.duration - 25 &&
+          !hasAutoAdvancedRef.current &&
+          !nextEpisodeDismissedRef.current
+        ) {
+          if (!showNextEpisodePromptRef.current) {
+            showNextEpisodePromptRef.current = true;
+            setShowNextEpisodePrompt(true);
+            const remaining = Math.max(1, Math.floor(player.duration - event.currentTime));
+            setNextEpisodeCountdown(Math.min(15, remaining));
+          }
+        }
+
         if (
           type === 'series' &&
           nextEpisodeRef.current &&
           player.duration > 15 &&
           event.currentTime >= player.duration - 1.5 &&
-          !hasAutoAdvancedRef.current
+          !hasAutoAdvancedRef.current &&
+          !nextEpisodeDismissedRef.current
         ) {
           hasAutoAdvancedRef.current = true;
+          setShowNextEpisodePrompt(false);
+          showNextEpisodePromptRef.current = false;
           handleGoToNextEpisodeRef.current();
         }
       }
@@ -957,8 +1133,22 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     });
     const subEnd = (player as any).addListener?.('playToEnd', () => {
+      if (sleepTimerRef.current === 'end') {
+        try {
+          player.pause();
+        } catch {}
+        setSleepTimer('off');
+        sleepTimerRef.current = 'off';
+        Alert.alert(
+          'Temporizador para Dormir',
+          'O vídeo terminou e a reprodução foi pausada conforme configurado no temporizador.'
+        );
+        return;
+      }
       if (type === 'series' && nextEpisodeRef.current && !hasAutoAdvancedRef.current) {
         hasAutoAdvancedRef.current = true;
+        setShowNextEpisodePrompt(false);
+        showNextEpisodePromptRef.current = false;
         handleGoToNextEpisodeRef.current();
       }
     });
@@ -1163,6 +1353,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         return;
       }
 
+      if (isScreenLockedRef.current) {
+        if (e.key === 'l' || e.key === 'L' || e.key === 'Escape') {
+          e.preventDefault();
+          setIsScreenLocked(false);
+          isScreenLockedRef.current = false;
+          setShowUnlockButton(false);
+        }
+        return;
+      }
+
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         handleTogglePlay();
@@ -1178,9 +1378,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         handleToggleFullscreen();
+      } else if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        setIsScreenLocked(true);
+        isScreenLockedRef.current = true;
+        setShowControls(false);
       } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'));
+        cycleContentFit();
       } else if (e.key === 's' || e.key === 'S') {
         e.preventDefault();
         setShowSettingsModal((prev) => !prev);
@@ -1205,6 +1410,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     handleLocalSeek,
     handleToggleMute,
     handleToggleFullscreen,
+    cycleContentFit,
     handleGoToNextEpisode,
     handleGoToPrevEpisode,
     nextEpisode,
@@ -1388,18 +1594,41 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         )}
 
         {/* Permanent touch target over video to toggle controls */}
-        <BackgroundPressable
-          testID="video-background-touch"
-          onPress={() => {
-            if (showControls) {
-              setShowControls(false);
-            } else {
-              resetHideTimer();
-            }
-          }}
-        />
+        {!isScreenLocked && (
+          <BackgroundPressable
+            testID="video-background-touch"
+            onPress={() => {
+              if (showControls) {
+                setShowControls(false);
+              } else {
+                resetHideTimer();
+              }
+            }}
+          />
+        )}
 
-        {showControls && (
+        {/* Lock Screen Backdrop when locked */}
+        {isScreenLocked && (
+          <LockScreenBackdrop
+            testID="lock-screen-backdrop"
+            activeOpacity={1}
+            onPress={handleScreenTouchWhenLocked}
+          >
+            {showUnlockButton && (
+              <UnlockButton
+                onPress={handleUnlockScreen}
+                testID="unlock-screen-button"
+                accessibilityRole="button"
+                accessibilityLabel="Desbloquear Tela"
+              >
+                <MaterialIcons name="lock-open" size={20} color="#E50914" />
+                <UnlockButtonText>Desbloquear Tela</UnlockButtonText>
+              </UnlockButton>
+            )}
+          </LockScreenBackdrop>
+        )}
+
+        {showControls && !isScreenLocked && (
           <ControlsOverlay pointerEvents="box-none">
             <TopControls insetTop={insets.top} pointerEvents="box-none">
               <ControlButton
@@ -1413,6 +1642,42 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               </ControlButton>
               <PlayerTitle>{activeTitle}</PlayerTitle>
               <TopRightActions pointerEvents="box-none">
+                {sleepTimer !== 'off' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      resetHideTimer();
+                      setShowSettingsModal(true);
+                    }}
+                    testID="sleep-timer-badge"
+                    accessibilityRole="button"
+                    accessibilityLabel="Temporizador para dormir ativo"
+                  >
+                    <SleepTimerBadge>
+                      <MaterialIcons name="bedtime" size={13} color="#FFFFFF" />
+                      <SleepTimerBadgeText>
+                        {sleepTimer === 'end'
+                          ? 'Fim'
+                          : `${Math.ceil((sleepTimerRemainingSecs || 0) / 60)}m`}
+                      </SleepTimerBadgeText>
+                    </SleepTimerBadge>
+                  </TouchableOpacity>
+                )}
+
+                <ControlButton
+                  onPress={() => {
+                    setIsScreenLocked(true);
+                    isScreenLockedRef.current = true;
+                    setShowControls(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bloquear tela"
+                  testID="lock-screen-button"
+                  style={{ marginRight: 8 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <MaterialIcons name="lock-outline" size={22} color="#FFFFFF" />
+                </ControlButton>
+
                 {type === 'live' && liveChannelsList.length > 0 && (
                   <ControlButton
                     onPress={() => {
@@ -1453,19 +1718,21 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   <MaterialIcons name="tune" size={22} color="#FFFFFF" />
                 </ControlButton>
                 <ControlButton
-                  onPress={() =>
-                    setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'))
-                  }
+                  onPress={cycleContentFit}
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    contentFitMode === 'contain' ? 'Preencher tela' : 'Ajustar à tela'
-                  }
+                  accessibilityLabel={`Proporção: ${contentFitMode}`}
                   testID="aspect-ratio-button"
                   style={{ marginRight: 8 }}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <MaterialIcons
-                    name={contentFitMode === 'contain' ? 'aspect-ratio' : 'fit-screen'}
+                    name={
+                      contentFitMode === 'contain'
+                        ? 'aspect-ratio'
+                        : contentFitMode === 'cover'
+                        ? 'fit-screen'
+                        : 'fullscreen'
+                    }
                     size={22}
                     color="#FFFFFF"
                   />
@@ -1709,100 +1976,191 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 </ControlButton>
               </DrawerHeader>
 
-              {/* Seção Velocidade */}
-              <SettingsSection>
-                <SettingsSectionTitle>Velocidade de Reprodução</SettingsSectionTitle>
-                <SpeedRow>
-                  {speeds.map((s) => (
-                    <SpeedButton
-                      key={s}
-                      isSelected={playbackSpeed === s}
-                      onPress={() => handleSetSpeed(s)}
-                    >
-                      <SpeedButtonText isSelected={playbackSpeed === s}>
-                        {s === 1.0 ? 'Normal (1x)' : `${s}x`}
-                      </SpeedButtonText>
-                    </SpeedButton>
-                  ))}
-                </SpeedRow>
-              </SettingsSection>
-
-              {/* Seção Faixa de Áudio */}
-              <SettingsSection>
-                <SettingsSectionTitle>Faixa de Áudio</SettingsSectionTitle>
-                {availableAudioTracks.length > 0 ? (
-                  availableAudioTracks.map((track, idx) => {
-                    const isSelected =
-                      selectedAudioTrack?.id === track.id ||
-                      (!selectedAudioTrack && idx === 0);
-                    return (
-                      <TrackItem
-                        key={track.id || idx}
-                        isSelected={isSelected}
-                        onPress={() => handleSelectAudioTrack(track)}
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                {/* Seção Velocidade */}
+                <SettingsSection>
+                  <SettingsSectionTitle>Velocidade de Reprodução</SettingsSectionTitle>
+                  <SpeedRow>
+                    {speeds.map((s) => (
+                      <SpeedButton
+                        key={s}
+                        isSelected={playbackSpeed === s}
+                        onPress={() => handleSetSpeed(s)}
+                        testID={`speed-btn-${s}`}
                       >
-                        <TrackItemText isSelected={isSelected}>
-                          {track.label || track.language || `Áudio ${idx + 1}`}
-                        </TrackItemText>
-                        {isSelected && (
-                          <MaterialIcons name="check" size={18} color="#E50914" />
-                        )}
-                      </TrackItem>
-                    );
-                  })
-                ) : (
-                  <TrackItem isSelected={true}>
-                    <TrackItemText isSelected={true}>Áudio Principal (Padrão)</TrackItemText>
-                    <MaterialIcons name="check" size={18} color="#E50914" />
-                  </TrackItem>
-                )}
-              </SettingsSection>
+                        <SpeedButtonText isSelected={playbackSpeed === s}>
+                          {s === 1.0 ? 'Normal (1x)' : `${s}x`}
+                        </SpeedButtonText>
+                      </SpeedButton>
+                    ))}
+                  </SpeedRow>
+                </SettingsSection>
 
-              {/* Seção Legendas */}
-              <SettingsSection style={{ marginBottom: 0 }}>
-                <SettingsSectionTitle>Legendas</SettingsSectionTitle>
-                <TrackItem
-                  isSelected={!selectedSubtitle}
-                  onPress={() => handleSelectSubtitleTrack(null)}
-                >
-                  <TrackItemText isSelected={!selectedSubtitle}>Desativadas</TrackItemText>
-                  {!selectedSubtitle && (
-                    <MaterialIcons name="check" size={18} color="#E50914" />
+                {/* Seção Temporizador para Dormir */}
+                <SettingsSection>
+                  <SettingsSectionTitle>Temporizador para Dormir</SettingsSectionTitle>
+                  <SpeedRow>
+                    {(['off', 15, 30, 45, 60, 'end'] as SleepTimerOption[]).map((opt) => (
+                      <SpeedButton
+                        key={opt}
+                        isSelected={sleepTimer === opt}
+                        onPress={() => handleSetSleepTimer(opt)}
+                        testID={`sleep-timer-btn-${opt}`}
+                      >
+                        <SpeedButtonText isSelected={sleepTimer === opt}>
+                          {opt === 'off'
+                            ? 'Desativado'
+                            : opt === 'end'
+                            ? 'Fim do vídeo'
+                            : `${opt} min`}
+                        </SpeedButtonText>
+                      </SpeedButton>
+                    ))}
+                  </SpeedRow>
+                </SettingsSection>
+
+                {/* Seção Proporção de Tela */}
+                <SettingsSection>
+                  <SettingsSectionTitle>Proporção de Tela</SettingsSectionTitle>
+                  <SpeedRow>
+                    {[
+                      { mode: 'contain', label: 'Ajustar (16:9)' },
+                      { mode: 'cover', label: 'Preencher (Zoom)' },
+                      { mode: 'fill', label: 'Esticar' },
+                    ].map(({ mode, label }) => (
+                      <SpeedButton
+                        key={mode}
+                        isSelected={contentFitMode === mode}
+                        onPress={() => setContentFitMode(mode as any)}
+                        testID={`content-fit-btn-${mode}`}
+                      >
+                        <SpeedButtonText isSelected={contentFitMode === mode}>
+                          {label}
+                        </SpeedButtonText>
+                      </SpeedButton>
+                    ))}
+                  </SpeedRow>
+                </SettingsSection>
+
+                {/* Seção Faixa de Áudio */}
+                <SettingsSection>
+                  <SettingsSectionTitle>Faixa de Áudio</SettingsSectionTitle>
+                  {availableAudioTracks.length > 0 ? (
+                    availableAudioTracks.map((track, idx) => {
+                      const isSelected =
+                        selectedAudioTrack?.id === track.id ||
+                        (!selectedAudioTrack && idx === 0);
+                      return (
+                        <TrackItem
+                          key={track.id || idx}
+                          isSelected={isSelected}
+                          onPress={() => handleSelectAudioTrack(track)}
+                        >
+                          <TrackItemText isSelected={isSelected}>
+                            {track.label || track.language || `Áudio ${idx + 1}`}
+                          </TrackItemText>
+                          {isSelected && (
+                            <MaterialIcons name="check" size={18} color="#E50914" />
+                          )}
+                        </TrackItem>
+                      );
+                    })
+                  ) : (
+                    <TrackItem isSelected={true}>
+                      <TrackItemText isSelected={true}>Áudio Principal (Padrão)</TrackItemText>
+                      <MaterialIcons name="check" size={18} color="#E50914" />
+                    </TrackItem>
                   )}
-                </TrackItem>
-                {availableSubtitles.length > 0 ? (
-                  availableSubtitles.map((track, idx) => {
-                    const isSelected = selectedSubtitle?.id === track.id;
-                    return (
-                      <TrackItem
-                        key={track.id || idx}
-                        isSelected={isSelected}
-                        onPress={() => handleSelectSubtitleTrack(track)}
-                      >
-                        <TrackItemText isSelected={isSelected}>
-                          {track.label || track.language || `Legenda ${idx + 1}`}
-                        </TrackItemText>
-                        {isSelected && (
-                          <MaterialIcons name="check" size={18} color="#E50914" />
-                        )}
-                      </TrackItem>
-                    );
-                  })
-                ) : (
-                  <Text
-                    style={{
-                      color: 'rgba(255,255,255,0.4)',
-                      fontSize: 12,
-                      marginTop: 4,
-                      fontStyle: 'italic',
-                    }}
+                </SettingsSection>
+
+                {/* Seção Legendas */}
+                <SettingsSection style={{ marginBottom: 0 }}>
+                  <SettingsSectionTitle>Legendas</SettingsSectionTitle>
+                  <TrackItem
+                    isSelected={!selectedSubtitle}
+                    onPress={() => handleSelectSubtitleTrack(null)}
                   >
-                    Nenhuma legenda externa ou embutida detectada nesta fonte.
-                  </Text>
-                )}
-              </SettingsSection>
+                    <TrackItemText isSelected={!selectedSubtitle}>Desativadas</TrackItemText>
+                    {!selectedSubtitle && (
+                      <MaterialIcons name="check" size={18} color="#E50914" />
+                    )}
+                  </TrackItem>
+                  {availableSubtitles.length > 0 ? (
+                    availableSubtitles.map((track, idx) => {
+                      const isSelected = selectedSubtitle?.id === track.id;
+                      return (
+                        <TrackItem
+                          key={track.id || idx}
+                          isSelected={isSelected}
+                          onPress={() => handleSelectSubtitleTrack(track)}
+                        >
+                          <TrackItemText isSelected={isSelected}>
+                            {track.label || track.language || `Legenda ${idx + 1}`}
+                          </TrackItemText>
+                          {isSelected && (
+                            <MaterialIcons name="check" size={18} color="#E50914" />
+                          )}
+                        </TrackItem>
+                      );
+                    })
+                  ) : (
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.4)',
+                        fontSize: 12,
+                        marginTop: 4,
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      Nenhuma legenda externa ou embutida detectada nesta fonte.
+                    </Text>
+                  )}
+                </SettingsSection>
+              </ScrollView>
             </SettingsModalContent>
           </SettingsModalBackdrop>
+        )}
+
+        {/* Card de Próximo Episódio estilo Netflix */}
+        {showNextEpisodePrompt && !isScreenLocked && nextEpisode && (
+          <NextEpisodeContainer testID="next-episode-card">
+            <NextEpisodeHeader>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
+                <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
+              </View>
+              <TouchableOpacity
+                onPress={handleCancelNextEpisode}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar aviso de próximo episódio"
+              >
+                <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </NextEpisodeHeader>
+            <NextEpisodeTitle numberOfLines={1}>
+              {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
+            </NextEpisodeTitle>
+            <NextEpisodeButtonRow>
+              <NextEpisodePlayBtn
+                onPress={handleConfirmNextEpisode}
+                accessibilityRole="button"
+                accessibilityLabel="Assistir próximo episódio agora"
+                testID="next-episode-play-btn"
+              >
+                <MaterialIcons name="play-arrow" size={18} color="#FFFFFF" />
+                <NextEpisodePlayBtnText>Assistir Agora</NextEpisodePlayBtnText>
+              </NextEpisodePlayBtn>
+              <NextEpisodeCancelBtn
+                onPress={handleCancelNextEpisode}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar próximo episódio"
+                testID="next-episode-cancel-btn"
+              >
+                <NextEpisodeCancelBtnText>Cancelar</NextEpisodeCancelBtnText>
+              </NextEpisodeCancelBtn>
+            </NextEpisodeButtonRow>
+          </NextEpisodeContainer>
         )}
       </VideoWrapper>
     </Container>

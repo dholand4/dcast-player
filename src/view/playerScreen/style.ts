@@ -512,3 +512,127 @@ export const TrackItemText = styled.Text<{ isSelected?: boolean }>`
   font-weight: ${({ isSelected }) => (isSelected ? 'bold' : 'normal')};
 `;
 
+/* --- Card Próximo Episódio (Estilo Netflix) --- */
+export const NextEpisodeContainer = styled.View`
+  position: absolute;
+  bottom: 80px;
+  right: 24px;
+  z-index: 100;
+  max-width: 380px;
+  width: 90%;
+  background-color: rgba(18, 18, 18, 0.95);
+  border-radius: 12px;
+  padding: 14px 16px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.15);
+`;
+
+export const NextEpisodeHeader = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+`;
+
+export const NextEpisodeCountdown = styled.Text`
+  color: ${({ theme }) => theme.colors.primaryLight};
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+`;
+
+export const NextEpisodeTitle = styled.Text`
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+`;
+
+export const NextEpisodeButtonRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+`;
+
+export const NextEpisodePlayBtn = styled.TouchableOpacity`
+  flex: 1;
+  background-color: ${({ theme }) => theme.colors.primary};
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding-vertical: 8px;
+  padding-horizontal: 14px;
+  border-radius: 6px;
+`;
+
+export const NextEpisodePlayBtnText = styled.Text`
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  margin-left: 6px;
+`;
+
+export const NextEpisodeCancelBtn = styled.TouchableOpacity`
+  padding-vertical: 8px;
+  padding-horizontal: 12px;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+`;
+
+export const NextEpisodeCancelBtnText = styled.Text`
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 500;
+`;
+
+/* --- Bloqueio de Tela (Lock Screen) --- */
+export const LockScreenBackdrop = styled.TouchableOpacity`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 120;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const UnlockButton = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(18, 18, 18, 0.92);
+  padding-horizontal: 20px;
+  padding-vertical: 12px;
+  border-radius: 30px;
+  border-width: 1.5px;
+  border-color: ${({ theme }) => theme.colors.primary};
+`;
+
+export const UnlockButtonText = styled.Text`
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 8px;
+`;
+
+/* --- Sleep Timer Badge --- */
+export const SleepTimerBadge = styled.View`
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(229, 9, 20, 0.25);
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.primary};
+  padding-horizontal: 8px;
+  padding-vertical: 4px;
+  border-radius: 12px;
+  margin-right: 8px;
+`;
+
+export const SleepTimerBadgeText = styled.Text`
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 4px;
+`;
+
