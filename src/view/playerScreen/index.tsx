@@ -228,9 +228,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     return {
       uri: currentStreamUrl,
       contentType: (isHls ? 'hls' : 'auto') as any,
+      useCaching: Platform.OS !== 'web',
       headers: {
         'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
         Accept: '*/*',
+        Connection: 'keep-alive',
       },
     };
   }, [currentStreamUrl]);
@@ -262,13 +264,19 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     p.keepScreenOnWhilePlaying = true;
     if (type === 'live') {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 20,
-        minBufferForPlayback: 2.5,
+        preferredForwardBufferDuration: 30,
+        minBufferForPlayback: 1.0,
+        prioritizeTimeOverSizeThreshold: true,
+        waitsToMinimizeStalling: true,
+        maxBufferBytes: 30 * 1024 * 1024,
       };
     } else {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 40,
-        minBufferForPlayback: 3.5,
+        preferredForwardBufferDuration: 60,
+        minBufferForPlayback: 1.0,
+        prioritizeTimeOverSizeThreshold: true,
+        waitsToMinimizeStalling: true,
+        maxBufferBytes: 60 * 1024 * 1024,
       };
     }
     if (initialTime > 0) {
@@ -1094,9 +1102,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     });
     const subPlaying = player.addListener('playingChange', (event) => {
       setIsPlaying(event.isPlaying);
+      if (event.isPlaying) {
+        setIsBuffering(false);
+      }
     });
     const subStatus = player.addListener('statusChange', (event) => {
-      setIsBuffering(event.status === 'loading');
+      setIsBuffering(event.status === 'loading' && !player.playing);
       if (event.status === 'error') {
         if (Platform.OS === 'web' && type === 'live') {
           return;

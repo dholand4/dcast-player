@@ -317,13 +317,17 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     }
 
     if (sortMode === 'name_asc') {
-      result = [...result].sort((a, b) =>
-        (a?.name || '').localeCompare(b?.name || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
-      );
+      result = [...result].sort((a, b) => {
+        const nameA = a?.name ? String(a.name).toLowerCase() : '';
+        const nameB = b?.name ? String(b.name).toLowerCase() : '';
+        return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+      });
     } else if (sortMode === 'name_desc') {
-      result = [...result].sort((a, b) =>
-        (b?.name || '').localeCompare(a?.name || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
-      );
+      result = [...result].sort((a, b) => {
+        const nameA = a?.name ? String(a.name).toLowerCase() : '';
+        const nameB = b?.name ? String(b.name).toLowerCase() : '';
+        return nameB < nameA ? -1 : nameB > nameA ? 1 : 0;
+      });
     } else if (sortMode === 'recent') {
       result = [...result].sort((a, b) => {
         const dateA = Number((a as any)?.added || (a as any)?.last_modified || 0) || 0;
