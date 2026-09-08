@@ -249,6 +249,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     pause: castPause,
     seek: castSeek,
     stopCast,
+    currentMedia: activeCastMedia,
   } = useCast();
 
   const isCastingRef = useRef(isCasting);
@@ -1258,6 +1259,19 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } catch {
         // ignore
       }
+
+      // Se a mídia já estiver ativa e rodando no Chromecast (ex: reabrindo pelo MiniPlayer),
+      // NÃO recarrega o filme nem reinicia o buffer na TV!
+      const isAlreadyPlayingOnCast =
+        activeCastMedia &&
+        (activeCastMedia.contentId === contentId ||
+          activeCastMedia.streamUrl === streamUrl ||
+          (activeCastMedia.title === title && activeCastMedia.type === type));
+
+      if (isAlreadyPlayingOnCast) {
+        return;
+      }
+
       castMedia({
         streamUrl,
         title,
@@ -1280,6 +1294,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
   }, [
     isCasting,
+    activeCastMedia,
     streamUrl,
     title,
     posterUrl,
