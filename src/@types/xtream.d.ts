@@ -143,3 +143,17 @@ export interface IXtreamSeriesInfo {
     [seasonNumber: string]: IXtreamEpisode[];
   };
 }
+
+export interface IEpgListing {
+  id: string;
+  epg_id?: string;
+  title: string;
+  lang?: string;
+  start: string;
+  end: string;
+  description?: string;
+  start_timestamp: number;
+  stop_timestamp: number;
+  now_playing?: number;
+  has_archive?: number;
+}

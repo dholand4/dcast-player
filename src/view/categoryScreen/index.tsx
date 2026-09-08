@@ -383,15 +383,32 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         stream.stream_id,
         Platform.OS === 'web' ? 'm3u8' : 'ts'
       );
+
+      const liveChannels = (filteredItems as IXtreamLiveStream[])
+        .filter((item) => item && item.stream_id)
+        .map((s) => ({
+          id: String(s.stream_id),
+          name: s.name,
+          streamUrl: xtreamService.buildLiveStreamUrl(
+            account,
+            s.stream_id,
+            Platform.OS === 'web' ? 'm3u8' : 'ts'
+          ),
+          logoUrl: s.stream_icon,
+          streamId: s.stream_id,
+          epgChannelId: s.epg_channel_id,
+        }));
+
       navigation.navigate('PlayerScreen', {
         streamUrl,
         title: stream.name,
         posterUrl: stream.stream_icon,
         type: 'live',
         contentId: String(stream.stream_id),
+        liveChannels,
       });
     },
-    [account, navigation]
+    [account, navigation, filteredItems]
   );
 
   const handleVodSelect = useCallback(

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, Platform } from 'react-native';
+import { ActivityIndicator, Alert, Platform, FlatList, TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useVideoPlayer } from 'expo-video';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useAppInsets } from '../../hooks/useAppInsets';
-import { PlayerScreenProps } from '../../routes/types';
+import { PlayerScreenProps, LiveChannelItem } from '../../routes/types';
+import { IEpgListing } from '../../@types/xtream';
 import { useCast } from '../../hooks/useCast';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
@@ -45,6 +46,33 @@ import {
   ErrorTitle,
   ErrorMessage,
   ErrorButtonGroup,
+  EpgContainer,
+  EpgHeaderRow,
+  EpgNowBadge,
+  EpgNowBadgeText,
+  EpgProgramTitle,
+  EpgTimeRow,
+  EpgTimeText,
+  EpgTrack,
+  EpgFill,
+  EpgNextText,
+  DrawerBackdrop,
+  DrawerContainer,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerSearchInput,
+  DrawerItem,
+  DrawerItemLogo,
+  DrawerItemText,
+  SettingsModalBackdrop,
+  SettingsModalContent,
+  SettingsSection,
+  SettingsSectionTitle,
+  SpeedRow,
+  SpeedButton,
+  SpeedButtonText,
+  TrackItem,
+  TrackItemText,
 } from './style';
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
@@ -62,6 +90,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     episodeNumber,
     initialTime = 0,
     seriesEpisodes,
+    liveChannels,
   } = route.params;
 
   const { account } = useAuth();
@@ -135,6 +164,40 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [currentStreamUrl, setCurrentStreamUrl] = useState(initialStreamUrl);
   const attemptedAlternativeRef = useRef(false);
   const hasAppliedInitialTimeRef = useRef(false);
+
+  // Informações ativas de canais / conteúdos
+  const [activeContentId, setActiveContentId] = useState(contentId);
+  const [activeTitle, setActiveTitle] = useState(title);
+  const [activePoster, setActivePoster] = useState(posterUrl);
+  const [liveChannelsList, setLiveChannelsList] = useState<LiveChannelItem[]>(liveChannels || []);
+
+  useEffect(() => {
+    if (liveChannels && liveChannels.length > 0) {
+      setLiveChannelsList(liveChannels);
+    }
+  }, [liveChannels]);
+
+  useEffect(() => {
+    setActiveTitle(title);
+    setActivePoster(posterUrl);
+    setActiveContentId(contentId);
+  }, [title, posterUrl, contentId]);
+
+  // EPG (Guia de Programação) para TV ao Vivo
+  const [epgList, setEpgList] = useState<IEpgListing[]>([]);
+  const [epgLoading, setEpgLoading] = useState(false);
+
+  // Gaveta lateral de canais (Zapping)
+  const [showChannelDrawer, setShowChannelDrawer] = useState(false);
+  const [channelSearchQuery, setChannelSearchQuery] = useState('');
+
+  // Modal de Ajustes (Velocidade, Áudio e Legendas)
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [availableAudioTracks, setAvailableAudioTracks] = useState<any[]>([]);
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState<any>(null);
+  const [availableSubtitles, setAvailableSubtitles] = useState<any[]>([]);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<any>(null);
 
   const videoSource = useMemo(() => {
     const isHls = currentStreamUrl.includes('.m3u8');
@@ -245,6 +308,232 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       // ignore
     }
   }, []);
+
+  // Carregamento de EPG (Guia de Programação) para Canais Ao Vivo
+  const fetchEpg = useCallback(
+    async (channelId: string) => {
+      if (!account || type !== 'live') return;
+      try {
+        setEpgLoading(true);
+        const list = await xtreamService.getShortEpg(account, channelId, 4);
+        setEpgList(list || []);
+      } catch (err) {
+        console.warn('[Player] Erro ao carregar EPG:', err);
+        setEpgList([]);
+      } finally {
+        setEpgLoading(false);
+      }
+    },
+    [account, type]
+  );
+
+  useEffect(() => {
+    if (type === 'live' && activeContentId) {
+      fetchEpg(activeContentId);
+    }
+  }, [type, activeContentId, fetchEpg]);
+
+  const parseEpgTimestamp = (val?: string | number) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    const num = Number(val);
+    if (!isNaN(num) && num > 1000000) return num;
+    const d = new Date(String(val).replace(' ', 'T'));
+    if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+    return 0;
+  };
+
+  const currentProgram = useMemo(() => {
+    if (!epgList || epgList.length === 0) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const active = epgList.find((p) => {
+      const start = parseEpgTimestamp(p.start_timestamp || p.start);
+      const stop = parseEpgTimestamp(p.stop_timestamp || p.end);
+      return start > 0 && stop > 0 && now >= start && now <= stop;
+    });
+    return active || epgList[0];
+  }, [epgList]);
+
+  const nextProgram = useMemo(() => {
+    if (!epgList || epgList.length <= 1) return null;
+    if (!currentProgram) return epgList[1] || null;
+    const idx = epgList.findIndex(
+      (p) => (p.id && p.id === currentProgram.id) || p.title === currentProgram.title
+    );
+    if (idx >= 0 && idx < epgList.length - 1) {
+      return epgList[idx + 1];
+    }
+    return null;
+  }, [epgList, currentProgram]);
+
+  const epgProgressPercent = useMemo(() => {
+    if (!currentProgram) return 0;
+    const start = parseEpgTimestamp(currentProgram.start_timestamp || currentProgram.start);
+    const stop = parseEpgTimestamp(currentProgram.stop_timestamp || currentProgram.end);
+    if (!start || !stop || stop <= start) return 0;
+    const now = Math.floor(Date.now() / 1000);
+    const pct = ((now - start) / (stop - start)) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }, [currentProgram]);
+
+  const formatEpgTime = (val?: string | number) => {
+    if (!val) return '';
+    const ts = parseEpgTimestamp(val);
+    if (!ts) {
+      if (typeof val === 'string' && val.includes(':')) {
+        const parts = val.trim().split(' ');
+        const timePart = parts[parts.length - 1];
+        return timePart.slice(0, 5);
+      }
+      return '';
+    }
+    const d = new Date(ts * 1000);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  // Troca rápida de canal (Zapping)
+  const filteredChannels = useMemo(() => {
+    if (!channelSearchQuery.trim()) return liveChannelsList;
+    const q = channelSearchQuery.toLowerCase();
+    return liveChannelsList.filter((ch) => ch.name.toLowerCase().includes(q));
+  }, [liveChannelsList, channelSearchQuery]);
+
+  const handleSwitchChannel = useCallback(
+    (channel: LiveChannelItem) => {
+      setShowChannelDrawer(false);
+      if (channel.id === activeContentId) return;
+
+      setActiveContentId(channel.id);
+      setActiveTitle(channel.name);
+      setActivePoster(channel.logoUrl);
+      setPlaybackError(null);
+      setIsBuffering(true);
+      attemptedAlternativeRef.current = false;
+
+      let newUrl = channel.streamUrl;
+      if (Platform.OS === 'web' && newUrl.includes('.ts')) {
+        newUrl = newUrl.replace(/\.ts(\?|$)/, '.m3u8$1');
+      }
+      setCurrentStreamUrl(newUrl);
+
+      try {
+        if (typeof (player as any).replace === 'function') {
+          player.replace({
+            uri: newUrl,
+            contentType: (newUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
+            headers: {
+              'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+              Accept: '*/*',
+            },
+          });
+        }
+        player.play();
+      } catch (err) {
+        console.warn('[Player] Erro ao trocar de canal:', err);
+      }
+    },
+    [activeContentId, player]
+  );
+
+  // Velocidade de Reprodução
+  const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+  const handleSetSpeed = useCallback(
+    (speed: number) => {
+      setPlaybackSpeed(speed);
+      try {
+        player.playbackRate = speed;
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const videoEl = document.querySelector('video');
+          if (videoEl) {
+            videoEl.playbackRate = speed;
+          }
+        }
+      } catch (err) {
+        console.warn('[Player] Erro ao alterar velocidade:', err);
+      }
+    },
+    [player]
+  );
+
+  // Faixas de Áudio e Legendas
+  const refreshTracks = useCallback(() => {
+    try {
+      if ((player as any).availableAudioTracks) {
+        setAvailableAudioTracks((player as any).availableAudioTracks || []);
+        setSelectedAudioTrack((player as any).audioTrack || null);
+      }
+      if ((player as any).availableSubtitleTracks) {
+        setAvailableSubtitles((player as any).availableSubtitleTracks || []);
+        setSelectedSubtitle((player as any).subtitleTrack || null);
+      }
+    } catch {
+      // ignore
+    }
+  }, [player]);
+
+  const handleSelectAudioTrack = useCallback(
+    (track: any) => {
+      try {
+        (player as any).audioTrack = track;
+        setSelectedAudioTrack(track);
+      } catch (err) {
+        console.warn('[Player] Erro ao selecionar áudio:', err);
+      }
+    },
+    [player]
+  );
+
+  const handleSelectSubtitleTrack = useCallback(
+    (track: any) => {
+      try {
+        (player as any).subtitleTrack = track;
+        setSelectedSubtitle(track);
+      } catch (err) {
+        console.warn('[Player] Erro ao selecionar legenda:', err);
+      }
+    },
+    [player]
+  );
+
+  // Picture-in-Picture (PiP)
+  const handleTogglePip = useCallback(async () => {
+    resetHideTimer();
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const videoEl = document.querySelector('video') as any;
+      if (videoEl) {
+        try {
+          if (document.pictureInPictureElement) {
+            await (document as any).exitPictureInPicture();
+          } else if (videoEl.requestPictureInPicture) {
+            await videoEl.requestPictureInPicture();
+          } else {
+            Alert.alert('Picture-in-Picture', 'PiP não é suportado pelo seu navegador.');
+          }
+        } catch (err) {
+          console.warn('[Player] PiP não suportado ou negado:', err);
+          Alert.alert('Picture-in-Picture', 'Não foi possível ativar o modo Picture-in-Picture.');
+        }
+        return;
+      }
+    }
+    try {
+      if (typeof (player as any).startPictureInPicture === 'function') {
+        (player as any).startPictureInPicture();
+      } else {
+        Alert.alert(
+          'Picture-in-Picture',
+          'No celular, o modo PiP é ativado automaticamente ao minimizar o app durante a reprodução.'
+        );
+      }
+    } catch {
+      Alert.alert(
+        'Picture-in-Picture',
+        'No celular, o modo PiP é ativado automaticamente ao minimizar o app durante a reprodução.'
+      );
+    }
+  }, [resetHideTimer, player]);
 
   // Lock orientation to landscape for local playback, restore to portrait on unmount or cast
   useEffect(() => {
@@ -883,6 +1172,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
         setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'));
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        setShowSettingsModal((prev) => !prev);
+      } else if ((e.key === 'c' || e.key === 'C') && type === 'live') {
+        e.preventDefault();
+        setShowChannelDrawer((prev) => !prev);
       } else if ((e.key === 'n' || e.key === 'N') && nextEpisode) {
         e.preventDefault();
         handleGoToNextEpisode();
@@ -905,6 +1200,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     handleGoToPrevEpisode,
     nextEpisode,
     prevEpisode,
+    type,
   ]);
 
   const insets = useAppInsets();
@@ -934,14 +1230,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
         <RemoteArtworkWrapper>
           <RemoteArtwork
-            source={{ uri: posterUrl }}
+            source={{ uri: activePoster || posterUrl }}
             contentFit="cover"
             transition={300}
           />
         </RemoteArtworkWrapper>
 
         <RemoteInfo>
-          <RemoteTitle>{title}</RemoteTitle>
+          <RemoteTitle>{activeTitle}</RemoteTitle>
           <RemoteSub>
             {type === 'live' ? 'Transmissão Ao Vivo' : 'Reproduzindo no Chromecast'}
           </RemoteSub>
@@ -1106,8 +1402,47 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               >
                 <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
               </ControlButton>
-              <PlayerTitle>{title}</PlayerTitle>
+              <PlayerTitle>{activeTitle}</PlayerTitle>
               <TopRightActions pointerEvents="box-none">
+                {type === 'live' && liveChannelsList.length > 0 && (
+                  <ControlButton
+                    onPress={() => {
+                      resetHideTimer();
+                      setShowChannelDrawer(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Lista de Canais"
+                    testID="channel-drawer-button"
+                    style={{ marginRight: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <MaterialIcons name="format-list-bulleted" size={24} color="#FFFFFF" />
+                  </ControlButton>
+                )}
+                <ControlButton
+                  onPress={handleTogglePip}
+                  accessibilityRole="button"
+                  accessibilityLabel="Picture in Picture"
+                  testID="pip-button"
+                  style={{ marginRight: 8 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <MaterialIcons name="picture-in-picture-alt" size={22} color="#FFFFFF" />
+                </ControlButton>
+                <ControlButton
+                  onPress={() => {
+                    resetHideTimer();
+                    refreshTracks();
+                    setShowSettingsModal(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ajustes de Reprodução"
+                  testID="settings-modal-button"
+                  style={{ marginRight: 8 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <MaterialIcons name="tune" size={22} color="#FFFFFF" />
+                </ControlButton>
                 <ControlButton
                   onPress={() =>
                     setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'))
@@ -1221,7 +1556,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             </CenterControls>
 
             <BottomControls pointerEvents="box-none">
-              {type !== 'live' && (
+              {type !== 'live' ? (
                 <>
                   <ProgressBarGlobal
                     percentage={localPct}
@@ -1235,9 +1570,230 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     <TimeText>{formatSeconds(duration || player.duration || 0)}</TimeText>
                   </TimeRow>
                 </>
+              ) : (
+                <EpgContainer testID="epg-container">
+                  <EpgHeaderRow>
+                    <EpgNowBadge>
+                      <EpgNowBadgeText>No Ar</EpgNowBadgeText>
+                    </EpgNowBadge>
+                    {currentProgram ? (
+                      <EpgTimeText>
+                        {formatEpgTime(currentProgram.start_timestamp || currentProgram.start)}
+                        {currentProgram.stop_timestamp || currentProgram.end
+                          ? ` - ${formatEpgTime(currentProgram.stop_timestamp || currentProgram.end)}`
+                          : ''}
+                      </EpgTimeText>
+                    ) : null}
+                  </EpgHeaderRow>
+                  <EpgProgramTitle numberOfLines={1}>
+                    {currentProgram ? currentProgram.title : 'Programação ao vivo'}
+                  </EpgProgramTitle>
+                  {currentProgram && (
+                    <EpgTrack>
+                      <EpgFill widthPercent={epgProgressPercent} />
+                    </EpgTrack>
+                  )}
+                  {nextProgram ? (
+                    <EpgNextText numberOfLines={1}>
+                      A Seguir: {formatEpgTime(nextProgram.start_timestamp || nextProgram.start)} -{' '}
+                      {nextProgram.title}
+                    </EpgNextText>
+                  ) : !currentProgram && !epgLoading ? (
+                    <EpgNextText>Programação não disponível para este canal</EpgNextText>
+                  ) : null}
+                </EpgContainer>
               )}
             </BottomControls>
           </ControlsOverlay>
+        )}
+
+        {/* Gaveta Lateral de Canais (Zapping) */}
+        {showChannelDrawer && (
+          <>
+            <DrawerBackdrop
+              activeOpacity={1}
+              onPress={() => setShowChannelDrawer(false)}
+              testID="channel-drawer-backdrop"
+            />
+            <DrawerContainer testID="channel-drawer">
+              <DrawerHeader>
+                <DrawerTitle>Canais ({filteredChannels.length})</DrawerTitle>
+                <ControlButton
+                  onPress={() => setShowChannelDrawer(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar lista de canais"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                </ControlButton>
+              </DrawerHeader>
+
+              <DrawerSearchInput
+                placeholder="Buscar canal..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={channelSearchQuery}
+                onChangeText={setChannelSearchQuery}
+                clearButtonMode="while-editing"
+                autoCorrect={false}
+              />
+
+              <FlatList
+                data={filteredChannels}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
+                initialNumToRender={15}
+                maxToRenderPerBatch={20}
+                windowSize={5}
+                renderItem={({ item }) => {
+                  const isActive = item.id === activeContentId;
+                  return (
+                    <DrawerItem
+                      isActive={isActive}
+                      onPress={() => handleSwitchChannel(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Canal ${item.name}`}
+                    >
+                      {item.logoUrl ? (
+                        <DrawerItemLogo
+                          source={{ uri: item.logoUrl }}
+                          contentFit="contain"
+                          transition={200}
+                        />
+                      ) : (
+                        <DrawerItemLogo
+                          source={require('../../../assets/icon.png')}
+                          contentFit="contain"
+                        />
+                      )}
+                      <DrawerItemText isActive={isActive} numberOfLines={1}>
+                        {item.name}
+                      </DrawerItemText>
+                      {isActive && (
+                        <MaterialIcons name="play-arrow" size={20} color="#E50914" />
+                      )}
+                    </DrawerItem>
+                  );
+                }}
+              />
+            </DrawerContainer>
+          </>
+        )}
+
+        {/* Modal de Ajustes: Velocidade, Áudio e Legendas */}
+        {showSettingsModal && (
+          <SettingsModalBackdrop testID="settings-modal-backdrop">
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setShowSettingsModal(false)}
+            />
+            <SettingsModalContent>
+              <DrawerHeader style={{ marginBottom: 16 }}>
+                <DrawerTitle>Ajustes de Reprodução</DrawerTitle>
+                <ControlButton
+                  onPress={() => setShowSettingsModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar ajustes"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                </ControlButton>
+              </DrawerHeader>
+
+              {/* Seção Velocidade */}
+              <SettingsSection>
+                <SettingsSectionTitle>Velocidade de Reprodução</SettingsSectionTitle>
+                <SpeedRow>
+                  {speeds.map((s) => (
+                    <SpeedButton
+                      key={s}
+                      isSelected={playbackSpeed === s}
+                      onPress={() => handleSetSpeed(s)}
+                    >
+                      <SpeedButtonText isSelected={playbackSpeed === s}>
+                        {s === 1.0 ? 'Normal (1x)' : `${s}x`}
+                      </SpeedButtonText>
+                    </SpeedButton>
+                  ))}
+                </SpeedRow>
+              </SettingsSection>
+
+              {/* Seção Faixa de Áudio */}
+              <SettingsSection>
+                <SettingsSectionTitle>Faixa de Áudio</SettingsSectionTitle>
+                {availableAudioTracks.length > 0 ? (
+                  availableAudioTracks.map((track, idx) => {
+                    const isSelected =
+                      selectedAudioTrack?.id === track.id ||
+                      (!selectedAudioTrack && idx === 0);
+                    return (
+                      <TrackItem
+                        key={track.id || idx}
+                        isSelected={isSelected}
+                        onPress={() => handleSelectAudioTrack(track)}
+                      >
+                        <TrackItemText isSelected={isSelected}>
+                          {track.label || track.language || `Áudio ${idx + 1}`}
+                        </TrackItemText>
+                        {isSelected && (
+                          <MaterialIcons name="check" size={18} color="#E50914" />
+                        )}
+                      </TrackItem>
+                    );
+                  })
+                ) : (
+                  <TrackItem isSelected={true}>
+                    <TrackItemText isSelected={true}>Áudio Principal (Padrão)</TrackItemText>
+                    <MaterialIcons name="check" size={18} color="#E50914" />
+                  </TrackItem>
+                )}
+              </SettingsSection>
+
+              {/* Seção Legendas */}
+              <SettingsSection style={{ marginBottom: 0 }}>
+                <SettingsSectionTitle>Legendas</SettingsSectionTitle>
+                <TrackItem
+                  isSelected={!selectedSubtitle}
+                  onPress={() => handleSelectSubtitleTrack(null)}
+                >
+                  <TrackItemText isSelected={!selectedSubtitle}>Desativadas</TrackItemText>
+                  {!selectedSubtitle && (
+                    <MaterialIcons name="check" size={18} color="#E50914" />
+                  )}
+                </TrackItem>
+                {availableSubtitles.length > 0 ? (
+                  availableSubtitles.map((track, idx) => {
+                    const isSelected = selectedSubtitle?.id === track.id;
+                    return (
+                      <TrackItem
+                        key={track.id || idx}
+                        isSelected={isSelected}
+                        onPress={() => handleSelectSubtitleTrack(track)}
+                      >
+                        <TrackItemText isSelected={isSelected}>
+                          {track.label || track.language || `Legenda ${idx + 1}`}
+                        </TrackItemText>
+                        {isSelected && (
+                          <MaterialIcons name="check" size={18} color="#E50914" />
+                        )}
+                      </TrackItem>
+                    );
+                  })
+                ) : (
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.4)',
+                      fontSize: 12,
+                      marginTop: 4,
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    Nenhuma legenda externa ou embutida detectada nesta fonte.
+                  </Text>
+                )}
+              </SettingsSection>
+            </SettingsModalContent>
+          </SettingsModalBackdrop>
         )}
       </VideoWrapper>
     </Container>

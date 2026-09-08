@@ -10,6 +10,15 @@ export type SeriesEpisodeItem = {
   episodeNumber: number;
 };
 
+export type LiveChannelItem = {
+  id: string;
+  name: string;
+  streamUrl: string;
+  logoUrl?: string;
+  streamId: number | string;
+  epgChannelId?: string;
+};
+
 export type RootStackParamList = {
   SetupScreen: undefined;
   HomeScreen: undefined;
@@ -35,6 +44,7 @@ export type RootStackParamList = {
     episodeNumber?: number;
     initialTime?: number;
     seriesEpisodes?: SeriesEpisodeItem[];
+    liveChannels?: LiveChannelItem[];
   };
 };
 

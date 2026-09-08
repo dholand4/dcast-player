@@ -291,3 +291,224 @@ export const ErrorButtonGroup = styled.View`
   justify-content: center;
 `;
 
+/* --- EPG (Guia de TV) --- */
+export const EpgContainer = styled.View`
+  background-color: rgba(18, 18, 18, 0.88);
+  border-radius: ${({ theme }) => theme.radii.md}px;
+  padding: ${({ theme }) => theme.spacing.md}px;
+  margin-top: ${({ theme }) => theme.spacing.sm}px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.1);
+  max-width: 500px;
+  width: 100%;
+`;
+
+export const EpgHeaderRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+`;
+
+export const EpgNowBadge = styled.View`
+  background-color: ${({ theme }) => theme.colors.primary};
+  padding-horizontal: 6px;
+  padding-vertical: 2px;
+  border-radius: 4px;
+`;
+
+export const EpgNowBadgeText = styled.Text`
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+`;
+
+export const EpgProgramTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.sizes.md}px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  margin-top: 2px;
+`;
+
+export const EpgTimeRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+`;
+
+export const EpgTimeText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.sizes.xs}px;
+`;
+
+export const EpgTrack = styled.View`
+  width: 100%;
+  height: 3px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+`;
+
+export const EpgFill = styled.View<{ widthPercent: number }>`
+  width: ${({ widthPercent }) => Math.max(0, Math.min(100, widthPercent))}%;
+  height: 100%;
+  background-color: ${({ theme }) => theme.colors.primary};
+`;
+
+export const EpgNextText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 11px;
+  margin-top: 6px;
+  font-style: italic;
+`;
+
+/* --- GAVETA LATERAL DE CANAIS (ZAPPING) --- */
+export const DrawerBackdrop = styled.TouchableOpacity`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 20;
+`;
+
+export const DrawerContainer = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 85%;
+  background-color: rgba(18, 18, 18, 0.96);
+  border-right-width: 1px;
+  border-right-color: rgba(255, 255, 255, 0.12);
+  z-index: 21;
+  padding: ${({ theme }) => theme.spacing.md}px;
+`;
+
+export const DrawerHeader = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const DrawerTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.sizes.lg}px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+`;
+
+export const DrawerSearchInput = styled.TextInput`
+  background-color: rgba(255, 255, 255, 0.08);
+  color: ${({ theme }) => theme.colors.text};
+  padding: 8px 12px;
+  border-radius: ${({ theme }) => theme.radii.sm}px;
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const DrawerItem = styled.TouchableOpacity<{ isActive?: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  padding: 10px;
+  border-radius: ${({ theme }) => theme.radii.sm}px;
+  background-color: ${({ isActive }) => (isActive ? 'rgba(229, 9, 20, 0.2)' : 'transparent')};
+  margin-bottom: 4px;
+`;
+
+export const DrawerItemLogo = styled(ExpoImage)`
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  margin-right: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+`;
+
+export const DrawerItemText = styled.Text<{ isActive?: boolean }>`
+  color: ${({ isActive, theme }) => (isActive ? theme.colors.primaryLight : theme.colors.text)};
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+  font-weight: ${({ isActive }) => (isActive ? 'bold' : 'normal')};
+  flex: 1;
+`;
+
+/* --- MODAL DE ÁUDIO / LEGENDAS / VELOCIDADE --- */
+export const SettingsModalBackdrop = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  justify-content: center;
+  align-items: center;
+  z-index: 25;
+  padding: ${({ theme }) => theme.spacing.md}px;
+`;
+
+export const SettingsModalContent = styled.View`
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.radii.lg}px;
+  padding: ${({ theme }) => theme.spacing.lg}px;
+  max-width: 420px;
+  width: 100%;
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.border};
+`;
+
+export const SettingsSection = styled.View`
+  margin-bottom: ${({ theme }) => theme.spacing.md}px;
+`;
+
+export const SettingsSectionTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+`;
+
+export const SpeedRow = styled.View`
+  flex-direction: row;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+export const SpeedButton = styled.TouchableOpacity<{ isSelected?: boolean }>`
+  padding: 8px 14px;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: ${({ isSelected, theme }) =>
+    isSelected ? theme.colors.primary : 'rgba(255, 255, 255, 0.2)'};
+  background-color: ${({ isSelected, theme }) =>
+    isSelected ? theme.colors.primary : 'rgba(255, 255, 255, 0.05)'};
+`;
+
+export const SpeedButtonText = styled.Text<{ isSelected?: boolean }>`
+  color: ${({ isSelected }) => (isSelected ? '#ffffff' : '#e0e0e0')};
+  font-size: 13px;
+  font-weight: bold;
+`;
+
+export const TrackItem = styled.TouchableOpacity<{ isSelected?: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: ${({ isSelected }) =>
+    isSelected ? 'rgba(229, 9, 20, 0.15)' : 'rgba(255, 255, 255, 0.04)'};
+  margin-bottom: 6px;
+`;
+
+export const TrackItemText = styled.Text<{ isSelected?: boolean }>`
+  color: ${({ isSelected, theme }) => (isSelected ? theme.colors.primaryLight : theme.colors.text)};
+  font-size: 14px;
+  font-weight: ${({ isSelected }) => (isSelected ? 'bold' : 'normal')};
+`;
+

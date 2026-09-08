@@ -7,6 +7,7 @@ import {
   IXtreamSeries,
   IXtreamSeriesInfo,
   IXtreamEpisode,
+  IEpgListing,
 } from '../@types/xtream';
 
 import { Platform } from 'react-native';
@@ -244,4 +245,68 @@ export const xtreamService = {
     const rawUrl = `${serverUrl}/series/${username}/${password}/${episodeId}.${ext}`;
     return resolveUrlForPlatform(rawUrl);
   },
+
+  // 6. Guia Eletrônico de Programação (EPG)
+  async getShortEpg(
+    creds: IAccountCredentials,
+    streamId: string | number,
+    limit: number = 4
+  ): Promise<IEpgListing[]> {
+    try {
+      const url = `${creds.serverUrl}/player_api.php?username=${encodeURIComponent(
+        creds.username
+      )}&password=${encodeURIComponent(
+        creds.password
+      )}&action=get_short_epg&stream_id=${streamId}&limit=${limit}`;
+
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) return [];
+
+      const data = await res.json();
+      const listings = toArray<any>(data?.epg_listings);
+
+      return listings.map((item) => {
+        const rawTitle = item.title || '';
+        const rawDesc = item.description || '';
+        return {
+          id: String(item.id || ''),
+          epg_id: item.epg_id ? String(item.epg_id) : undefined,
+          title: safeDecodeBase64(rawTitle),
+          lang: item.lang,
+          start: item.start || '',
+          end: item.end || '',
+          description: safeDecodeBase64(rawDesc),
+          start_timestamp: Number(item.start_timestamp) || 0,
+          stop_timestamp: Number(item.stop_timestamp) || 0,
+          now_playing: Number(item.now_playing) || 0,
+          has_archive: Number(item.has_archive) || 0,
+        };
+      });
+    } catch {
+      return [];
+    }
+  },
 };
+
+export function safeDecodeBase64(str?: string): string {
+  if (!str) return '';
+  const trimmed = str.trim();
+  try {
+    if (/^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length % 4 === 0) {
+      if (typeof atob === 'function') {
+        const decoded = atob(trimmed);
+        if (/^[\x20-\x7E\s\u00A0-\u024F\u1E00-\u1EFF]+$/.test(decoded)) {
+          return decoded;
+        }
+      } else if (typeof Buffer !== 'undefined') {
+        const decoded = Buffer.from(trimmed, 'base64').toString('utf-8');
+        if (/^[\x20-\x7E\s\u00A0-\u024F\u1E00-\u1EFF]+$/.test(decoded)) {
+          return decoded;
+        }
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return str;
+}

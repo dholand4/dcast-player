@@ -202,6 +202,79 @@ describe('PlayerScreen', () => {
       title: 'Breaking Bad - T1E2',
     }));
   });
+
+  it('renders EPG container and PiP button for live stream', () => {
+    const liveRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/live/user/pass/1.m3u8',
+        title: 'Globo HD',
+        type: 'live',
+        contentId: '1',
+        liveChannels: [
+          { id: '1', name: 'Globo HD', streamUrl: 'http://server.com/live/1.m3u8' },
+          { id: '2', name: 'SBT HD', streamUrl: 'http://server.com/live/2.m3u8' },
+        ],
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const { getByTestId, getByText } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={liveRoute} />
+    );
+
+    expect(getByTestId('epg-container')).toBeTruthy();
+    expect(getByText('No Ar')).toBeTruthy();
+    expect(getByTestId('pip-button')).toBeTruthy();
+    expect(getByTestId('channel-drawer-button')).toBeTruthy();
+    expect(getByTestId('settings-modal-button')).toBeTruthy();
+  });
+
+  it('opens channel drawer and allows channel switching', () => {
+    const liveRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/live/user/pass/1.m3u8',
+        title: 'Globo HD',
+        type: 'live',
+        contentId: '1',
+        liveChannels: [
+          { id: '1', name: 'Globo HD', streamUrl: 'http://server.com/live/1.m3u8' },
+          { id: '2', name: 'SBT HD', streamUrl: 'http://server.com/live/2.m3u8' },
+        ],
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const { getByTestId, getByText, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={liveRoute} />
+    );
+
+    expect(queryByTestId('channel-drawer')).toBeNull();
+
+    fireEvent.press(getByTestId('channel-drawer-button'));
+    expect(getByTestId('channel-drawer')).toBeTruthy();
+    expect(getByText('SBT HD')).toBeTruthy();
+
+    fireEvent.press(getByText('SBT HD'));
+    expect(queryByTestId('channel-drawer')).toBeNull();
+  });
+
+  it('opens settings modal and allows speed adjustment', () => {
+    const { getByTestId, getByText, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(queryByTestId('settings-modal-backdrop')).toBeNull();
+
+    fireEvent.press(getByTestId('settings-modal-button'));
+    expect(getByTestId('settings-modal-backdrop')).toBeTruthy();
+    expect(getByText('Ajustes de Reprodução')).toBeTruthy();
+    expect(getByText('Velocidade de Reprodução')).toBeTruthy();
+
+    fireEvent.press(getByText('1.5x'));
+    expect(getByText('1.5x')).toBeTruthy();
+  });
 });
 
 
