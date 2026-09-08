@@ -7,5 +7,7 @@ export interface ICategoryDrawerGlobalProps {
   onSelectCategory: (categoryId: string) => void;
   onClose: () => void;
   favoritesCount?: number;
+  continueWatchingCount?: number;
+  type?: 'live' | 'movie' | 'series';
   totalStreamsCount?: number;
 }

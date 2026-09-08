@@ -32,6 +32,8 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   onSelectCategory,
   onClose,
   favoritesCount = 0,
+  continueWatchingCount = 0,
+  type,
 }) => {
   const theme = useTheme();
   const insets = useAppInsets();
@@ -121,6 +123,39 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                       />
                     )}
                   </CategoryItem>
+
+                  {type !== 'live' && (
+                    <CategoryItem
+                      isSelected={selectedCategory === 'continue_watching'}
+                      onPress={() => handleSelect('continue_watching')}
+                      accessibilityRole="button"
+                      testID="drawer-item-continue-watching"
+                    >
+                      <CategoryItemContent>
+                        <MaterialIcons
+                          name="history"
+                          size={20}
+                          color={
+                            selectedCategory === 'continue_watching'
+                              ? theme.colors.primary
+                              : '#FFB300'
+                          }
+                        />
+                        <CategoryItemText
+                          isSelected={selectedCategory === 'continue_watching'}
+                        >
+                          Continuar Assistindo {continueWatchingCount > 0 ? `(${continueWatchingCount})` : ''}
+                        </CategoryItemText>
+                      </CategoryItemContent>
+                      {selectedCategory === 'continue_watching' && (
+                        <MaterialIcons
+                          name="check"
+                          size={18}
+                          color={theme.colors.primary}
+                        />
+                      )}
+                    </CategoryItem>
+                  )}
 
                   <CategoryItem
                     isSelected={selectedCategory === 'all'}

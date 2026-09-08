@@ -1,7 +1,7 @@
 import styled from 'styled-components/native';
 import { Image as ExpoImage } from 'expo-image';
 
-export const Container = styled.TouchableOpacity`
+export const Container = styled.View`
   flex-direction: row;
   align-items: center;
   padding-vertical: ${({ theme }) => theme.spacing.sm}px;
@@ -11,6 +11,12 @@ export const Container = styled.TouchableOpacity`
   margin-bottom: ${({ theme }) => theme.spacing.sm}px;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
+`;
+
+export const ContentPressable = styled.TouchableOpacity`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
 `;
 
 export const LogoWrapper = styled.View`

@@ -7,4 +7,5 @@ export interface ISectionCarouselGlobalProps<T> {
   keyExtractor: (item: T, index: number) => string;
   emptyMessage?: string;
   testID?: string;
+  rightAction?: React.ReactNode;
 }

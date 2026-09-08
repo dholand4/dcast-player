@@ -44,11 +44,11 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { id, type, title, posterUrl } = route.params;
+  const { id, type, title, posterUrl, containerExtension } = route.params;
   const { account } = useAuth();
   const { seriesInfo, isLoading, fetchSeriesInfo } = useXtream(account);
   const { isFavorite, toggleFavorite } = useFavorites();
-  const { getProgress, getAllWatchProgress } = useWatchHistory();
+  const { getProgress, getAllWatchProgress, saveProgress } = useWatchHistory();
 
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
 
@@ -83,9 +83,29 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     return all.find((item) => item.seriesId === id || item.id === id) || null;
   }, [type, id, getAllWatchProgress]);
 
+  const allSeriesEpisodes = useMemo(() => {
+    if (type !== 'series' || !seriesInfo?.episodes || !account) return [];
+    const epsMap = seriesInfo.episodes;
+    return availableSeasons.flatMap((seasonKey) => {
+      const eps = epsMap[seasonKey] || [];
+      return eps.map((ep) => ({
+        id: String(ep.id),
+        title: `${title} - T${seasonKey}E${ep.episode_num}: ${ep.title}`,
+        streamUrl: xtreamService.buildSeriesStreamUrl(
+          account,
+          ep.id,
+          ep.container_extension || 'mp4'
+        ),
+        posterUrl: ep.info?.movie_image || posterUrl,
+        seasonNumber: Number(seasonKey),
+        episodeNumber: Number(ep.episode_num),
+      }));
+    });
+  }, [type, seriesInfo, availableSeasons, account, title, posterUrl]);
+
   const handlePlayMovie = () => {
     if (!account) return;
-    const streamUrl = xtreamService.buildVodStreamUrl(account, id);
+    const streamUrl = xtreamService.buildVodStreamUrl(account, id, containerExtension || 'mp4');
     navigation.navigate('PlayerScreen', {
       streamUrl,
       title,
@@ -107,6 +127,22 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     const epTitle = `${title} - T${season}E${episode.episode_num}: ${episode.title}`;
     const epProgress = getProgress(String(episode.id));
 
+    // Salvar progresso imediatamente para marcar o episódio como aberto/assistido
+    saveProgress({
+      id: String(episode.id),
+      seriesId: id,
+      title: epTitle,
+      posterUrl: episode.info?.movie_image || posterUrl || '',
+      type: 'series',
+      seasonNumber: Number(season),
+      episodeNumber: Number(episode.episode_num),
+      currentTime: epProgress?.currentTime || 1,
+      duration: epProgress?.duration || 0,
+      percentage: epProgress?.percentage || 1,
+      updatedAt: Date.now(),
+      streamUrl,
+    });
+
     navigation.navigate('PlayerScreen', {
       streamUrl,
       title: epTitle,
@@ -117,6 +153,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       seasonNumber: Number(season),
       episodeNumber: Number(episode.episode_num),
       initialTime: epProgress?.currentTime || 0,
+      seriesEpisodes: allSeriesEpisodes,
     });
   };
 
@@ -149,6 +186,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         seasonNumber: latestSeriesProgress.seasonNumber || 1,
         episodeNumber: latestSeriesProgress.episodeNumber || 1,
         initialTime: latestSeriesProgress.currentTime || 0,
+        seriesEpisodes: allSeriesEpisodes,
       });
       return;
     }
@@ -284,11 +322,19 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
 
                 {currentEpisodes.map((ep) => {
                   const epProgress = getProgress(String(ep.id));
+                  const isWatched = Boolean(
+                    epProgress &&
+                    (epProgress.currentTime > 0 ||
+                      epProgress.percentage > 0 ||
+                      epProgress.updatedAt > 0)
+                  );
                   return (
                     <EpisodeItem
                       key={`ep-${ep.id}`}
                       onPress={() => handlePlayEpisode(ep)}
                       activeOpacity={0.7}
+                      isWatched={isWatched}
+                      testID={`episode-item-${ep.id}`}
                     >
                       <EpisodeThumbWrapper>
                         <EpisodeThumb

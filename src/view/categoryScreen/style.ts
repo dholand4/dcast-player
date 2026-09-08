@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import styled from 'styled-components/native';
 
 export const Container = styled.View`
@@ -10,6 +11,7 @@ export const SearchRow = styled.View`
   align-items: center;
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
   padding-top: ${({ theme }) => theme.spacing.sm}px;
+  margin-bottom: ${Platform.OS === 'web' ? 14 : 6}px;
 `;
 
 export const HamburgerButton = styled.TouchableOpacity`

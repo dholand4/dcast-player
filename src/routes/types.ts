@@ -1,6 +1,15 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ContentType } from '../@types/storage';
 
+export type SeriesEpisodeItem = {
+  id: string;
+  title: string;
+  streamUrl: string;
+  posterUrl?: string;
+  seasonNumber: number;
+  episodeNumber: number;
+};
+
 export type RootStackParamList = {
   SetupScreen: undefined;
   HomeScreen: undefined;
@@ -13,6 +22,7 @@ export type RootStackParamList = {
     type: 'movie' | 'series';
     title: string;
     posterUrl?: string;
+    containerExtension?: string;
   };
   PlayerScreen: {
     streamUrl: string;
@@ -24,6 +34,7 @@ export type RootStackParamList = {
     seasonNumber?: number;
     episodeNumber?: number;
     initialTime?: number;
+    seriesEpisodes?: SeriesEpisodeItem[];
   };
 };
 

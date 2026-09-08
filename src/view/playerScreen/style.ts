@@ -105,7 +105,7 @@ export const CenterControls = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: ${({ theme }) => theme.spacing.xl}px;
+  gap: ${({ theme }) => theme.spacing.md}px;
 `;
 
 export const BigPlayButton = styled.TouchableOpacity`
@@ -228,3 +228,52 @@ export const RemoteSub = styled.Text`
   font-size: ${({ theme }) => theme.typography.sizes.sm}px;
   text-align: center;
 `;
+
+export const ErrorOverlay = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.88);
+  justify-content: center;
+  align-items: center;
+  padding: ${({ theme }) => theme.spacing.lg}px;
+  z-index: 10;
+`;
+
+export const ErrorBox = styled.View`
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.radii.lg}px;
+  padding: ${({ theme }) => theme.spacing.lg}px;
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.border};
+  max-width: 440px;
+  width: 100%;
+  align-items: center;
+`;
+
+export const ErrorTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.sizes.lg}px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+  margin-top: ${({ theme }) => theme.spacing.sm}px;
+  margin-bottom: ${({ theme }) => theme.spacing.xs}px;
+  text-align: center;
+`;
+
+export const ErrorMessage = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+  text-align: center;
+  line-height: 20px;
+  margin-bottom: ${({ theme }) => theme.spacing.lg}px;
+`;
+
+export const ErrorButtonGroup = styled.View`
+  flex-direction: row;
+  gap: ${({ theme }) => theme.spacing.md}px;
+  width: 100%;
+  justify-content: center;
+`;
+

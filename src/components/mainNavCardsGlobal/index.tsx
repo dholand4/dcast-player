@@ -1,10 +1,10 @@
 import React from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
 import { IMainNavCardsGlobalProps } from './types';
 import {
   Container,
   BigCard,
   IconBox,
-  IconText,
   TextContent,
   CardTitle,
   CardSubtitle,
@@ -26,7 +26,7 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
         accessibilityLabel="Canais Ao Vivo"
       >
         <IconBox accentColor="rgba(229, 9, 20, 0.15)">
-          <IconText>🔴</IconText>
+          <MaterialIcons name="live-tv" size={28} color="#E50914" />
         </IconBox>
         <TextContent>
           <CardTitle>Canais Ao Vivo</CardTitle>
@@ -42,11 +42,11 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
         accessibilityLabel="Filmes"
       >
         <IconBox accentColor="rgba(3, 218, 198, 0.15)">
-          <IconText>🔵</IconText>
+          <MaterialIcons name="movie" size={28} color="#03DAC6" />
         </IconBox>
         <TextContent>
-          <CardTitle>Filmes (VOD)</CardTitle>
-          <CardSubtitle>Catálogo completo de longas-metragens</CardSubtitle>
+          <CardTitle>Filmes</CardTitle>
+          <CardSubtitle>Catálogo completo de filmes</CardSubtitle>
         </TextContent>
         <ArrowText>›</ArrowText>
       </BigCard>
@@ -58,7 +58,7 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
         accessibilityLabel="Séries"
       >
         <IconBox accentColor="rgba(255, 179, 0, 0.15)">
-          <IconText>🟡</IconText>
+          <MaterialIcons name="video-library" size={28} color="#FFB300" />
         </IconBox>
         <TextContent>
           <CardTitle>Séries</CardTitle>

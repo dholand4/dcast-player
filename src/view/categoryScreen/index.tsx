@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
@@ -7,12 +7,14 @@ import { CategoryScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useXtream } from '../../hooks/useXtream';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { xtreamService } from '../../services/xtreamService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { InputGlobal } from '../../components/inputGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
 import { ChannelCardGlobal } from '../../components/channelCardGlobal';
 import { LoadingGlobal } from '../../components/loadingGlobal';
+import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { CategoryDrawerGlobal } from '../../components/categoryDrawerGlobal';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
 import {
@@ -31,21 +33,44 @@ import {
   EmptyActionButtonText,
 } from './style';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 32;
 const GAP = 12;
-const POSTER_WIDTH = Math.floor((SCREEN_WIDTH - HORIZONTAL_PADDING - GAP * 2) / 3);
 
 export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   route,
   navigation,
 }) => {
   const theme = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const numColumns = useMemo(() => {
+    if (Platform.OS === 'web') {
+      if (windowWidth < 600) return 3;
+      if (windowWidth < 900) return 5;
+      if (windowWidth < 1200) return 6;
+      return 8;
+    }
+    return 3;
+  }, [windowWidth]);
+
+  const posterWidth = useMemo(() => {
+    const totalGaps = (numColumns - 1) * GAP;
+    return Math.floor((windowWidth - HORIZONTAL_PADDING - totalGaps) / numColumns);
+  }, [windowWidth, numColumns]);
+
   const { type, title } = route.params;
   const { account } = useAuth();
-  const { categories, items, isLoading, loadingMessage, fetchCategories, fetchStreams } =
-    useXtream(account);
-  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const {
+    categories,
+    items,
+    isLoading,
+    loadingMessage,
+    fetchCategories,
+    fetchStreams,
+    prefetchCategory,
+  } = useXtream(account);
+  const { favorites, isFavorite, toggleFavorite, reload } = useFavorites();
+  const { continueWatching, clearHistory, removeProgress } = useWatchHistory();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -69,9 +94,27 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     return favorites.filter((f) => (type === 'live' ? f.type === 'live' : f.type === type)).length;
   }, [favorites, type]);
 
+  const typeContinueWatchingList = useMemo(() => {
+    if (type === 'live') return [];
+    const all = continueWatching.filter((p) => p.type === type);
+    const map = new Map<string, typeof all[0]>();
+    for (const item of all) {
+      const key = type === 'series' && item.seriesId ? item.seriesId : item.id;
+      if (!map.has(key) || item.updatedAt > map.get(key)!.updatedAt) {
+        map.set(key, item);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [continueWatching, type]);
+
+  const continueWatchingCount = typeContinueWatchingList.length;
+
   const selectedCategoryName = useMemo(() => {
     if (selectedCategory === 'favorites') {
       return `Meus Favoritos ${typeFavoritesCount > 0 ? `(${typeFavoritesCount})` : ''}`;
+    }
+    if (selectedCategory === 'continue_watching') {
+      return `Continuar Assistindo ${continueWatchingCount > 0 ? `(${continueWatchingCount})` : ''}`;
     }
     if (selectedCategory === 'all') {
       if (type === 'live') return 'Todos os Canais';
@@ -81,32 +124,182 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     }
     const cat = categories.find((c) => String(c.category_id) === String(selectedCategory));
     return cat ? cat.category_name : 'Conteúdo';
-  }, [selectedCategory, categories, type, typeFavoritesCount]);
+  }, [selectedCategory, categories, type, typeFavoritesCount, continueWatchingCount]);
+
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    fetchCategories(type);
-    fetchStreams(type);
-  }, [type, fetchCategories, fetchStreams]);
+    let isMounted = true;
 
-  const handleCategorySelect = useCallback((categoryId: string) => {
-    setSelectedCategory(categoryId);
-  }, []);
+    async function loadInitialData() {
+      const cats = await fetchCategories(type);
+      if (!isMounted) return;
+
+      if (cats && cats.length > 0) {
+        const firstCatId = String(cats[0].category_id);
+        setSelectedCategory(firstCatId);
+        await fetchStreams(type, firstCatId);
+
+        // Pre-fetch the next 3 categories silently in the background
+        const nextCats = cats.slice(1, 4);
+        for (const nextCat of nextCats) {
+          if (!isMounted) break;
+          prefetchCategory(type, String(nextCat.category_id));
+        }
+      } else {
+        setSelectedCategory('all');
+        fetchStreams(type, undefined);
+      }
+      initializedRef.current = true;
+    }
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [type, fetchCategories, fetchStreams, prefetchCategory]);
+
+  // When drawer opens, silently pre-fetch the top categories so tapping them is instant
+  useEffect(() => {
+    if (isDrawerOpen && categories.length > 0) {
+      const topCats = categories.slice(0, 6);
+      topCats.forEach((c) => {
+        prefetchCategory(type, String(c.category_id));
+      });
+    }
+  }, [isDrawerOpen, categories, type, prefetchCategory]);
+
+  const handleCategorySelect = useCallback(
+    (categoryId: string) => {
+      setSelectedCategory(categoryId);
+      setIsDrawerOpen(false);
+      if (categoryId !== 'favorites' && categoryId !== 'continue_watching') {
+        fetchStreams(type, categoryId === 'all' ? undefined : categoryId);
+      }
+    },
+    [type, fetchStreams]
+  );
 
   const filteredItems = useMemo(() => {
-    let result = items || [];
+    let result: (IXtreamLiveStream | IXtreamVodStream | IXtreamSeries)[] = [];
+
     if (selectedCategory === 'favorites') {
-      result = result.filter((item) => {
-        if (!item) return false;
-        const id =
-          'stream_id' in item
-            ? String(item.stream_id)
-            : String((item as IXtreamSeries).series_id);
-        return isFavorite(id);
-      });
-    } else if (selectedCategory !== 'all') {
-      result = result.filter(
-        (item) => item && String(item.category_id) === String(selectedCategory)
+      const typeFavs = favorites.filter((f) =>
+        type === 'live' ? f.type === 'live' : f.type === type
       );
+      result = typeFavs.map((fav) => {
+        const existing = (items || []).find((item) => {
+          if (!item) return false;
+          const id =
+            'stream_id' in item
+              ? String(item.stream_id)
+              : String((item as IXtreamSeries).series_id);
+          return id === String(fav.id);
+        });
+        if (existing) return existing;
+
+        if (type === 'live') {
+          return {
+            num: 0,
+            name: fav.name,
+            stream_type: 'live',
+            stream_id: Number(fav.id) || fav.id,
+            stream_icon: fav.posterUrl,
+            epg_channel_id: '',
+            added: String(fav.addedAt),
+            category_id: fav.categoryId || '',
+            custom_sid: '',
+            tv_archive: 0,
+            direct_source: '',
+            tv_archive_duration: 0,
+          } as unknown as IXtreamLiveStream;
+        } else if (type === 'series') {
+          return {
+            num: 0,
+            name: fav.name,
+            series_id: Number(fav.id) || fav.id,
+            cover: fav.posterUrl,
+            plot: '',
+            cast: '',
+            director: '',
+            genre: '',
+            releaseDate: '',
+            last_modified: '',
+            rating: fav.rating || '',
+            rating_5based: 0,
+            backdrop_path: [],
+            youtube_trailer: '',
+            episode_run_time: '',
+            category_id: fav.categoryId || '',
+          } as unknown as IXtreamSeries;
+        } else {
+          return {
+            num: 0,
+            name: fav.name,
+            stream_type: 'movie',
+            stream_id: Number(fav.id) || fav.id,
+            stream_icon: fav.posterUrl,
+            rating: fav.rating || '',
+            rating_5based: 0,
+            added: String(fav.addedAt),
+            category_id: fav.categoryId || '',
+            container_extension: 'mp4',
+            custom_sid: '',
+            direct_source: '',
+          } as unknown as IXtreamVodStream;
+        }
+      });
+    } else if (selectedCategory === 'continue_watching') {
+      result = typeContinueWatchingList.map((item) => {
+        if (type === 'series') {
+          return {
+            num: 0,
+            name: item.title,
+            series_id: item.seriesId || item.id,
+            cover: item.posterUrl,
+            plot: '',
+            cast: '',
+            director: '',
+            genre: '',
+            releaseDate: '',
+            last_modified: '',
+            rating: '',
+            rating_5based: 0,
+            backdrop_path: [],
+            youtube_trailer: '',
+            episode_run_time: '',
+            category_id: 'continue_watching',
+          } as unknown as IXtreamSeries;
+        } else {
+          return {
+            num: 0,
+            name: item.title,
+            stream_type: 'movie',
+            stream_id: Number(item.id) || item.id,
+            stream_icon: item.posterUrl,
+            rating: '',
+            rating_5based: 0,
+            added: String(item.updatedAt),
+            category_id: 'continue_watching',
+            container_extension: 'mp4',
+            custom_sid: '',
+            direct_source: '',
+          } as unknown as IXtreamVodStream;
+        }
+      });
+    } else {
+      result = items || [];
+      if (selectedCategory !== 'all') {
+        const hasOtherCategories = result.some(
+          (item) => item && item.category_id != null && String(item.category_id) !== String(selectedCategory)
+        );
+        if (hasOtherCategories) {
+          result = result.filter(
+            (item) => item && String(item.category_id) === String(selectedCategory)
+          );
+        }
+      }
     }
 
     const q = (debouncedQuery || '').trim().toLowerCase();
@@ -117,13 +310,75 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       });
     }
     return result;
-  }, [items, selectedCategory, debouncedQuery, isFavorite]);
+  }, [items, selectedCategory, debouncedQuery, favorites, type, typeContinueWatchingList]);
+
+  const handleRefresh = useCallback(() => {
+    if (selectedCategory === 'favorites') {
+      reload();
+    } else if (selectedCategory === 'continue_watching') {
+      // reactively updated
+    } else {
+      fetchStreams(type, selectedCategory === 'all' ? undefined : selectedCategory, true);
+    }
+  }, [selectedCategory, reload, fetchStreams, type]);
+
+  const handleConfirmClearHistory = useCallback(() => {
+    const typeLabel = type === 'series' ? 'de Séries' : 'de Filmes';
+    const doClear = () => {
+      clearHistory(type);
+    };
+
+    if (Platform.OS === 'web') {
+      if (
+        typeof window !== 'undefined' &&
+        window.confirm(`Deseja limpar todo o histórico de Continuar Assistindo ${typeLabel}?`)
+      ) {
+        doClear();
+      }
+    } else {
+      Alert.alert(
+        'Limpar Histórico',
+        `Deseja limpar todo o histórico de Continuar Assistindo ${typeLabel}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Limpar Tudo', style: 'destructive', onPress: doClear },
+        ]
+      );
+    }
+  }, [clearHistory, type]);
+
+  const handleConfirmRemoveItem = useCallback(
+    (item: { id: string; seriesId?: string; title: string }) => {
+      const doRemove = () => {
+        removeProgress(item.id, item.seriesId);
+      };
+
+      if (Platform.OS === 'web') {
+        if (
+          typeof window !== 'undefined' &&
+          window.confirm(`Deseja remover "${item.title}" do Continuar Assistindo?`)
+        ) {
+          doRemove();
+        }
+      } else {
+        Alert.alert(
+          'Remover Conteúdo',
+          `Deseja remover "${item.title}" do Continuar Assistindo?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Remover', style: 'destructive', onPress: doRemove },
+          ]
+        );
+      }
+    },
+    [removeProgress]
+  );
 
 
   const handleLivePlay = useCallback(
     (stream: IXtreamLiveStream) => {
       if (!account) return;
-      const streamUrl = xtreamService.buildLiveStreamUrl(account, stream.stream_id);
+      const streamUrl = xtreamService.buildLiveStreamUrl(account, stream.stream_id, 'ts');
       navigation.navigate('PlayerScreen', {
         streamUrl,
         title: stream.name,
@@ -142,6 +397,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         type: 'movie',
         title: stream.name,
         posterUrl: stream.stream_icon,
+        containerExtension: stream.container_extension || 'mp4',
       });
     },
     [navigation]
@@ -197,22 +453,254 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     ({ item }: { item: IXtreamVodStream | IXtreamSeries }) => {
       const posterUrl =
         'stream_icon' in item ? item.stream_icon : (item as IXtreamSeries).cover;
+      const contentId = 'stream_id' in item ? String(item.stream_id) : String(item.series_id);
+      const isContinueWatching = selectedCategory === 'continue_watching';
+      const cwItem = isContinueWatching
+        ? typeContinueWatchingList.find(
+            (c) => String(c.id) === contentId || String(c.seriesId) === contentId
+          )
+        : undefined;
+
       return (
         <PosterCardGlobal
           title={item.name}
           posterUrl={posterUrl}
           rating={item.rating}
-          width={POSTER_WIDTH}
+          percentage={cwItem?.percentage}
+          width={posterWidth}
           onPress={() =>
             'stream_id' in item
               ? handleVodSelect(item as IXtreamVodStream)
               : handleSeriesSelect(item as IXtreamSeries)
           }
+          onRemove={
+            isContinueWatching
+              ? () =>
+                  handleConfirmRemoveItem({
+                    id: contentId,
+                    seriesId: 'series_id' in item ? String(item.series_id) : undefined,
+                    title: item.name,
+                  })
+              : undefined
+          }
         />
       );
     },
-    [handleVodSelect, handleSeriesSelect]
+    [
+      handleVodSelect,
+      handleSeriesSelect,
+      posterWidth,
+      selectedCategory,
+      typeContinueWatchingList,
+      handleConfirmRemoveItem,
+    ]
   );
+
+
+  const renderCategoryFolderRow = useCallback(
+    () => {
+      if (selectedCategory === 'continue_watching') {
+        return (
+          <View
+            style={{
+              marginHorizontal: type === 'live' ? 16 : 0,
+              marginBottom: 16,
+              padding: 16,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <MaterialIcons name="history" size={22} color="#E50914" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: theme.colors.text,
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Continuar Assistindo
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.colors.textMuted,
+                      fontSize: 12,
+                      marginTop: 2,
+                    }}
+                  >
+                    {filteredItems.length} {filteredItems.length === 1 ? 'item em andamento' : 'itens em andamento'} • Toque no X ou segure no card para remover
+                  </Text>
+                </View>
+              </View>
+
+              {filteredItems.length > 0 && (
+                <TouchableOpacity
+                  onPress={handleConfirmClearHistory}
+                  accessibilityRole="button"
+                  accessibilityLabel="Limpar histórico"
+                  testID="clear-history-button"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 7,
+                    paddingHorizontal: 14,
+                    borderRadius: 8,
+                    backgroundColor: '#E50914',
+                    marginLeft: 12,
+                  }}
+                >
+                  <MaterialIcons
+                    name="delete"
+                    size={16}
+                    color="#FFFFFF"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Limpar Tudo
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      }
+
+      return (
+        <CategoryTitleRow
+          onPress={() => setIsDrawerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Alterar lista"
+          testID="active-category-row"
+          style={
+            type !== 'live'
+              ? {
+                  paddingHorizontal: 0,
+                  paddingTop: Platform.OS === 'web' ? 12 : 6,
+                  paddingBottom: 12,
+                }
+              : {
+                  paddingTop: Platform.OS === 'web' ? 12 : 6,
+                  paddingBottom: 8,
+                }
+          }
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <MaterialIcons
+              name={selectedCategory === 'favorites' ? 'favorite' : 'folder'}
+              size={20}
+              color={
+                selectedCategory === 'favorites' ? '#E50914' : theme.colors.primary
+              }
+              style={{ marginRight: 8 }}
+            />
+            <CategoryTitleText numberOfLines={1} style={{ flexShrink: 1 }}>
+              {selectedCategoryName}
+            </CategoryTitleText>
+          </View>
+          <CategoryItemsCount>
+            {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'}
+          </CategoryItemsCount>
+        </CategoryTitleRow>
+      );
+    },
+    [
+      selectedCategory,
+      selectedCategoryName,
+      filteredItems.length,
+      type,
+      theme,
+      handleConfirmClearHistory,
+    ]
+  );
+
+  const renderVodHeader = useCallback(
+    () => (
+      <View style={{ marginBottom: 4 }}>
+        {renderCategoryFolderRow()}
+      </View>
+    ),
+    [renderCategoryFolderRow]
+  );
+
+  const renderEmptyComponent = useCallback(() => {
+    if (isLoading || isSearching) return null;
+    return (
+      <EmptyContainer>
+        {debouncedQuery.trim().length > 0 ? (
+          <>
+            <EmptyText>Nenhum resultado encontrado para "{debouncedQuery}".</EmptyText>
+            <EmptyActionButton
+              onPress={() => setSearchQuery('')}
+              accessibilityRole="button"
+            >
+              <EmptyActionButtonText>Limpar Busca</EmptyActionButtonText>
+            </EmptyActionButton>
+          </>
+        ) : selectedCategory === 'continue_watching' ? (
+          <>
+            <EmptyText>Você não tem conteúdos em andamento no Continuar Assistindo.</EmptyText>
+            <EmptyActionButton
+              onPress={() => setIsDrawerOpen(true)}
+              accessibilityRole="button"
+              testID="open-drawer-from-empty"
+            >
+              <EmptyActionButtonText>Escolher Outra Lista</EmptyActionButtonText>
+            </EmptyActionButton>
+          </>
+        ) : selectedCategory === 'favorites' ? (
+          <>
+            <EmptyText>Você ainda não tem favoritos salvos nesta seção.</EmptyText>
+            <EmptyActionButton
+              onPress={() => setIsDrawerOpen(true)}
+              accessibilityRole="button"
+              testID="open-drawer-from-empty"
+            >
+              <EmptyActionButtonText>Abrir Listas / Categorias</EmptyActionButtonText>
+            </EmptyActionButton>
+          </>
+        ) : (
+          <>
+            <EmptyText>Nenhum conteúdo encontrado nesta lista.</EmptyText>
+            <EmptyActionButton
+              onPress={() => setIsDrawerOpen(true)}
+              accessibilityRole="button"
+              testID="open-drawer-from-empty"
+            >
+              <EmptyActionButtonText>Escolher Outra Lista</EmptyActionButtonText>
+            </EmptyActionButton>
+          </>
+        )}
+      </EmptyContainer>
+    );
+  }, [isLoading, isSearching, debouncedQuery, selectedCategory]);
 
   return (
     <Container testID="category-screen">
@@ -244,75 +732,39 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         </SearchInputContainer>
       </SearchRow>
 
-      {/* Nome Limpo da Categoria Atual com Acesso ao Menu Lateral */}
-      <CategoryTitleRow
-        onPress={() => setIsDrawerOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Alterar lista"
-        testID="active-category-row"
-      >
-        <CategoryTitleText>{selectedCategoryName}</CategoryTitleText>
-        <CategoryItemsCount>
-          {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'}
-        </CategoryItemsCount>
-      </CategoryTitleRow>
+      {/* Para Canais Ao Vivo, exibe o nome da categoria no topo */}
+      {type === 'live' && renderCategoryFolderRow()}
 
       <ContentArea>
-        {isLoading && items.length === 0 ? (
+        {isLoading ? (
           <LoadingGlobal message={loadingMessage} />
         ) : isSearching ? (
           <LoadingGlobal message="Buscando conteúdos..." />
-        ) : filteredItems.length === 0 ? (
-          <EmptyContainer>
-            {debouncedQuery.trim().length > 0 ? (
-              <>
-                <EmptyText>Nenhum resultado encontrado para "{debouncedQuery}".</EmptyText>
-                <EmptyActionButton
-                  onPress={() => setSearchQuery('')}
-                  accessibilityRole="button"
-                >
-                  <EmptyActionButtonText>Limpar Busca</EmptyActionButtonText>
-                </EmptyActionButton>
-              </>
-            ) : selectedCategory === 'favorites' ? (
-              <>
-                <EmptyText>Você ainda não tem favoritos salvos nesta seção.</EmptyText>
-                <EmptyActionButton
-                  onPress={() => setIsDrawerOpen(true)}
-                  accessibilityRole="button"
-                  testID="open-drawer-from-empty"
-                >
-                  <EmptyActionButtonText>Abrir Listas / Categorias</EmptyActionButtonText>
-                </EmptyActionButton>
-              </>
-            ) : (
-              <>
-                <EmptyText>Nenhum conteúdo encontrado nesta categoria.</EmptyText>
-                <EmptyActionButton
-                  onPress={() => handleCategorySelect('all')}
-                  accessibilityRole="button"
-                >
-                  <EmptyActionButtonText>Ver Todos os Conteúdos</EmptyActionButtonText>
-                </EmptyActionButton>
-              </>
-            )}
-          </EmptyContainer>
         ) : type === 'live' ? (
-          <FlashList
-            data={filteredItems as IXtreamLiveStream[]}
-            keyExtractor={keyExtractorLive}
-            renderItem={renderLiveItem}
-            refreshing={isLoading}
-            onRefresh={() => fetchStreams(type, undefined, true)}
-          />
+          filteredItems.length === 0 ? (
+            renderEmptyComponent()
+          ) : (
+            <FlashList
+              data={filteredItems as IXtreamLiveStream[]}
+              keyExtractor={keyExtractorLive}
+              renderItem={renderLiveItem}
+              drawDistance={windowWidth * 2}
+              refreshing={isLoading}
+              onRefresh={handleRefresh}
+            />
+          )
         ) : (
           <FlashList
+            key={`vod-grid-${numColumns}`}
             data={filteredItems as Array<IXtreamVodStream | IXtreamSeries>}
-            numColumns={3}
+            numColumns={numColumns}
             keyExtractor={keyExtractorVod}
             renderItem={renderVodItem}
+            drawDistance={windowWidth * 3}
             refreshing={isLoading}
-            onRefresh={() => fetchStreams(type, undefined, true)}
+            onRefresh={handleRefresh}
+            ListHeaderComponent={renderVodHeader}
+            ListEmptyComponent={renderEmptyComponent}
           />
         )}
       </ContentArea>
@@ -324,6 +776,8 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         onSelectCategory={handleCategorySelect}
         onClose={() => setIsDrawerOpen(false)}
         favoritesCount={typeFavoritesCount}
+        continueWatchingCount={continueWatchingCount}
+        type={type}
       />
     </Container>
   );

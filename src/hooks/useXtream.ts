@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   IAccountCredentials,
   IXtreamCategory,
@@ -30,6 +30,18 @@ export function useXtream(account: IAccountCredentials | null) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('Carregando...');
   const [error, setError] = useState<string | null>(null);
+
+  const activeRequestIdRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Clean up any pending in-flight request when unmounting
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const getAccountKey = useCallback(() => {
     if (!account) return '';
@@ -108,8 +120,23 @@ export function useXtream(account: IAccountCredentials | null) {
         return;
       }
 
-      // 2. If saved on local disk, load immediately from disk
+      // 2. If we have this specific category cached in RAM, return immediately
+      if (!forceRefresh && streamCache.has(catKey)) {
+        setItems(streamCache.get(catKey)!);
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Check local disk storage (specific category first, then full list)
       if (!forceRefresh) {
+        const diskCatStreams = storageService.getCachedStreams<StreamItem[]>(catKey);
+        if (diskCatStreams && diskCatStreams.length > 0) {
+          streamCache.set(catKey, diskCatStreams);
+          setItems(diskCatStreams);
+          setIsLoading(false);
+          return;
+        }
+
         const diskStreams = storageService.getCachedStreams<StreamItem[]>(allKey);
         if (diskStreams && diskStreams.length > 0) {
           streamCache.set(allKey, diskStreams);
@@ -121,20 +148,91 @@ export function useXtream(account: IAccountCredentials | null) {
             );
             setItems(filtered);
           }
+          setIsLoading(false);
           return;
         }
       }
 
+      // 4. Cancel any previous in-flight request to free bandwidth and avoid race conditions
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const requestId = ++activeRequestIdRef.current;
+
+      // Clean state for the new category to prevent stale old-category items leaking
+      setItems([]);
       setIsLoading(true);
       setError(null);
+
+      const isAll = !categoryId || categoryId === 'all';
       setLoadingMessage(
-        type === 'live'
+        isAll
+          ? type === 'live'
+            ? 'Carregando todos os canais... Isso pode levar alguns instantes.'
+            : type === 'movie'
+            ? 'Carregando catálogo completo de filmes... Isso pode levar alguns instantes.'
+            : 'Carregando catálogo completo de séries... Isso pode levar alguns instantes.'
+          : type === 'live'
           ? 'Carregando lista de canais...'
           : type === 'movie'
-          ? 'Carregando catálogo de filmes...'
+          ? 'Carregando filmes...'
           : 'Carregando séries...'
       );
 
+      try {
+        let res: StreamItem[] = [];
+        if (type === 'live') {
+          res = await xtreamService.getLiveStreams(account, categoryId, controller.signal);
+        } else if (type === 'movie') {
+          res = await xtreamService.getVodStreams(account, categoryId, controller.signal);
+        } else {
+          res = await xtreamService.getSeries(account, categoryId, controller.signal);
+        }
+
+        // Discard result if superseded by a newer request
+        if (requestId !== activeRequestIdRef.current) {
+          return;
+        }
+
+        streamCache.set(catKey, res);
+        storageService.saveCachedStreams(catKey, res);
+        if (isAll) {
+          storageService.saveCachedStreams(allKey, res);
+        }
+        setItems(res);
+        setIsLoading(false);
+      } catch (err: unknown) {
+        // If aborted, silently ignore
+        if (controller.signal.aborted || requestId !== activeRequestIdRef.current) {
+          return;
+        }
+        const msg = err instanceof Error ? err.message : 'Falha ao carregar conteúdo.';
+        setError(msg);
+        setIsLoading(false);
+      }
+    },
+    [account, getAccountKey]
+  );
+
+  const prefetchCategory = useCallback(
+    async (type: 'live' | 'movie' | 'series', categoryId: string) => {
+      if (!account || !categoryId || categoryId === 'all') return;
+      const accKey = getAccountKey();
+      const catKey = `${accKey}_streams_${type}_${categoryId}`;
+
+      // 1. Already in RAM cache
+      if (streamCache.has(catKey)) return;
+
+      // 2. Already in Disk storage
+      const diskCached = storageService.getCachedStreams<StreamItem[]>(catKey);
+      if (diskCached && diskCached.length > 0) {
+        streamCache.set(catKey, diskCached);
+        return;
+      }
+
+      // 3. Silently fetch and cache in background without affecting active screen state
       try {
         let res: StreamItem[] = [];
         if (type === 'live') {
@@ -144,17 +242,12 @@ export function useXtream(account: IAccountCredentials | null) {
         } else {
           res = await xtreamService.getSeries(account, categoryId);
         }
-
-        streamCache.set(catKey, res);
-        if (!categoryId || categoryId === 'all') {
-          storageService.saveCachedStreams(allKey, res);
+        if (res && res.length > 0) {
+          streamCache.set(catKey, res);
+          storageService.saveCachedStreams(catKey, res);
         }
-        setItems(res);
-        setIsLoading(false);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Falha ao carregar conteúdo.';
-        setError(msg);
-        setIsLoading(false);
+      } catch {
+        // Silent fail on background prefetch
       }
     },
     [account, getAccountKey]
@@ -198,7 +291,7 @@ export function useXtream(account: IAccountCredentials | null) {
     error,
     fetchCategories,
     fetchStreams,
+    prefetchCategory,
     fetchSeriesInfo,
   };
 }
-

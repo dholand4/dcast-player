@@ -103,4 +103,46 @@ describe('useXtream hook', () => {
     expect(result.current.items).toEqual([mockLiveStreams[0]]);
     expect(xtreamService.getLiveStreams).toHaveBeenCalledTimes(1);
   });
+
+  it('passes abort signal to service when fetching streams', async () => {
+    (xtreamService.getVodStreams as jest.Mock).mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => useXtream(mockAccount));
+
+    await act(async () => {
+      await result.current.fetchStreams('movie', '10');
+    });
+
+    expect(xtreamService.getVodStreams).toHaveBeenCalledTimes(1);
+    const signalArg = (xtreamService.getVodStreams as jest.Mock).mock.calls[0][2];
+    expect(signalArg).toBeDefined();
+    expect(typeof signalArg.aborted).toBe('boolean');
+  });
+
+  it('prefetches category silently into cache and loads instantly without network re-fetch', async () => {
+    (xtreamService.getVodStreams as jest.Mock).mockResolvedValueOnce([
+      { stream_id: 101, name: 'Inception', category_id: '5' },
+    ]);
+
+    const { result } = renderHook(() => useXtream(mockAccount));
+
+    await act(async () => {
+      await result.current.prefetchCategory('movie', '5');
+    });
+
+    expect(xtreamService.getVodStreams).toHaveBeenCalledWith(mockAccount, '5');
+    // Active items on screen should not be mutated by background prefetch
+    expect(result.current.items).toEqual([]);
+
+    // Fetching the prefetched category should hit cache with zero additional network requests
+    (xtreamService.getVodStreams as jest.Mock).mockClear();
+    await act(async () => {
+      await result.current.fetchStreams('movie', '5');
+    });
+
+    expect(result.current.items).toEqual([
+      { stream_id: 101, name: 'Inception', category_id: '5' },
+    ]);
+    expect(xtreamService.getVodStreams).not.toHaveBeenCalled();
+  });
 });

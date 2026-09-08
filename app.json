@@ -23,21 +23,43 @@
       },
       "package": "com.dcast.player"
     },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "DCast Player",
+      "shortName": "DCast Player",
+      "themeColor": "#E50914",
+      "backgroundColor": "#121212",
+      "bundler": "metro"
+    },
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/b7797070-0813-4efb-81d8-ba1b5166fafd"
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "plugins": [
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "react-native-google-cast",
         {
           "receiverAppId": "CC1AD845"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b7797070-0813-4efb-81d8-ba1b5166fafd"
+      }
+    }
   }
 }

@@ -1,5 +1,3 @@
-import { Paths, File } from 'expo-file-system';
-import { MMKV } from 'react-native-mmkv';
 import { IAccountCredentials, IXtreamUserInfo } from '../@types/xtream';
 import { IWatchProgress, IFavoriteItem, ContentType } from '../@types/storage';
 
@@ -12,63 +10,56 @@ interface IStorageLike {
 
 const memoryStore = new Map<string, string>();
 
-async function persistMemoryStoreAsync() {
-  try {
-    if (!Paths.document) return;
-    const obj: Record<string, string> = {};
-    memoryStore.forEach((v, k) => {
-      obj[k] = v;
-    });
-    const file = new File(Paths.document, 'dcast_storage.json');
-    if (!file.exists) {
-      file.create();
+const isLocalStorageAvailable =
+  typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
+export const storage: IStorageLike = {
+  getString: (key: string): string | undefined => {
+    if (isLocalStorageAvailable) {
+      try {
+        const val = window.localStorage.getItem(key);
+        return val !== null ? val : undefined;
+      } catch {
+        return memoryStore.get(key);
+      }
     }
-    file.write(JSON.stringify(obj));
-  } catch {
-    // ignore
-  }
-}
-
-async function hydrateMemoryStoreAsync() {
-  try {
-    if (!Paths.document) return;
-    const file = new File(Paths.document, 'dcast_storage.json');
-    if (file.exists) {
-      const content = await file.text();
-      const obj = JSON.parse(content);
-      Object.keys(obj).forEach((k) => {
-        memoryStore.set(k, obj[k]);
-      });
-    }
-  } catch {
-    // ignore
-  }
-}
-
-// Hydrate on module load
-hydrateMemoryStoreAsync();
-
-let storageImpl: IStorageLike;
-
-try {
-  storageImpl = new MMKV();
-} catch {
-  // Fallback when running inside Expo Go without prebuilt native binaries
-  storageImpl = {
-    getString: (key) => memoryStore.get(key),
-    set: (key, value) => {
+    return memoryStore.get(key);
+  },
+  set: (key: string, value: string): void => {
+    if (isLocalStorageAvailable) {
+      try {
+        window.localStorage.setItem(key, value);
+        return;
+      } catch {
+        memoryStore.set(key, value);
+      }
+    } else {
       memoryStore.set(key, value);
-      persistMemoryStoreAsync();
-    },
-    delete: (key) => {
+    }
+  },
+  delete: (key: string): void => {
+    if (isLocalStorageAvailable) {
+      try {
+        window.localStorage.removeItem(key);
+        return;
+      } catch {
+        memoryStore.delete(key);
+      }
+    } else {
       memoryStore.delete(key);
-      persistMemoryStoreAsync();
-    },
-    getAllKeys: () => Array.from(memoryStore.keys()),
-  };
-}
-
-export const storage = storageImpl;
+    }
+  },
+  getAllKeys: (): string[] => {
+    if (isLocalStorageAvailable) {
+      try {
+        return Object.keys(window.localStorage);
+      } catch {
+        return Array.from(memoryStore.keys());
+      }
+    }
+    return Array.from(memoryStore.keys());
+  },
+};
 
 const KEYS = {
   ACCOUNT: 'user_account',
@@ -111,7 +102,6 @@ export const storageService = {
     storage.delete(KEYS.ACCOUNT);
     storage.delete(KEYS.USER_INFO);
   },
-
 
   // --- Watch Progress / History ---
   saveWatchProgress(progress: IWatchProgress): void {
@@ -171,7 +161,7 @@ export const storageService = {
           const parsed = JSON.parse(raw) as IWatchProgress;
           list.push(parsed);
         } catch {
-          // ignore corrupted entry
+          // ignore
         }
       }
     }
@@ -267,12 +257,11 @@ export const storageService = {
   saveCachedStreams<T = unknown[]>(key: string, data: T): void {
     try {
       if (Array.isArray(data) && data.length > 5000) {
-        // Evitar estouro de limite de buffer no MMKV com listas massivas (> 5000 itens)
         return;
       }
       storage.set(`streams_${key}`, JSON.stringify(data));
     } catch {
-      // storage limit or ignore
+      // ignore
     }
   },
 

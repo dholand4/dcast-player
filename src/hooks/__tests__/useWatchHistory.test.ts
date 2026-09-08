@@ -10,6 +10,7 @@ jest.mock('../../services/storageService', () => ({
     getAllWatchProgress: jest.fn(() => []),
     saveWatchProgress: jest.fn(),
     removeWatchProgress: jest.fn(),
+    clearWatchHistory: jest.fn(),
   },
 }));
 
@@ -62,6 +63,16 @@ describe('useWatchHistory hook', () => {
 
     const all = result.current.getAllWatchProgress();
     expect(all).toEqual([mockProgress]);
+  });
+
+  it('clears watch history', () => {
+    const { result } = renderHook(() => useWatchHistory());
+
+    act(() => {
+      result.current.clearHistory('movie');
+    });
+
+    expect(storageService.clearWatchHistory).toHaveBeenCalledWith('movie');
   });
 });
 

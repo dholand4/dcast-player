@@ -2,6 +2,7 @@ import React from 'react';
 import { ISectionCarouselGlobalProps } from './types';
 import {
   Container,
+  HeaderRow,
   Title,
   ScrollList,
   ItemSpacing,
@@ -16,12 +17,16 @@ export function SectionCarouselGlobal<T>({
   keyExtractor,
   emptyMessage,
   testID,
+  rightAction,
 }: ISectionCarouselGlobalProps<T>) {
   if (!data || data.length === 0) {
     if (!emptyMessage) return null;
     return (
       <Container testID={testID}>
-        <Title>{title}</Title>
+        <HeaderRow>
+          <Title>{title}</Title>
+          {rightAction}
+        </HeaderRow>
         <EmptyContainer>
           <EmptyText>{emptyMessage}</EmptyText>
         </EmptyContainer>
@@ -31,7 +36,10 @@ export function SectionCarouselGlobal<T>({
 
   return (
     <Container testID={testID}>
-      <Title>{title}</Title>
+      <HeaderRow>
+        <Title>{title}</Title>
+        {rightAction}
+      </HeaderRow>
       <ScrollList>
         {data.map((item, index) => (
           <ItemSpacing key={keyExtractor(item, index)}>

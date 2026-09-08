@@ -49,12 +49,23 @@ const getPadding = (size: ButtonSize, theme: DefaultTheme): { v: number; h: numb
   }
 };
 
+const getHeight = (size: ButtonSize): number => {
+  switch (size) {
+    case 'sm':
+      return 38;
+    case 'lg':
+      return 50;
+    case 'md':
+    default:
+      return 46;
+  }
+};
+
 export const ButtonContainer = styled.TouchableOpacity<IContainerProps>`
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 48px;
+  height: ${({ size }) => getHeight(size)}px;
   background-color: ${({ variant, theme, disabled }) => getBackgroundColor(variant, theme, disabled)};
   padding-horizontal: ${({ size, theme }) => getPadding(size, theme).h}px;
   border-radius: ${({ theme }) => theme.radii.md}px;

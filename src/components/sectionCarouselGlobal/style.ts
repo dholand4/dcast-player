@@ -4,12 +4,18 @@ export const Container = styled.View`
   margin-bottom: ${({ theme }) => theme.spacing.lg}px;
 `;
 
+export const HeaderRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-horizontal: ${({ theme }) => theme.spacing.md}px;
+  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
+`;
+
 export const Title = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.typography.sizes.lg}px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
-  margin-horizontal: ${({ theme }) => theme.spacing.md}px;
-  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
 `;
 
 export const ScrollList = styled.ScrollView.attrs(({ theme }) => ({

@@ -33,7 +33,7 @@ describe('HomeScreen', () => {
 
     expect(getByTestId('home-screen')).toBeTruthy();
     expect(getByText('Canais Ao Vivo')).toBeTruthy();
-    expect(getByText('Filmes (VOD)')).toBeTruthy();
+    expect(getByText('Filmes')).toBeTruthy();
     expect(getByText('Séries')).toBeTruthy();
   });
 

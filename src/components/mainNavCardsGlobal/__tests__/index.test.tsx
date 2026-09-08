@@ -22,13 +22,13 @@ describe('MainNavCardsGlobal', () => {
     );
 
     expect(getByText('Canais Ao Vivo')).toBeTruthy();
-    expect(getByText('Filmes (VOD)')).toBeTruthy();
+    expect(getByText('Filmes')).toBeTruthy();
     expect(getByText('Séries')).toBeTruthy();
 
     fireEvent.press(getByText('Canais Ao Vivo'));
     expect(onLiveMock).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(getByText('Filmes (VOD)'));
+    fireEvent.press(getByText('Filmes'));
     expect(onMoviesMock).toHaveBeenCalledTimes(1);
 
     fireEvent.press(getByText('Séries'));

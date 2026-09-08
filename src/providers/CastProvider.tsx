@@ -1,4 +1,4 @@
-import { useContext, useCallback, useEffect, useState, useRef } from 'react';
+import React, { createContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { NativeModules } from 'react-native';
 import GoogleCast, {
   useCastSession,
@@ -9,33 +9,50 @@ import GoogleCast, {
   RemoteMediaClient,
   MediaStreamType,
 } from 'react-native-google-cast';
-import { CastContext, ICastContextData, ICastMediaParams } from '../providers/CastProvider';
 import { IWatchProgress } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { calculatePercentage } from '../utils/formatters';
 
-export type { ICastMediaParams, ICastContextData };
+export interface ICastMediaParams {
+  streamUrl: string;
+  title: string;
+  posterUrl?: string;
+  type: 'live' | 'movie' | 'series';
+  contentId: string;
+  seriesId?: string;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  initialTime?: number;
+}
+
+export interface ICastContextData {
+  isCasting: boolean;
+  isPlaying: boolean;
+  isPaused: boolean;
+  isBuffering: boolean;
+  streamPosition: number;
+  streamDuration: number;
+  castMedia: (params: ICastMediaParams) => Promise<void>;
+  play: () => void;
+  pause: () => void;
+  seek: (positionSeconds: number) => void;
+  stopCast: () => void;
+  showExpandedControls: () => void;
+}
+
+export const CastContext = createContext<ICastContextData>({} as ICastContextData);
 
 const isNativeCastModulePresent = Boolean(
   NativeModules.RNGoogleCast || NativeModules.RNGCSessionManager || NativeModules.RNGCCastContext
 );
 
-export function useCast(): ICastContextData {
-  const context = useContext(CastContext);
-  if (context && typeof context.isCasting === 'boolean') {
-    return context;
-  }
-
-  // Fallback implementation if called outside CastProvider (e.g. standalone test)
-  return useLocalCastFallback();
-}
-
-function useLocalCastFallback(): ICastContextData {
+export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const castSession = isNativeCastModulePresent ? useCastSession() : null;
   const hookClient = isNativeCastModulePresent ? useRemoteMediaClient() : null;
   const hookMediaStatus = isNativeCastModulePresent ? useMediaStatus() : null;
   const castState = isNativeCastModulePresent ? useCastState() : null;
 
+  // Fallback client instantiated once for direct native invocation
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
   if (isNativeCastModulePresent && !fallbackClientRef.current) {
     try {
@@ -45,19 +62,24 @@ function useLocalCastFallback(): ICastContextData {
     }
   }
 
+  // Active client: hookClient or session client or fallback client
   const client = hookClient || (castSession as any)?.client || fallbackClientRef.current;
+
+  // Connected state: session exists OR castState is connected
   const isCasting = Boolean(castSession) || castState === CastState.CONNECTED;
 
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
   const [liveDuration, setLiveDuration] = useState<number>(0);
 
+  // Sync with hook media status
   useEffect(() => {
     if (hookMediaStatus) {
       setMediaStatus(hookMediaStatus);
     }
   }, [hookMediaStatus]);
 
+  // Subscribe to client events directly for reliability
   useEffect(() => {
     if (!client || !isCasting) {
       setMediaStatus(null);
@@ -127,11 +149,14 @@ function useLocalCastFallback(): ICastContextData {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
 
+      // 1. URL formatting: Chromecast does not support bare .ts live streams over HTTP.
+      // Live IPTV streams must be passed as .m3u8 (HLS) to Chromecast receiver.
       let contentUrl = params.streamUrl;
       if (params.type === 'live') {
         contentUrl = contentUrl.replace(/\.ts(\?|$)/i, '.m3u8$1');
       }
 
+      // 2. MIME type selection
       let contentType = 'video/mp4';
       if (params.type === 'live' || contentUrl.includes('.m3u8')) {
         contentType = 'application/x-mpegURL';
@@ -141,6 +166,7 @@ function useLocalCastFallback(): ICastContextData {
         contentType = 'video/webm';
       }
 
+      // 3. Stream type selection
       const streamType = (params.type === 'live' ? 'live' : 'buffered') as MediaStreamType;
 
       const mediaInfo: any = {
@@ -173,6 +199,8 @@ function useLocalCastFallback(): ICastContextData {
         autoplay: true,
       };
 
+      // CRITICAL: For live streams, startTime MUST be undefined (omitted) so the Chromecast
+      // receiver starts playing from the live edge rather than seeking to 0:00:00 of a sliding window.
       if (params.type !== 'live' && params.initialTime && params.initialTime > 0) {
         loadRequest.startTime = params.initialTime;
       }
@@ -220,18 +248,24 @@ function useLocalCastFallback(): ICastContextData {
     }
   }, []);
 
-  return {
-    isCasting,
-    isPlaying,
-    isPaused,
-    isBuffering,
-    streamPosition,
-    streamDuration,
-    castMedia,
-    play,
-    pause,
-    seek,
-    stopCast,
-    showExpandedControls,
-  };
-}
+  return (
+    <CastContext.Provider
+      value={{
+        isCasting,
+        isPlaying,
+        isPaused,
+        isBuffering,
+        streamPosition,
+        streamDuration,
+        castMedia,
+        play,
+        pause,
+        seek,
+        stopCast,
+        showExpandedControls,
+      }}
+    >
+      {children}
+    </CastContext.Provider>
+  );
+};

@@ -25,7 +25,13 @@ export const Routes: React.FC = () => {
   }
 
   return (
-    <NavigationContainer theme={navDarkTheme}>
+    <NavigationContainer
+      theme={navDarkTheme}
+      documentTitle={{
+        enabled: true,
+        formatter: () => 'DCast Player',
+      }}
+    >
       {account ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );

@@ -54,4 +54,26 @@ describe('CategoryDrawerGlobal', () => {
     fireEvent.press(getByTestId('close-drawer-button'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('renders Continuar Assistindo item for series and movies', () => {
+    const onSelect = jest.fn();
+
+    const { getByText, getByTestId } = wrap(
+      <CategoryDrawerGlobal
+        visible={true}
+        categories={mockCategories}
+        selectedCategory="all"
+        onSelectCategory={onSelect}
+        onClose={jest.fn()}
+        continueWatchingCount={2}
+        type="series"
+      />
+    );
+
+    expect(getByText('Continuar Assistindo (2)')).toBeTruthy();
+    const cwItem = getByTestId('drawer-item-continue-watching');
+    expect(cwItem).toBeTruthy();
+    fireEvent.press(cwItem);
+    expect(onSelect).toHaveBeenCalledWith('continue_watching');
+  });
 });

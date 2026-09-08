@@ -54,4 +54,17 @@ describe('useFavorites hook', () => {
 
     expect(storageService.removeFavorite).toHaveBeenCalledWith('123');
   });
+
+  it('notifies other hook instances when favorites change', () => {
+    (storageService.getFavorites as jest.Mock).mockReturnValue([mockItem]);
+    const hook1 = renderHook(() => useFavorites());
+    const hook2 = renderHook(() => useFavorites());
+
+    (storageService.getFavorites as jest.Mock).mockReturnValue([]);
+    act(() => {
+      hook1.result.current.removeFavorite('123');
+    });
+
+    expect(hook2.result.current.favorites).toHaveLength(0);
+  });
 });

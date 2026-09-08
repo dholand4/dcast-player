@@ -136,7 +136,7 @@ export const SeasonPillText = styled.Text<{ isSelected: boolean }>`
     isSelected ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
-export const EpisodeItem = styled.TouchableOpacity`
+export const EpisodeItem = styled.TouchableOpacity<{ isWatched?: boolean }>`
   flex-direction: row;
   align-items: center;
   background-color: ${({ theme }) => theme.colors.surface};
@@ -144,7 +144,9 @@ export const EpisodeItem = styled.TouchableOpacity`
   padding: ${({ theme }) => theme.spacing.sm}px;
   margin-bottom: ${({ theme }) => theme.spacing.sm}px;
   border-width: 1px;
-  border-color: ${({ theme }) => theme.colors.border};
+  border-color: ${({ isWatched, theme }) => (isWatched ? theme.colors.primary : theme.colors.border)};
+  border-left-width: ${({ isWatched }) => (isWatched ? '5px' : '1px')};
+  border-left-color: ${({ isWatched, theme }) => (isWatched ? theme.colors.primary : theme.colors.border)};
 `;
 
 export const EpisodeThumbWrapper = styled.View`

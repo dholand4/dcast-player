@@ -14,6 +14,9 @@ export const Container = styled.ScrollView.attrs<{ insetTop?: number }>(({ theme
 
 export const BrandContainer = styled.View`
   align-items: center;
+  align-self: center;
+  width: 100%;
+  max-width: 480px;
   margin-bottom: ${({ theme }) => theme.spacing.xl}px;
 `;
 
@@ -44,6 +47,9 @@ export const Card = styled.View`
   padding: ${({ theme }) => theme.spacing.lg}px;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
+  width: 100%;
+  max-width: 480px;
+  align-self: center;
 `;
 
 export const CardTitle = styled.Text`

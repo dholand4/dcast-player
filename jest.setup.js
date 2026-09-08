@@ -19,28 +19,53 @@ jest.mock('react-native-mmkv', () => {
   };
 });
 
+const { NativeModules } = require('react-native');
+NativeModules.RNGoogleCast = NativeModules.RNGoogleCast || {};
+
 // Mock react-native-google-cast
 jest.mock('react-native-google-cast', () => {
   const { View } = require('react-native');
+  const mockRemoteMediaClient = {
+    loadMedia: jest.fn().mockResolvedValue(undefined),
+    play: jest.fn(),
+    pause: jest.fn(),
+    seek: jest.fn(),
+    stop: jest.fn(),
+    getMediaStatus: jest.fn().mockResolvedValue(null),
+    getStreamPosition: jest.fn().mockResolvedValue(null),
+    onMediaStatusUpdated: jest.fn(() => ({ remove: jest.fn() })),
+    onMediaProgressUpdated: jest.fn(() => ({ remove: jest.fn() })),
+  };
+
   return {
     __esModule: true,
     default: {
       showIntroductoryOverlay: jest.fn(),
       showExpandedControls: jest.fn(),
+      getSessionManager: jest.fn(() => ({
+        endCurrentSession: jest.fn(),
+      })),
     },
     CastButton: (props) => <View testID="mock-cast-button" {...props} />,
     useCastSession: jest.fn(() => null),
     useCastDevice: jest.fn(() => null),
     useMediaStatus: jest.fn(() => null),
-    useRemoteMediaClient: jest.fn(() => ({
-      loadMedia: jest.fn(),
-      play: jest.fn(),
-      pause: jest.fn(),
-      seek: jest.fn(),
-      stop: jest.fn(),
-    })),
+    useCastState: jest.fn(() => 'notConnected'),
+    CastState: {
+      NO_DEVICES_AVAILABLE: 'noDevicesAvailable',
+      NOT_CONNECTED: 'notConnected',
+      CONNECTING: 'connecting',
+      CONNECTED: 'connected',
+    },
+    RemoteMediaClient: jest.fn().mockImplementation(() => mockRemoteMediaClient),
+    useRemoteMediaClient: jest.fn(() => mockRemoteMediaClient),
     SessionManager: {
       endCurrentSession: jest.fn(),
+    },
+    MediaStreamType: {
+      BUFFERED: 'buffered',
+      LIVE: 'live',
+      OTHER: 'other',
     },
   };
 });
