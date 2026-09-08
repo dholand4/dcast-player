@@ -262,13 +262,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     p.keepScreenOnWhilePlaying = true;
     if (type === 'live') {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 10,
-        minBufferForPlayback: 0.5,
+        preferredForwardBufferDuration: 20,
+        minBufferForPlayback: 2.5,
       };
     } else {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 20,
-        minBufferForPlayback: 1.5,
+        preferredForwardBufferDuration: 40,
+        minBufferForPlayback: 3.5,
       };
     }
     if (initialTime > 0) {
@@ -276,7 +276,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
     // Autoplay localmente apenas se NÃO estiver transmitindo para a TV
     if (!isCastingRef.current) {
-      p.play();
+      try {
+        p.play();
+      } catch {
+        // ignore
+      }
     } else {
       p.pause();
     }
@@ -1128,6 +1132,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             setCurrentTime(initialTime);
           } catch (e) {
             console.warn('[Player] Falha ao aplicar initialTime no readyToPlay:', e);
+          }
+        }
+        // Iniciar reprodução automaticamente assim que o buffer estiver preenchido
+        if (!isCastingRef.current && !player.playing) {
+          try {
+            player.play();
+          } catch {
+            // Em navegadores com restrição estrita de som, tentar com mute se bloqueado
+            try {
+              player.muted = true;
+              player.play();
+            } catch {
+              // ignore
+            }
           }
         }
       }

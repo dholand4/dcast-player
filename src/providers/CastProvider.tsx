@@ -206,6 +206,11 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await client.loadMedia(loadRequest);
+      try {
+        client.play?.();
+      } catch {
+        // ignore
+      }
     },
     [client]
   );
