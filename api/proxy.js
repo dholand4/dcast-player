@@ -90,6 +90,7 @@ module.exports = async function handler(req, res) {
     const upstreamHeaders = {
       'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       'Accept': req.headers?.['accept'] || '*/*',
+      'Connection': 'keep-alive',
     };
 
     // Encaminhar cabeçalhos de Range para permitir avançar/rebobinar (Seek) instantâneo
@@ -142,12 +143,32 @@ module.exports = async function handler(req, res) {
       res.setHeader('Accept-Ranges', 'bytes');
     }
 
+    const contentType = (upstreamRes.headers.get('content-type') || '').toLowerCase();
+
+    // Segmentos de vídeo (.ts, .m4s, .aac, video/mp2t)
+    const isSegment =
+      targetUrl.includes('.ts') ||
+      targetUrl.includes('.m4s') ||
+      targetUrl.includes('.aac') ||
+      contentType.includes('video/mp2t');
+
+    if (isSegment) {
+      // Chunks de vídeo de IPTV são imutáveis. Cachear na borda (Edge Vercel)
+      // permite entrega ultrarrápida (<15ms) e absorve oscilações da rede sem travar o player.
+      res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=60');
+    } else if (
+      upstreamRes.status === 206 &&
+      (targetUrl.includes('/movie/') || targetUrl.includes('/series/'))
+    ) {
+      // Requisições parciais (Range) de VOD (filmes/séries)
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=120');
+    }
+
     if (req.method === 'HEAD' || !upstreamRes.body) {
       res.end();
       return;
     }
 
-    const contentType = (upstreamRes.headers.get('content-type') || '').toLowerCase();
     const isM3u8 =
       targetUrl.includes('.m3u8') ||
       contentType.includes('application/vnd.apple.mpegurl') ||

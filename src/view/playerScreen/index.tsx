@@ -259,6 +259,24 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [isCasting]);
 
+  // Configura pré-carregamento suave de buffer no elemento <video> do navegador (Web)
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const interval = setInterval(() => {
+      const videoEl = document.querySelector('video');
+      if (videoEl) {
+        videoEl.preload = 'auto';
+        videoEl.playsInline = true;
+        clearInterval(interval);
+      }
+    }, 200);
+    const timer = setTimeout(() => clearInterval(interval), 3000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, []);
+
   // Web HLS Playback Engine para Canais Ao Vivo
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -279,6 +297,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         return;
       }
 
+      videoEl.preload = 'auto';
+      videoEl.playsInline = true;
+
       const Hls = (window as any).Hls;
       if (Hls && Hls.isSupported()) {
         try {
@@ -288,10 +309,24 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
           hlsInstance = new Hls({
             enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 30,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
+            lowLatencyMode: false, // Desativa baixa latência agressiva que causa travamentos em IPTV
+            liveSyncDurationCount: 3, // Margem de segurança de 3 chunks (~9-12s), prevenindo micro-pausas
+            liveMaxLatencyDurationCount: 10, // Evita acumular atraso excessivo
+            backBufferLength: 30, // Descarrega chunks antigos da RAM para manter o navegador leve
+            maxBufferLength: 30, // Mantém até 30s de buffer à frente
+            maxMaxBufferLength: 60, // Até 60s se a banda permitir
+            maxBufferSize: 60 * 1000 * 1000, // 60MB de buffer na memória
+            startFragPrefetch: true, // Pré-carrega o próximo segmento em paralelo para transições lisas
+            manifestLoadingTimeOut: 20000,
+            manifestLoadingMaxRetry: 5,
+            manifestLoadingRetryDelay: 1000,
+            levelLoadingTimeOut: 20000,
+            levelLoadingMaxRetry: 5,
+            levelLoadingRetryDelay: 1000,
+            fragLoadingTimeOut: 25000,
+            fragLoadingMaxRetry: 6,
+            fragLoadingRetryDelay: 1000,
+            appendErrorMaxRetry: 5,
           });
 
           hlsInstance.loadSource(currentStreamUrl);
@@ -301,6 +336,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             setIsBuffering(false);
             setPlaybackError(null);
             videoEl.play().catch(() => {});
+          });
+
+          hlsInstance.on(Hls.Events.BUFFER_APPENDED, () => {
+            setIsBuffering(false);
           });
 
           hlsInstance.on(Hls.Events.ERROR, (_: any, data: any) => {
@@ -322,6 +361,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   );
                   break;
               }
+            } else if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+              console.warn('[HLS] Buffer estagnado, retomando carregamento de chunks...');
+              hlsInstance.startLoad();
             }
           });
         } catch (err) {

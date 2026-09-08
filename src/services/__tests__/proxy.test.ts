@@ -124,4 +124,33 @@ http://cdn.iptv.com/live/chunk_101.ts`;
       expect.stringContaining('/api/proxy?url=http%3A%2F%2Fcdn.iptv.com%2Flive%2Fchunk_101.ts')
     );
   });
+
+  it('adds edge cache headers and keep-alive for video segments (.ts chunks)', async () => {
+    req.query.url = 'http://iptv.server:8080/live/user/pass/chunk_100.ts';
+
+    const mockHeaders = new Headers();
+    mockHeaders.set('content-type', 'video/mp2t');
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      status: 200,
+      headers: mockHeaders,
+      body: null,
+    });
+
+    await proxyHandler(req, res);
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://iptv.server:8080/live/user/pass/chunk_100.ts',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Connection: 'keep-alive',
+          'User-Agent': expect.stringContaining('VLC'),
+        }),
+      })
+    );
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      expect.stringContaining('s-maxage=300')
+    );
+  });
 });
