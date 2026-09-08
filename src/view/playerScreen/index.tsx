@@ -273,13 +273,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       };
     } else {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 60,
+        preferredForwardBufferDuration: 90,
         minBufferForPlayback: 1.0,
         prioritizeTimeOverSizeThreshold: true,
         waitsToMinimizeStalling: true,
-        maxBufferBytes: 60 * 1024 * 1024,
+        maxBufferBytes: 80 * 1024 * 1024,
       };
     }
+    p.seekTolerance = {
+      toleranceBefore: 2.0,
+      toleranceAfter: 2.0,
+    };
     if (initialTime > 0) {
       p.currentTime = initialTime;
     }
