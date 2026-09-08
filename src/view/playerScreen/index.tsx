@@ -237,7 +237,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [currentStreamUrl]);
 
-  const { saveProgress } = useWatchHistory();
+  const { saveProgress, getProgress } = useWatchHistory();
   const {
     isCasting,
     isPlaying: isCastPlaying,
@@ -910,13 +910,34 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         episodeNumber,
         currentTime: Math.floor(time),
         duration: Math.floor(totalDur),
-        percentage: pct,
+        percentage: pct >= 95 ? 100 : pct,
         updatedAt: Date.now(),
         streamUrl,
       });
     },
     [contentId, seriesId, title, posterUrl, type, seasonNumber, episodeNumber, streamUrl, saveProgress]
   );
+
+  // Garante que o episódio atualmente aberto na tela seja o exibido no Continuar Assistindo
+  useEffect(() => {
+    if (type === 'series' && contentId) {
+      const existing = getProgress(contentId);
+      saveProgress({
+        id: contentId,
+        seriesId,
+        title,
+        posterUrl: posterUrl || '',
+        type: 'series',
+        seasonNumber,
+        episodeNumber,
+        currentTime: initialTime || existing?.currentTime || 1,
+        duration: existing?.duration || 0,
+        percentage: existing?.percentage && existing.percentage < 95 ? existing.percentage : 1,
+        updatedAt: Date.now(),
+        streamUrl,
+      });
+    }
+  }, [contentId, seriesId, title, type, posterUrl, seasonNumber, episodeNumber, initialTime, streamUrl, saveProgress, getProgress]);
 
   const isNavigatingEpisodeRef = useRef(false);
 
@@ -926,9 +947,41 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     const cur = isCasting ? streamPosition : (player.currentTime || currentTime);
     const dur = isCasting ? streamDuration : (duration || player.duration || 0);
-    if (cur > 0 && dur > 0) {
-      persistCurrentProgress(cur, dur);
+
+    // 1. Marca o episódio que acabou como 100% concluído para sair do Continuar Assistindo
+    if (contentId) {
+      saveProgress({
+        id: contentId,
+        seriesId,
+        title,
+        posterUrl: posterUrl || '',
+        type: 'series',
+        seasonNumber,
+        episodeNumber,
+        currentTime: dur > 0 ? Math.floor(dur) : Math.floor(cur),
+        duration: dur > 0 ? Math.floor(dur) : Math.floor(cur),
+        percentage: 100,
+        updatedAt: Date.now() - 1000,
+        streamUrl,
+      });
     }
+
+    // 2. Registra o próximo episódio imediatamente como ativo com o título correto
+    const nextTitle = nextEpisode.title;
+    saveProgress({
+      id: nextEpisode.id,
+      seriesId,
+      title: nextTitle,
+      posterUrl: nextEpisode.posterUrl || posterUrl || '',
+      type: 'series',
+      seasonNumber: nextEpisode.seasonNumber,
+      episodeNumber: nextEpisode.episodeNumber,
+      currentTime: 1,
+      duration: 0,
+      percentage: 1,
+      updatedAt: Date.now() + 1000,
+      streamUrl: nextEpisode.streamUrl,
+    });
 
     navigation.replace('PlayerScreen', {
       streamUrl: nextEpisode.streamUrl,
@@ -950,10 +1003,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     currentTime,
     streamDuration,
     duration,
-    persistCurrentProgress,
-    navigation,
-    posterUrl,
+    contentId,
     seriesId,
+    title,
+    posterUrl,
+    seasonNumber,
+    episodeNumber,
+    streamUrl,
+    saveProgress,
+    navigation,
     episodesList,
   ]);
 
@@ -1012,6 +1070,23 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       persistCurrentProgress(cur, dur);
     }
 
+    // Registra o episódio anterior imediatamente como o ativo
+    const prevTitle = prevEpisode.title;
+    saveProgress({
+      id: prevEpisode.id,
+      seriesId,
+      title: prevTitle,
+      posterUrl: prevEpisode.posterUrl || posterUrl || '',
+      type: 'series',
+      seasonNumber: prevEpisode.seasonNumber,
+      episodeNumber: prevEpisode.episodeNumber,
+      currentTime: 1,
+      duration: 0,
+      percentage: 1,
+      updatedAt: Date.now() + 1000,
+      streamUrl: prevEpisode.streamUrl,
+    });
+
     navigation.replace('PlayerScreen', {
       streamUrl: prevEpisode.streamUrl,
       title: prevEpisode.title,
@@ -1033,6 +1108,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     streamDuration,
     duration,
     persistCurrentProgress,
+    saveProgress,
     navigation,
     posterUrl,
     seriesId,

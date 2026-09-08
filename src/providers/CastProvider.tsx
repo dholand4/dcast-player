@@ -140,7 +140,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       episodeNumber: data.episodeNumber,
       currentTime,
       duration,
-      percentage,
+      percentage: percentage >= 95 ? 100 : percentage,
       updatedAt: Date.now(),
       streamUrl: data.streamUrl,
     });
