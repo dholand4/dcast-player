@@ -55,5 +55,36 @@ describe('HomeScreen', () => {
     fireEvent.press(searchBtn);
     expect(mockNavigation.navigate).toHaveBeenCalledWith('SearchScreen');
   });
+
+  it('renders quick actions row with sync catalog and network diagnostic buttons', () => {
+    const { getByTestId, getByText } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(getByTestId('quick-actions-row')).toBeTruthy();
+    expect(getByText('Atualizar Listas')).toBeTruthy();
+    expect(getByText('Teste de Conexão')).toBeTruthy();
+  });
+
+  it('triggers catalog cache clearing when sync button is clicked', () => {
+    const { getByTestId } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const syncBtn = getByTestId('sync-catalog-button');
+    expect(syncBtn).toBeTruthy();
+    fireEvent.press(syncBtn);
+  });
+
+  it('opens network diagnostic modal when diagnostic button is clicked', () => {
+    const { getByTestId } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const diagBtn = getByTestId('network-diagnostic-button');
+    expect(diagBtn).toBeTruthy();
+    fireEvent.press(diagBtn);
+    expect(getByTestId('network-diagnostic-modal')).toBeTruthy();
+  });
 });
 

@@ -1,13 +1,16 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Platform, Alert, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
+import { clearXtreamCache } from '../../hooks/useXtream';
+import { storageService } from '../../services/storageService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
+import { NetworkDiagnosticModal } from '../../components/networkDiagnosticModal';
 import { formatExpirationDate } from '../../utils/formatters';
 import {
   Container,
@@ -17,11 +20,16 @@ import {
   SubscriptionText,
   ExpirationBadge,
   ExpirationBadgeText,
+  QuickActionsRow,
+  QuickActionButton,
+  QuickActionText,
 } from './style';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { account, userInfo } = useAuth();
   const { continueWatching, removeProgress, clearHistory } = useWatchHistory();
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const formattedExpDate = formatExpirationDate(userInfo?.exp_date);
 
   const collapsedContinueWatching = useMemo(() => {
@@ -87,6 +95,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [removeProgress]
   );
 
+  const handleSyncCatalog = useCallback(() => {
+    setIsSyncing(true);
+    try {
+      clearXtreamCache();
+      storageService.clearCatalogCache();
+
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.alert('Catálogo sincronizado com sucesso! As listas foram atualizadas.');
+        }
+      } else {
+        Alert.alert(
+          'Sincronização Concluída',
+          'O catálogo de canais, filmes e séries foi atualizado com sucesso.'
+        );
+      }
+    } catch {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.alert('Erro ao sincronizar catálogo.');
+        }
+      } else {
+        Alert.alert('Erro', 'Não foi possível atualizar o catálogo.');
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
   return (
     <Container testID="home-screen">
       <HeaderGlobal
@@ -110,6 +147,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </ExpirationBadge>
           </SubscriptionCard>
         )}
+
+        <QuickActionsRow testID="quick-actions-row">
+          <QuickActionButton
+            onPress={handleSyncCatalog}
+            disabled={isSyncing}
+            accessibilityRole="button"
+            accessibilityLabel="Atualizar listas de canais e filmes"
+            testID="sync-catalog-button"
+            style={{ opacity: isSyncing ? 0.6 : 1 }}
+          >
+            <MaterialIcons
+              name={isSyncing ? 'hourglass-empty' : 'sync'}
+              size={18}
+              color="#29B6F6"
+            />
+            <QuickActionText>
+              {isSyncing ? 'Sincronizando...' : 'Atualizar Listas'}
+            </QuickActionText>
+          </QuickActionButton>
+
+          <QuickActionButton
+            onPress={() => setIsDiagnosticOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Diagnóstico e velocidade da conexão"
+            testID="network-diagnostic-button"
+          >
+            <MaterialIcons name="speed" size={18} color="#46D369" />
+            <QuickActionText>Teste de Conexão</QuickActionText>
+          </QuickActionButton>
+        </QuickActionsRow>
 
         <MainNavCardsGlobal
           onSelectLive={() =>
@@ -204,6 +271,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         )}
       </ScrollArea>
+
+      <NetworkDiagnosticModal
+        visible={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
+        account={account}
+      />
     </Container>
   );
 };
