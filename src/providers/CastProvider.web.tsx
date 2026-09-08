@@ -25,6 +25,7 @@ export interface ICastContextData {
   seek: (positionSeconds: number) => void;
   stopCast: () => void;
   showExpandedControls: () => void;
+  currentMedia: ICastMediaParams | null;
 }
 
 export const CastContext = createContext<ICastContextData>({
@@ -40,6 +41,7 @@ export const CastContext = createContext<ICastContextData>({
   seek: () => {},
   stopCast: () => {},
   showExpandedControls: () => {},
+  currentMedia: null,
 });
 
 export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -56,6 +58,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     seek: () => {},
     stopCast: () => {},
     showExpandedControls: () => {},
+    currentMedia: null,
   };
 
   return <CastContext.Provider value={value}>{children}</CastContext.Provider>;

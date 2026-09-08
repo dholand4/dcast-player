@@ -8,6 +8,7 @@ import { useXtream } from '../../hooks/useXtream';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { xtreamService } from '../../services/xtreamService';
+import { prefetchService } from '../../services/prefetchService';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { BadgeGlobal } from '../../components/badgeGlobal';
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
@@ -81,6 +82,26 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       };
     }
   }, [id, type, account, fetchSeriesInfo]);
+
+  // Smart Pre-fetch: pré-carrega os primeiros megabytes da mídia em segundo plano
+  useEffect(() => {
+    if (!account) return;
+    if (type === 'movie') {
+      const url = xtreamService.buildVodStreamUrl(account, id, containerExtension || 'mp4');
+      prefetchService.prefetchVod(url);
+    } else if (type === 'series' && seriesInfo?.episodes) {
+      const eps = seriesInfo.episodes[selectedSeason];
+      if (eps && eps.length > 0) {
+        const firstEp = eps[0];
+        const epUrl = xtreamService.buildSeriesStreamUrl(
+          account,
+          firstEp.id,
+          firstEp.container_extension || 'mp4'
+        );
+        prefetchService.prefetchVod(epUrl);
+      }
+    }
+  }, [type, account, id, containerExtension, seriesInfo, selectedSeason]);
 
   const rawTrailer =
     type === 'series'

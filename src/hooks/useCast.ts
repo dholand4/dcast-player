@@ -51,6 +51,7 @@ function useLocalCastFallback(): ICastContextData {
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
   const [liveDuration, setLiveDuration] = useState<number>(0);
+  const [currentMedia, setCurrentMedia] = useState<ICastMediaParams | null>(null);
 
   useEffect(() => {
     if (hookMediaStatus) {
@@ -63,6 +64,7 @@ function useLocalCastFallback(): ICastContextData {
       setMediaStatus(null);
       setLivePosition(0);
       setLiveDuration(0);
+      setCurrentMedia(null);
       return;
     }
 
@@ -178,6 +180,12 @@ function useLocalCastFallback(): ICastContextData {
       }
 
       await client.loadMedia(loadRequest);
+      setCurrentMedia(params);
+      try {
+        client.play?.();
+      } catch {
+        // ignore
+      }
     },
     [client]
   );
@@ -198,6 +206,7 @@ function useLocalCastFallback(): ICastContextData {
   );
 
   const stopCast = useCallback(() => {
+    setCurrentMedia(null);
     try {
       client?.stop();
     } catch {
@@ -233,5 +242,6 @@ function useLocalCastFallback(): ICastContextData {
     seek,
     stopCast,
     showExpandedControls,
+    currentMedia,
   };
 }

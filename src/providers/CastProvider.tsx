@@ -38,6 +38,7 @@ export interface ICastContextData {
   seek: (positionSeconds: number) => void;
   stopCast: () => void;
   showExpandedControls: () => void;
+  currentMedia: ICastMediaParams | null;
 }
 
 export const CastContext = createContext<ICastContextData>({} as ICastContextData);
@@ -71,6 +72,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
   const [liveDuration, setLiveDuration] = useState<number>(0);
+  const [currentMedia, setCurrentMedia] = useState<ICastMediaParams | null>(null);
 
   // Sync with hook media status
   useEffect(() => {
@@ -85,6 +87,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMediaStatus(null);
       setLivePosition(0);
       setLiveDuration(0);
+      setCurrentMedia(null);
       return;
     }
 
@@ -206,6 +209,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await client.loadMedia(loadRequest);
+      setCurrentMedia(params);
       try {
         client.play?.();
       } catch {
@@ -231,6 +235,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const stopCast = useCallback(() => {
+    setCurrentMedia(null);
     try {
       client?.stop();
     } catch {
@@ -268,6 +273,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         seek,
         stopCast,
         showExpandedControls,
+        currentMedia,
       }}
     >
       {children}

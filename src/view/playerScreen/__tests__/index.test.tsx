@@ -177,6 +177,7 @@ describe('PlayerScreen', () => {
       seek: jest.fn(),
       stopCast: jest.fn(),
       showExpandedControls: jest.fn(),
+      currentMedia: null,
     };
 
     const { getByTestId, getByText } = render(

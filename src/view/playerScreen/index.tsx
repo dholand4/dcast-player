@@ -1287,6 +1287,24 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (cur > 0 && dur > 0) {
       persistCurrentProgress(cur, dur);
     }
+
+    // Se estiver no Chrome/Web reproduzindo vídeo local, descolar para Picture-in-Picture flutuante
+    if (Platform.OS === 'web' && !isCasting && typeof document !== 'undefined') {
+      try {
+        const videoEl = document.querySelector('video') as HTMLVideoElement | null;
+        if (
+          videoEl &&
+          document.pictureInPictureEnabled &&
+          document.pictureInPictureElement !== videoEl &&
+          !videoEl.paused
+        ) {
+          videoEl.requestPictureInPicture?.().catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     navigation.goBack();
   }, [isCasting, streamPosition, streamDuration, currentTime, duration, navigation, persistCurrentProgress, player]);
 
