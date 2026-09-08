@@ -191,6 +191,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [currentTime, setCurrentTime] = useState(initialTime);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [contentFitMode, setContentFitMode] = useState<'contain' | 'cover'>('contain');
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-hide controls
@@ -230,6 +231,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Lock orientation to landscape for local playback, restore to portrait on unmount or cast
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     async function applyOrientation() {
       try {
         if (!isCasting) {
@@ -648,6 +651,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         handleToggleFullscreen();
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'));
       } else if ((e.key === 'n' || e.key === 'N') && nextEpisode) {
         e.preventDefault();
         handleGoToNextEpisode();
@@ -801,9 +807,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       <VideoWrapper>
         <StyledVideo
           player={player}
-          contentFit="contain"
+          contentFit={contentFitMode}
           nativeControls={false}
           allowsPictureInPicture
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            right: 0,
+            width: '100%',
+            height: '100%',
+          }}
         />
 
         {/* Buffering Spinner */}
@@ -864,6 +879,24 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               </ControlButton>
               <PlayerTitle>{title}</PlayerTitle>
               <TopRightActions pointerEvents="box-none">
+                <ControlButton
+                  onPress={() =>
+                    setContentFitMode((prev) => (prev === 'contain' ? 'cover' : 'contain'))
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    contentFitMode === 'contain' ? 'Preencher tela' : 'Ajustar à tela'
+                  }
+                  testID="aspect-ratio-button"
+                  style={{ marginRight: 8 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <MaterialIcons
+                    name={contentFitMode === 'contain' ? 'aspect-ratio' : 'fit-screen'}
+                    size={22}
+                    color="#FFFFFF"
+                  />
+                </ControlButton>
                 {Platform.OS === 'web' && (
                   <ControlButton
                     onPress={handleToggleFullscreen}

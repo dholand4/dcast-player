@@ -25,6 +25,24 @@ export default function App() {
         document.getElementsByTagName('head')[0]?.appendChild(link);
       }
       link.href = '/favicon.png';
+
+      // Previne que tags de vídeo HTML5 estufem a página com zoom no Web
+      let styleTag = document.getElementById('dcast-web-video-reset') as HTMLStyleElement | null;
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dcast-web-video-reset';
+        styleTag.textContent = `
+          video {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: contain;
+            background-color: #000000;
+          }
+        `;
+        document.head.appendChild(styleTag);
+      }
     }
   }, []);
 

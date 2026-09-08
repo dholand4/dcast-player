@@ -4,14 +4,21 @@ import { VideoView } from 'expo-video';
 
 export const Container = styled.View`
   flex: 1;
+  width: 100%;
+  height: 100%;
   background-color: ${({ theme }) => theme.colors.black};
+  overflow: hidden;
 `;
 
 export const VideoWrapper = styled.View`
   flex: 1;
+  width: 100%;
+  height: 100%;
   position: relative;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
+  background-color: ${({ theme }) => theme.colors.black};
 `;
 
 export const StyledVideo = styled(VideoView)`
@@ -20,6 +27,8 @@ export const StyledVideo = styled(VideoView)`
   left: 0;
   bottom: 0;
   right: 0;
+  width: 100%;
+  height: 100%;
 `;
 
 export const BackgroundPressable = styled.Pressable`
@@ -28,6 +37,8 @@ export const BackgroundPressable = styled.Pressable`
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  height: 100%;
 `;
 
 export const BufferingWrapper = styled.View`
@@ -36,17 +47,20 @@ export const BufferingWrapper = styled.View`
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  height: 100%;
   align-items: center;
   justify-content: center;
 `;
 
 export const ControlsOverlay = styled.View`
-
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  height: 100%;
   justify-content: space-between;
   background-color: ${({ theme }) => theme.colors.overlay};
   padding: ${({ theme }) => theme.spacing.lg}px;
