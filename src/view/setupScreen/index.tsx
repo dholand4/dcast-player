@@ -36,7 +36,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ navigation }) => {
   const handleConnect = async () => {
     const success = await loginWithM3u(url, label);
     if (success) {
-      navigation.replace('HomeScreen');
+      try {
+        navigation.replace('HomeScreen');
+      } catch {
+        // Se a troca de AuthStack para AppStack já tiver assumido o controle, ignorar
+      }
     }
   };
 

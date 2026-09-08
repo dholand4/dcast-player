@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
-import { useNavigation, useNavigationState, NavigationProp } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { useCast } from '../../hooks/useCast';
 import { useAppInsets } from '../../hooks/useAppInsets';
-import { RootStackParamList } from '../../routes/types';
+import { navigationRef } from '../../routes/navigationRef';
 import { IMiniPlayerGlobalProps } from './types';
 import {
   Container,
@@ -23,7 +22,7 @@ import {
 export const MiniPlayerGlobal: React.FC<IMiniPlayerGlobalProps> = ({ testID }) => {
   const theme = useTheme();
   const insets = useAppInsets();
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const [currentRouteName, setCurrentRouteName] = useState<string | null>(null);
 
   const {
     isCasting,
@@ -36,11 +35,24 @@ export const MiniPlayerGlobal: React.FC<IMiniPlayerGlobalProps> = ({ testID }) =
     stopCast,
   } = useCast();
 
-  // Obter o nome da rota ativa para não sobrepor o PlayerScreen
-  const currentRouteName = useNavigationState((state) => {
-    if (!state || !state.routes || state.index === undefined) return null;
-    return state.routes[state.index]?.name;
-  });
+  useEffect(() => {
+    const updateRoute = () => {
+      try {
+        if (navigationRef.isReady()) {
+          const route = navigationRef.getCurrentRoute();
+          setCurrentRouteName(route?.name || null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    updateRoute();
+    const unsubscribe = navigationRef.addListener?.('state', updateRoute);
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
 
   const progressPercent = useMemo(() => {
     if (!streamDuration || streamDuration <= 0) return 0;
@@ -53,17 +65,23 @@ export const MiniPlayerGlobal: React.FC<IMiniPlayerGlobalProps> = ({ testID }) =
   }
 
   const handleOpenPlayer = () => {
-    navigation.navigate('PlayerScreen', {
-      streamUrl: currentMedia.streamUrl,
-      title: currentMedia.title,
-      posterUrl: currentMedia.posterUrl,
-      type: currentMedia.type,
-      contentId: currentMedia.contentId,
-      seriesId: currentMedia.seriesId,
-      seasonNumber: currentMedia.seasonNumber,
-      episodeNumber: currentMedia.episodeNumber,
-      initialTime: Math.floor(streamPosition),
-    });
+    try {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('PlayerScreen', {
+          streamUrl: currentMedia.streamUrl,
+          title: currentMedia.title,
+          posterUrl: currentMedia.posterUrl,
+          type: currentMedia.type,
+          contentId: currentMedia.contentId,
+          seriesId: currentMedia.seriesId,
+          seasonNumber: currentMedia.seasonNumber,
+          episodeNumber: currentMedia.episodeNumber,
+          initialTime: Math.floor(streamPosition),
+        });
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const handleTogglePlayPause = (e: any) => {

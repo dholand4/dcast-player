@@ -112,11 +112,15 @@ jest.mock('expo-clipboard', () => ({
 
 // Mock safe area context
 jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+  const SafeAreaInsetsContext = React.createContext(inset);
   return {
     SafeAreaProvider: ({ children }) => children,
     SafeAreaView: ({ children }) => children,
     useSafeAreaInsets: () => inset,
+    SafeAreaInsetsContext,
+    initialWindowMetrics: { frame: { x: 0, y: 0, width: 0, height: 0 }, insets: inset },
   };
 });
 

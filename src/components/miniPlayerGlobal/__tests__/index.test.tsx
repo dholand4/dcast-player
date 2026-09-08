@@ -5,23 +5,18 @@ import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
 import { MiniPlayerGlobal } from '../index';
 import { CastContext, ICastContextData } from '../../../providers/CastProvider';
+import { navigationRef } from '../../../routes/navigationRef';
 
 const mockNavigate = jest.fn();
 
-jest.mock('@react-navigation/native', () => {
-  const actual = jest.requireActual('@react-navigation/native');
-  return {
-    ...actual,
-    useNavigation: () => ({
-      navigate: mockNavigate,
-    }),
-    useNavigationState: (cb: any) =>
-      cb({
-        routes: [{ name: 'HomeScreen' }],
-        index: 0,
-      }),
-  };
-});
+jest.mock('../../../routes/navigationRef', () => ({
+  navigationRef: {
+    isReady: () => true,
+    getCurrentRoute: () => ({ name: 'HomeScreen' }),
+    addListener: jest.fn(() => () => {}),
+    navigate: (...args: any[]) => mockNavigate(...args),
+  },
+}));
 
 describe('MiniPlayerGlobal', () => {
   const mockPlay = jest.fn();

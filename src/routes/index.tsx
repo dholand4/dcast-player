@@ -3,6 +3,7 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { AppStack } from './AppStack';
 import { AuthStack } from './AuthStack';
+import { navigationRef } from './navigationRef';
 import { LoadingGlobal } from '../components/loadingGlobal';
 
 const navDarkTheme = {
@@ -26,6 +27,7 @@ export const Routes: React.FC = () => {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={navDarkTheme}
       documentTitle={{
         enabled: true,
