@@ -134,6 +134,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(initialStreamUrl);
   const attemptedAlternativeRef = useRef(false);
+  const hasAppliedInitialTimeRef = useRef(false);
 
   const videoSource = useMemo(() => {
     const isHls = currentStreamUrl.includes('.m3u8');
@@ -259,23 +260,49 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [isCasting]);
 
-  // Configura pré-carregamento suave de buffer no elemento <video> do navegador (Web)
+  // Configura pré-carregamento suave de buffer e restauração de initialTime no elemento <video> do navegador (Web)
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const interval = setInterval(() => {
+
+    let applied = false;
+    const checkAndPrepareWebVideo = () => {
       const videoEl = document.querySelector('video');
-      if (videoEl) {
-        videoEl.preload = 'auto';
-        videoEl.playsInline = true;
-        clearInterval(interval);
+      if (!videoEl) return;
+
+      videoEl.preload = 'auto';
+      videoEl.playsInline = true;
+
+      if (initialTime > 0 && !applied && !hasAppliedInitialTimeRef.current) {
+        const doSeek = () => {
+          if (applied || hasAppliedInitialTimeRef.current) return;
+          applied = true;
+          hasAppliedInitialTimeRef.current = true;
+          try {
+            videoEl.currentTime = initialTime;
+            player.currentTime = initialTime;
+            setCurrentTime(initialTime);
+          } catch (err) {
+            console.warn('[Web] Erro ao buscar initialTime no elemento de vídeo:', err);
+          }
+        };
+
+        if (videoEl.readyState >= 1) {
+          doSeek();
+        } else {
+          videoEl.addEventListener('loadedmetadata', doSeek, { once: true });
+          videoEl.addEventListener('canplay', doSeek, { once: true });
+        }
       }
-    }, 200);
-    const timer = setTimeout(() => clearInterval(interval), 3000);
+    };
+
+    checkAndPrepareWebVideo();
+    const interval = setInterval(checkAndPrepareWebVideo, 200);
+    const timer = setTimeout(() => clearInterval(interval), 4000);
     return () => {
       clearInterval(interval);
       clearTimeout(timer);
     };
-  }, []);
+  }, [initialTime, player]);
 
   // Web HLS Playback Engine para Canais Ao Vivo
   useEffect(() => {
@@ -529,6 +556,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     player.timeUpdateEventInterval = 0.5;
     const subTime = player.addListener('timeUpdate', (event) => {
       if (typeof event.currentTime === 'number' && Number.isFinite(event.currentTime)) {
+        if (initialTime > 0 && !hasAppliedInitialTimeRef.current) {
+          if (event.currentTime < 1) {
+            try {
+              player.currentTime = initialTime;
+            } catch {}
+            return;
+          }
+          hasAppliedInitialTimeRef.current = true;
+        }
+
         setCurrentTime(event.currentTime);
         if (
           type === 'series' &&
@@ -577,6 +614,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         setPlaybackError(null);
         if (player.duration > 0 && Number.isFinite(player.duration)) {
           setDuration(player.duration);
+        }
+        if (initialTime > 0 && !hasAppliedInitialTimeRef.current) {
+          hasAppliedInitialTimeRef.current = true;
+          try {
+            player.currentTime = initialTime;
+            setCurrentTime(initialTime);
+          } catch (e) {
+            console.warn('[Player] Falha ao aplicar initialTime no readyToPlay:', e);
+          }
         }
       }
     });

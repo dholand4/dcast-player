@@ -125,7 +125,14 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     );
     const season = seasonNum ? String(seasonNum) : selectedSeason;
     const epTitle = `${title} - T${season}E${episode.episode_num}: ${episode.title}`;
-    const epProgress = getProgress(String(episode.id));
+    const epProgress =
+      getProgress(String(episode.id)) ||
+      (latestSeriesProgress &&
+      (String(latestSeriesProgress.id) === String(episode.id) ||
+        (Number(latestSeriesProgress.seasonNumber) === Number(season) &&
+          Number(latestSeriesProgress.episodeNumber) === Number(episode.episode_num)))
+        ? latestSeriesProgress
+        : null);
 
     // Salvar progresso imediatamente para marcar o episódio como aberto/assistido
     saveProgress({
