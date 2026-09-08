@@ -378,7 +378,11 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   const handleLivePlay = useCallback(
     (stream: IXtreamLiveStream) => {
       if (!account) return;
-      const streamUrl = xtreamService.buildLiveStreamUrl(account, stream.stream_id, 'ts');
+      const streamUrl = xtreamService.buildLiveStreamUrl(
+        account,
+        stream.stream_id,
+        Platform.OS === 'web' ? 'm3u8' : 'ts'
+      );
       navigation.navigate('PlayerScreen', {
         streamUrl,
         title: stream.name,

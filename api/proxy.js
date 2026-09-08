@@ -18,6 +18,39 @@ function sendJson(res, code, data) {
   }
 }
 
+function rewriteM3u8(m3u8Text, baseUrl) {
+  const lines = m3u8Text.split('\n');
+  const rewritten = lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return line;
+
+    // Se for linha de comentário ou metadados HLS
+    if (trimmed.startsWith('#')) {
+      if (trimmed.includes('URI="')) {
+        return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
+          try {
+            const absoluteUri = new URL(uri, baseUrl).toString();
+            return `URI="/api/proxy?url=${encodeURIComponent(absoluteUri)}"`;
+          } catch {
+            return match;
+          }
+        });
+      }
+      return line;
+    }
+
+    // Linha de segmento de mídia (.ts, .aac, .m4s) ou sub-playlist (.m3u8)
+    try {
+      const absoluteUrl = new URL(trimmed, baseUrl).toString();
+      return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+    } catch {
+      return line;
+    }
+  });
+
+  return rewritten.join('\n');
+}
+
 module.exports = async function handler(req, res) {
   // Configuração global de CORS para streaming e requisições parciais (byte ranges)
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -111,6 +144,21 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'HEAD' || !upstreamRes.body) {
       res.end();
+      return;
+    }
+
+    const contentType = (upstreamRes.headers.get('content-type') || '').toLowerCase();
+    const isM3u8 =
+      targetUrl.includes('.m3u8') ||
+      contentType.includes('application/vnd.apple.mpegurl') ||
+      contentType.includes('application/x-mpegurl');
+
+    if (isM3u8) {
+      const m3u8Text = await upstreamRes.text();
+      const rewrittenText = rewriteM3u8(m3u8Text, targetUrl);
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.end(rewrittenText);
       return;
     }
 

@@ -43,6 +43,15 @@ export default function App() {
         `;
         document.head.appendChild(styleTag);
       }
+
+      // Injeta Hls.js para suporte a canais de TV ao vivo no navegador
+      let hlsScript = document.getElementById('hls-cdn-script') as HTMLScriptElement | null;
+      if (!hlsScript) {
+        hlsScript = document.createElement('script');
+        hlsScript.id = 'hls-cdn-script';
+        hlsScript.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
+        document.head.appendChild(hlsScript);
+      }
     }
   }, []);
 

@@ -209,10 +209,12 @@ export const xtreamService = {
   buildLiveStreamUrl(
     creds: IAccountCredentials,
     streamId: string | number,
-    extension: string = 'ts'
+    extension?: string
   ): string {
     const { serverUrl, username, password } = creds;
-    const cleanExt = extension ? extension.replace(/^\./, '').trim() : '';
+    const defaultExt = Platform.OS === 'web' ? 'm3u8' : 'ts';
+    const chosenExt = extension !== undefined ? extension : defaultExt;
+    const cleanExt = chosenExt ? chosenExt.replace(/^\./, '').trim() : '';
     const rawUrl = cleanExt
       ? `${serverUrl}/live/${username}/${password}/${streamId}.${cleanExt}`
       : `${serverUrl}/live/${username}/${password}/${streamId}`;

@@ -124,7 +124,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-  const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrl);
+
+  const initialStreamUrl = useMemo(() => {
+    if (Platform.OS === 'web' && type === 'live' && streamUrl.includes('.ts')) {
+      return streamUrl.replace(/\.ts(\?|$)/, '.m3u8$1');
+    }
+    return streamUrl;
+  }, [streamUrl, type]);
+
+  const [currentStreamUrl, setCurrentStreamUrl] = useState(initialStreamUrl);
   const attemptedAlternativeRef = useRef(false);
 
   const videoSource = useMemo(() => {
@@ -250,6 +258,105 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     };
   }, [isCasting]);
+
+  // Web HLS Playback Engine para Canais Ao Vivo
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const isLiveOrHls = type === 'live' || currentStreamUrl.includes('.m3u8');
+    if (!isLiveOrHls) return;
+
+    let hlsInstance: any = null;
+    let pollTimer: NodeJS.Timeout | null = null;
+    let isCancelled = false;
+
+    const attachHls = () => {
+      const videoEl = document.querySelector('video');
+      if (!videoEl) {
+        if (!isCancelled) {
+          pollTimer = setTimeout(attachHls, 200);
+        }
+        return;
+      }
+
+      const Hls = (window as any).Hls;
+      if (Hls && Hls.isSupported()) {
+        try {
+          if (hlsInstance) {
+            hlsInstance.destroy();
+          }
+
+          hlsInstance = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 30,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+          });
+
+          hlsInstance.loadSource(currentStreamUrl);
+          hlsInstance.attachMedia(videoEl);
+
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            setIsBuffering(false);
+            setPlaybackError(null);
+            videoEl.play().catch(() => {});
+          });
+
+          hlsInstance.on(Hls.Events.ERROR, (_: any, data: any) => {
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.warn('[HLS] Erro de rede no canal ao vivo, reconectando...', data);
+                  hlsInstance.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.warn('[HLS] Falha de decodificação no canal ao vivo, recuperando...', data);
+                  hlsInstance.recoverMediaError();
+                  break;
+                default:
+                  console.error('[HLS] Erro fatal no canal ao vivo:', data);
+                  hlsInstance.destroy();
+                  setPlaybackError(
+                    'Não foi possível reproduzir este canal ao vivo. Verifique sua conexão ou se o canal está ativo.'
+                  );
+                  break;
+              }
+            }
+          });
+        } catch (err) {
+          console.error('[HLS] Erro ao instanciar Hls.js:', err);
+        }
+      } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        // Suporte nativo ao HLS no Safari (iOS / Mac)
+        videoEl.src = currentStreamUrl;
+        videoEl.play().catch(() => {});
+      }
+    };
+
+    if (!(window as any).Hls) {
+      let script = document.getElementById('hls-cdn-script') as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'hls-cdn-script';
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
+        script.onload = () => attachHls();
+        document.head.appendChild(script);
+      } else {
+        script.addEventListener('load', attachHls);
+      }
+    } else {
+      attachHls();
+    }
+
+    return () => {
+      isCancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+      if (hlsInstance) {
+        hlsInstance.destroy();
+      }
+    };
+  }, [currentStreamUrl, type]);
 
   useEffect(() => {
     try {
@@ -402,6 +509,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     const subStatus = player.addListener('statusChange', (event) => {
       setIsBuffering(event.status === 'loading');
       if (event.status === 'error') {
+        if (Platform.OS === 'web' && type === 'live') {
+          return;
+        }
         if (type === 'live' && !attemptedAlternativeRef.current) {
           const altUrl = xtreamService.getAlternativeLiveStreamUrl(currentStreamUrl);
           if (altUrl) {
