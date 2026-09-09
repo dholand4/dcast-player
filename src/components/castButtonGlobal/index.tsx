@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
+import { UIManager } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
-import GoogleCast from 'react-native-google-cast';
 import { useCast } from '../../hooks/useCast';
 import { CastModalGlobal } from '../castModalGlobal';
 import { ICastButtonGlobalProps } from './types';
-import { CastContainer, CastPressable } from './style';
+import { CastContainer, StyledCastButton, CastPressable } from './style';
+
+const isNativeCastAvailable = Boolean(
+  UIManager.getViewManagerConfig?.('RNGoogleCastButton')
+);
 
 export const CastButtonGlobal: React.FC<ICastButtonGlobalProps> = ({
   tintColor,
@@ -15,22 +19,14 @@ export const CastButtonGlobal: React.FC<ICastButtonGlobalProps> = ({
   const { isCasting, currentMedia, stopCast } = useCast();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleOpenCastDialog = async () => {
-    try {
-      if (GoogleCast && typeof GoogleCast.showCastDialog === 'function') {
-        await GoogleCast.showCastDialog();
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   const iconColor =
     tintColor || (isCasting ? theme.colors.primaryLight : theme.colors.text);
 
   return (
-    <>
-      <CastContainer testID={testID}>
+    <CastContainer testID={testID}>
+      {isNativeCastAvailable ? (
+        <StyledCastButton tintColor={tintColor} />
+      ) : (
         <CastPressable
           onPress={() => setIsModalOpen(true)}
           accessibilityRole="button"
@@ -44,23 +40,21 @@ export const CastButtonGlobal: React.FC<ICastButtonGlobalProps> = ({
             color={iconColor}
           />
         </CastPressable>
-      </CastContainer>
+      )}
 
-      <CastModalGlobal
-        visible={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        isCasting={isCasting}
-        currentMediaTitle={currentMedia?.title}
-        onDisconnect={() => {
-          stopCast();
-          setIsModalOpen(false);
-        }}
-        onOpenNativePicker={() => {
-          setIsModalOpen(false);
-          handleOpenCastDialog();
-        }}
-      />
-    </>
+      {!isNativeCastAvailable && (
+        <CastModalGlobal
+          visible={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          isCasting={isCasting}
+          currentMediaTitle={currentMedia?.title}
+          onDisconnect={() => {
+            stopCast();
+            setIsModalOpen(false);
+          }}
+        />
+      )}
+    </CastContainer>
   );
 };
 
