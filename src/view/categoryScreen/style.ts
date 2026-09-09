@@ -98,6 +98,7 @@ export const CategoryPillText = styled.Text<{ isSelected: boolean }>`
 export const ContentArea = styled.View`
   flex: 1;
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
+  ${Platform.OS === 'web' ? 'overflow: hidden;' : ''}
 `;
 
 export const EmptyContainer = styled.View`

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View } from 'react-native';
+import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View, FlatList } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
@@ -848,16 +848,43 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         ) : type === 'live' ? (
           filteredItems.length === 0 ? (
             renderEmptyComponent()
+          ) : Platform.OS === 'web' ? (
+            <FlatList
+              data={filteredItems as IXtreamLiveStream[]}
+              keyExtractor={keyExtractorLive}
+              renderItem={renderLiveItem}
+              refreshing={isLoading}
+              onRefresh={handleRefresh}
+              initialNumToRender={20}
+              maxToRenderPerBatch={20}
+              windowSize={7}
+            />
           ) : (
             <FlashList
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
               renderItem={renderLiveItem}
-              drawDistance={windowWidth * 2}
+              drawDistance={500}
               refreshing={isLoading}
               onRefresh={handleRefresh}
             />
           )
+        ) : Platform.OS === 'web' ? (
+          <FlatList
+            key={`vod-grid-${numColumns}`}
+            data={filteredItems as Array<IXtreamVodStream | IXtreamSeries>}
+            numColumns={numColumns}
+            columnWrapperStyle={numColumns > 1 ? { gap: GAP } : undefined}
+            keyExtractor={keyExtractorVod}
+            renderItem={renderVodItem}
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+            ListHeaderComponent={renderVodHeader}
+            ListEmptyComponent={renderEmptyComponent}
+            initialNumToRender={numColumns * 4}
+            maxToRenderPerBatch={numColumns * 3}
+            windowSize={7}
+          />
         ) : (
           <FlashList
             key={`vod-grid-${numColumns}`}
@@ -865,7 +892,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             numColumns={numColumns}
             keyExtractor={keyExtractorVod}
             renderItem={renderVodItem}
-            drawDistance={windowWidth * 3}
+            drawDistance={500}
             refreshing={isLoading}
             onRefresh={handleRefresh}
             ListHeaderComponent={renderVodHeader}

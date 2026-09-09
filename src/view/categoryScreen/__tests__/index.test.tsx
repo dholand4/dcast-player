@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from 'styled-components/native';
@@ -87,6 +88,26 @@ describe('CategoryScreen', () => {
 
     expect(getByTestId('sort-pill-rating')).toBeTruthy();
     fireEvent.press(getByTestId('sort-pill-rating'));
+  });
+
+  it('renders web view without errors when Platform.OS is web', () => {
+    const originalPlatform = Platform.OS;
+    (Platform as any).OS = 'web';
+    try {
+      const movieRoute = {
+        ...mockRoute,
+        params: { type: 'movie', title: 'Filmes' },
+      } as unknown as CategoryScreenProps['route'];
+
+      const { getByTestId, getByText } = wrap(
+        <CategoryScreen navigation={mockNavigation} route={movieRoute} />
+      );
+
+      expect(getByTestId('category-screen')).toBeTruthy();
+      expect(getByText('Filmes')).toBeTruthy();
+    } finally {
+      (Platform as any).OS = originalPlatform;
+    }
   });
 });
 
