@@ -40,6 +40,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const [isClearHistoryModalVisible, setIsClearHistoryModalVisible] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; seriesId?: string; title: string } | null>(null);
+  const [syncModal, setSyncModal] = useState<{
+    visible: boolean;
+    success: boolean;
+    title: string;
+    description: string;
+  }>({
+    visible: false,
+    success: true,
+    title: '',
+    description: '',
+  });
   const formattedExpDate = formatExpirationDate(userInfo?.exp_date);
 
   const handleExecuteLogout = useCallback(() => {
@@ -88,24 +99,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       clearXtreamCache();
       storageService.clearCatalogCache();
 
-      if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined') {
-          window.alert('Catálogo sincronizado com sucesso! As listas foram atualizadas.');
-        }
-      } else {
-        Alert.alert(
-          'Sincronização Concluída',
-          'O catálogo de canais, filmes e séries foi atualizado com sucesso.'
-        );
-      }
+      setSyncModal({
+        visible: true,
+        success: true,
+        title: 'Catálogo Atualizado',
+        description:
+          'O catálogo de canais, filmes e séries foi atualizado com sucesso.',
+      });
     } catch {
-      if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined') {
-          window.alert('Erro ao sincronizar catálogo.');
-        }
-      } else {
-        Alert.alert('Erro', 'Não foi possível atualizar o catálogo.');
-      }
+      setSyncModal({
+        visible: true,
+        success: false,
+        title: 'Erro na Atualização',
+        description:
+          'Não foi possível atualizar o catálogo. Verifique sua conexão e tente novamente.',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -336,6 +344,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }}
         onCancel={() => setItemToRemove(null)}
         testID="home-remove-item-modal"
+      />
+
+      <ConfirmModalGlobal
+        visible={syncModal.visible}
+        title={syncModal.title}
+        description={syncModal.description}
+        confirmText="OK"
+        showCancel={false}
+        variant={syncModal.success ? 'success' : 'danger'}
+        iconName={syncModal.success ? 'sync' : 'error-outline'}
+        onConfirm={() => setSyncModal((prev) => ({ ...prev, visible: false }))}
+        onCancel={() => setSyncModal((prev) => ({ ...prev, visible: false }))}
+        testID="home-sync-modal"
       />
     </Container>
   );

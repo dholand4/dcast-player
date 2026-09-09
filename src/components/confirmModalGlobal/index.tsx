@@ -21,6 +21,7 @@ export const ConfirmModalGlobal: React.FC<IConfirmModalGlobalProps> = ({
   description,
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
+  showCancel = true,
   variant = 'danger',
   iconName,
   onConfirm,
@@ -42,6 +43,11 @@ export const ConfirmModalGlobal: React.FC<IConfirmModalGlobalProps> = ({
     iconColor = '#29B6F6';
     bgColor = 'rgba(41, 182, 246, 0.15)';
     btnColor = '#29B6F6';
+  } else if (variant === 'success') {
+    resolvedIcon = 'check-circle';
+    iconColor = '#46D369';
+    bgColor = 'rgba(70, 211, 105, 0.15)';
+    btnColor = '#46D369';
   } else if (variant === 'primary') {
     resolvedIcon = 'check-circle';
     iconColor = '#E50914';
@@ -71,15 +77,17 @@ export const ConfirmModalGlobal: React.FC<IConfirmModalGlobalProps> = ({
           <Description testID={`${testID}-description`}>{description}</Description>
 
           <ActionsRow>
-            <CancelButton
-              onPress={onCancel}
-              accessibilityRole="button"
-              accessibilityLabel={cancelText}
-              testID={`${testID}-cancel`}
-              activeOpacity={0.8}
-            >
-              <CancelButtonText>{cancelText}</CancelButtonText>
-            </CancelButton>
+            {showCancel && (
+              <CancelButton
+                onPress={onCancel}
+                accessibilityRole="button"
+                accessibilityLabel={cancelText}
+                testID={`${testID}-cancel`}
+                activeOpacity={0.8}
+              >
+                <CancelButtonText>{cancelText}</CancelButtonText>
+              </CancelButton>
+            )}
 
             <ConfirmButton
               onPress={onConfirm}

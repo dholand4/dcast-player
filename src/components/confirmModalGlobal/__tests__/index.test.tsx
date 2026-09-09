@@ -73,4 +73,31 @@ describe('ConfirmModalGlobal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('renders single confirm button when showCancel is false', () => {
+    const onConfirm = jest.fn();
+    const onCancel = jest.fn();
+
+    const { getByTestId, queryByTestId, getByText } = wrap(
+      <ConfirmModalGlobal
+        visible={true}
+        title="Catálogo Atualizado"
+        description="O catálogo de canais foi atualizado com sucesso."
+        confirmText="OK"
+        showCancel={false}
+        variant="success"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+        testID="test-single-modal"
+      />
+    );
+
+    expect(getByTestId('test-single-modal')).toBeTruthy();
+    expect(getByText('Catálogo Atualizado')).toBeTruthy();
+    expect(getByText('OK')).toBeTruthy();
+    expect(queryByTestId('test-single-modal-cancel')).toBeNull();
+
+    fireEvent.press(getByTestId('test-single-modal-confirm'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
 });

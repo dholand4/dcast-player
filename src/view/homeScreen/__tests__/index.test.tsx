@@ -68,13 +68,15 @@ describe('HomeScreen', () => {
   });
 
   it('triggers catalog cache clearing when sync button is clicked', () => {
-    const { getByTestId } = wrap(
+    const { getByTestId, getByText } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     const syncBtn = getByTestId('sync-catalog-button');
     expect(syncBtn).toBeTruthy();
     fireEvent.press(syncBtn);
+    expect(getByTestId('home-sync-modal')).toBeTruthy();
+    expect(getByText('Catálogo Atualizado')).toBeTruthy();
   });
 
   it('opens network diagnostic modal when diagnostic button is clicked', () => {
