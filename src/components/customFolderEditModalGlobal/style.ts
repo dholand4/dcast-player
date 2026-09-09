@@ -151,6 +151,6 @@ export const ModalFooter = styled.View`
   border-top-color: ${({ theme }) => theme.colors.border};
   background-color: ${({ theme }) => theme.colors.surface};
   flex-direction: row;
-  justify-content: flex-end;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
 `;

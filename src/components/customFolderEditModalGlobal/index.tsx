@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Modal, FlatList, Alert } from 'react-native';
+import { Modal, FlatList, Alert, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { ICustomCategoryFolder } from '../../@types/storage';
@@ -217,18 +217,22 @@ export const CustomFolderEditModalGlobal: React.FC<ICustomFolderEditModalGlobalP
           />
 
           <ModalFooter>
-            <ButtonGlobal
-              variant="secondary"
-              label="Cancelar"
-              onPress={onClose}
-              testID="cancel-folder-btn"
-            />
-            <ButtonGlobal
-              variant="primary"
-              label="Salvar Pasta"
-              onPress={handleSave}
-              testID="save-folder-btn"
-            />
+            <View style={{ flex: 1 }}>
+              <ButtonGlobal
+                variant="secondary"
+                label="Cancelar"
+                onPress={onClose}
+                testID="cancel-folder-btn"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ButtonGlobal
+                variant="primary"
+                label="Salvar Pasta"
+                onPress={handleSave}
+                testID="save-folder-btn"
+              />
+            </View>
           </ModalFooter>
         </ModalContainer>
       </ModalBackdrop>

@@ -56,22 +56,24 @@ export const CloseButton = styled.TouchableOpacity`
   margin-left: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const TabBar = styled.View`
-  flex-direction: row;
+export const TabBar = styled.ScrollView.attrs({
+  horizontal: true,
+  showsHorizontalScrollIndicator: false,
+  contentContainerStyle: { paddingHorizontal: 12 },
+})`
   background-color: ${({ theme }) => theme.colors.surface};
   border-bottom-width: 1px;
   border-bottom-color: ${({ theme }) => theme.colors.border};
-  padding-horizontal: ${({ theme }) => theme.spacing.md}px;
 `;
 
 export const TabButton = styled.TouchableOpacity<{ isActive: boolean }>`
+  flex-direction: row;
+  align-items: center;
   padding-vertical: 12px;
   padding-horizontal: 14px;
   border-bottom-width: 2px;
   border-bottom-color: ${({ isActive, theme }) =>
     isActive ? theme.colors.primary : 'transparent'};
-  align-items: center;
-  justify-content: center;
 `;
 
 export const TabButtonText = styled.Text<{ isActive: boolean }>`
@@ -80,6 +82,22 @@ export const TabButtonText = styled.Text<{ isActive: boolean }>`
   font-size: ${({ theme }) => theme.typography.sizes.sm}px;
   font-weight: ${({ isActive, theme }) =>
     isActive ? theme.typography.weights.bold : theme.typography.weights.medium};
+`;
+
+export const TabBadge = styled.View<{ isActive: boolean }>`
+  background-color: ${({ isActive, theme }) =>
+    isActive ? 'rgba(229, 9, 20, 0.15)' : theme.colors.surfaceLight};
+  padding-horizontal: 6px;
+  padding-vertical: 2px;
+  border-radius: 10px;
+  margin-left: 6px;
+`;
+
+export const TabBadgeText = styled.Text<{ isActive: boolean }>`
+  color: ${({ isActive, theme }) =>
+    isActive ? theme.colors.primary : theme.colors.textSecondary};
+  font-size: 11px;
+  font-weight: bold;
 `;
 
 export const TabContent = styled.View`
@@ -104,6 +122,50 @@ export const ActionBanner = styled.View`
 export const BannerInfoText = styled.Text`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: ${({ theme }) => theme.typography.sizes.xs}px;
+  flex: 1;
+`;
+
+export const CreateFolderBanner = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background-color: ${({ theme }) => theme.colors.primary};
+  padding: 12px 14px;
+  border-radius: ${({ theme }) => theme.radii.md}px;
+  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const CreateFolderBannerLeft = styled.View`
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  margin-right: 8px;
+`;
+
+export const CreateFolderIconCircle = styled.View`
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.2);
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+`;
+
+export const CreateFolderBannerTexts = styled.View`
+  flex: 1;
+`;
+
+export const CreateFolderBannerTitle = styled.Text`
+  color: #ffffff;
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+`;
+
+export const CreateFolderBannerSub = styled.Text`
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  margin-top: 1px;
 `;
 
 export const CreateFolderButton = styled.TouchableOpacity`
@@ -113,6 +175,7 @@ export const CreateFolderButton = styled.TouchableOpacity`
   padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radii.md}px;
   gap: 6px;
+  flex-shrink: 0;
 `;
 
 export const CreateFolderButtonText = styled.Text`
@@ -167,6 +230,9 @@ export const StatusBadgeText = styled.Text<{ isHidden: boolean }>`
 export const ToggleButton = styled.TouchableOpacity<{ isHidden: boolean }>`
   flex-direction: row;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 92px;
   gap: 6px;
   padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radii.md}px;
@@ -195,9 +261,37 @@ export const CustomFolderRow = styled.View`
   margin-bottom: 8px;
 `;
 
+export const FolderInfoContainer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  margin-right: 10px;
+`;
+
+export const FolderIconBox = styled.View`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: rgba(76, 175, 80, 0.15);
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+`;
+
+export const FolderTextsContainer = styled.View`
+  flex: 1;
+`;
+
+export const FolderMetaText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 11px;
+  margin-top: 2px;
+`;
+
 export const FolderActions = styled.View`
   flex-direction: row;
   align-items: center;
+  flex-shrink: 0;
   gap: 8px;
 `;
 

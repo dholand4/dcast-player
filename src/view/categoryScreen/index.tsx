@@ -142,7 +142,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     }
     const customFolder = customFolders.find((f) => f.id === selectedCategory);
     if (customFolder) {
-      return `📁 ${customFolder.name} ${customFolder.streamIds.length > 0 ? `(${customFolder.streamIds.length})` : ''}`;
+      return `${customFolder.name} ${customFolder.streamIds.length > 0 ? `(${customFolder.streamIds.length})` : ''}`;
     }
     const cat = categories.find((c) => String(c.category_id) === String(selectedCategory));
     return cat ? cat.category_name : 'Conteúdo';
@@ -669,10 +669,20 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <MaterialIcons
-              name={selectedCategory === 'favorites' ? 'favorite' : 'folder'}
+              name={
+                selectedCategory === 'favorites'
+                  ? 'favorite'
+                  : customFolders.some((f) => f.id === selectedCategory)
+                  ? 'folder-special'
+                  : 'folder'
+              }
               size={20}
               color={
-                selectedCategory === 'favorites' ? '#E50914' : theme.colors.primary
+                selectedCategory === 'favorites'
+                  ? '#E50914'
+                  : customFolders.some((f) => f.id === selectedCategory)
+                  ? '#4CAF50'
+                  : theme.colors.primary
               }
               style={{ marginRight: 8 }}
             />
@@ -692,6 +702,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       filteredItems.length,
       type,
       theme,
+      customFolders,
       handleConfirmClearHistory,
     ]
   );

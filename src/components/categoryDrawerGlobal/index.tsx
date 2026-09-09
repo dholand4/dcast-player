@@ -17,6 +17,17 @@ import {
   DrawerHeader,
   DrawerTitle,
   CloseButton,
+  ManageBannerButton,
+  ManageBannerLeft,
+  ManageIconCircle,
+  ManageBannerTexts,
+  ManageBannerTitle,
+  ManageBannerSub,
+  SectionHeader,
+  SectionHeaderText,
+  FolderIconCircle,
+  FolderCountBadge,
+  FolderCountText,
   DrawerSearchWrapper,
   CategoryItem,
   CategoryItemContent,
@@ -93,42 +104,39 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
           {/* Header */}
           <DrawerHeader>
             <DrawerTitle>Listas & Categorias</DrawerTitle>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {onOpenCategoryManager && (
-                <TouchableOpacity
-                  onPress={() => {
-                    onClose();
-                    onOpenCategoryManager();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Gerenciar pastas"
-                  testID="drawer-manage-folders-button"
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    marginRight: 8,
-                  }}
-                >
-                  <MaterialIcons name="tune" size={16} color={theme.colors.text} style={{ marginRight: 4 }} />
-                  <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: 'bold' }}>
-                    Gerenciar
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <CloseButton
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar menu"
-                testID="close-drawer-button"
-              >
-                <MaterialIcons name="close" size={22} color={theme.colors.text} />
-              </CloseButton>
-            </View>
+            <CloseButton
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar menu"
+              testID="close-drawer-button"
+            >
+              <MaterialIcons name="close" size={22} color={theme.colors.text} />
+            </CloseButton>
           </DrawerHeader>
+
+          {/* Banner de Gerenciamento de Pastas */}
+          {onOpenCategoryManager && (
+            <ManageBannerButton
+              onPress={() => {
+                onClose();
+                onOpenCategoryManager();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Gerenciar pastas"
+              testID="drawer-manage-folders-button"
+            >
+              <ManageBannerLeft>
+                <ManageIconCircle>
+                  <MaterialIcons name="tune" size={18} color={theme.colors.primary} />
+                </ManageIconCircle>
+                <ManageBannerTexts>
+                  <ManageBannerTitle>Gerenciador de Pastas</ManageBannerTitle>
+                  <ManageBannerSub>Personalizar, organizar e ocultar</ManageBannerSub>
+                </ManageBannerTexts>
+              </ManageBannerLeft>
+              <MaterialIcons name="chevron-right" size={20} color={theme.colors.textSecondary} />
+            </ManageBannerButton>
+          )}
 
           {/* Busca de Categoria */}
           <DrawerSearchWrapper>
@@ -147,6 +155,10 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
             ListHeaderComponent={
               !filterText ? (
                 <>
+                  <SectionHeader>
+                    <SectionHeaderText>NAVEGAÇÃO</SectionHeaderText>
+                  </SectionHeader>
+
                   <CategoryItem
                     isSelected={selectedCategory === 'favorites'}
                     onPress={() => handleSelect('favorites')}
@@ -234,37 +246,54 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                     )}
                   </CategoryItem>
 
-                  {customFolders.map((folder) => {
-                    const isSelected = selectedCategory === folder.id;
-                    return (
-                      <CategoryItem
-                        key={folder.id}
-                        isSelected={isSelected}
-                        onPress={() => handleSelect(folder.id)}
-                        accessibilityRole="button"
-                        testID={`drawer-item-custom-${folder.id}`}
-                      >
-                        <CategoryItemContent>
-                          <MaterialIcons
-                            name="folder"
-                            size={20}
-                            color={isSelected ? theme.colors.primary : '#4CAF50'}
-                          />
-                          <CategoryItemText isSelected={isSelected}>
-                            {folder.name}{' '}
-                            {folder.streamIds.length > 0 ? `(${folder.streamIds.length})` : ''}
-                          </CategoryItemText>
-                        </CategoryItemContent>
-                        {isSelected && (
-                          <MaterialIcons
-                            name="check"
-                            size={18}
-                            color={theme.colors.primary}
-                          />
-                        )}
-                      </CategoryItem>
-                    );
-                  })}
+                  {customFolders.length > 0 && (
+                    <>
+                      <SectionHeader>
+                        <SectionHeaderText>MINHAS PASTAS ({customFolders.length})</SectionHeaderText>
+                      </SectionHeader>
+                      {customFolders.map((folder) => {
+                        const isSelected = selectedCategory === folder.id;
+                        return (
+                          <CategoryItem
+                            key={folder.id}
+                            isSelected={isSelected}
+                            onPress={() => handleSelect(folder.id)}
+                            accessibilityRole="button"
+                            testID={`drawer-item-custom-${folder.id}`}
+                          >
+                            <CategoryItemContent>
+                              <FolderIconCircle isSelected={isSelected}>
+                                <MaterialIcons
+                                  name="folder"
+                                  size={16}
+                                  color={isSelected ? '#FFFFFF' : '#4CAF50'}
+                                />
+                              </FolderIconCircle>
+                              <CategoryItemText isSelected={isSelected} numberOfLines={1}>
+                                {folder.name}
+                              </CategoryItemText>
+                              <FolderCountBadge isSelected={isSelected}>
+                                <FolderCountText isSelected={isSelected}>
+                                  {folder.streamIds.length} {folder.streamIds.length === 1 ? 'canal' : 'canais'}
+                                </FolderCountText>
+                              </FolderCountBadge>
+                            </CategoryItemContent>
+                            {isSelected && (
+                              <MaterialIcons
+                                name="check"
+                                size={18}
+                                color={theme.colors.primary}
+                              />
+                            )}
+                          </CategoryItem>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  <SectionHeader>
+                    <SectionHeaderText>CATEGORIAS DA LISTA ({filteredCategories.length})</SectionHeaderText>
+                  </SectionHeader>
                 </>
               ) : null
             }

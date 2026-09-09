@@ -22,10 +22,18 @@ import {
   TabBar,
   TabButton,
   TabButtonText,
+  TabBadge,
+  TabBadgeText,
   TabContent,
   SearchWrapper,
   ActionBanner,
   BannerInfoText,
+  CreateFolderBanner,
+  CreateFolderBannerLeft,
+  CreateFolderIconCircle,
+  CreateFolderBannerTexts,
+  CreateFolderBannerTitle,
+  CreateFolderBannerSub,
   CreateFolderButton,
   CreateFolderButtonText,
   CategoryRow,
@@ -36,6 +44,10 @@ import {
   ToggleButton,
   ToggleButtonText,
   CustomFolderRow,
+  FolderInfoContainer,
+  FolderIconBox,
+  FolderTextsContainer,
+  FolderMetaText,
   FolderActions,
   ActionIconButton,
   EmptyContainer,
@@ -238,9 +250,20 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                 }}
                 testID="tab-server"
               >
+                <MaterialIcons
+                  name="list"
+                  size={16}
+                  color={activeTab === 'server' ? theme.colors.primary : theme.colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
                 <TabButtonText isActive={activeTab === 'server'}>
-                  Pastas da Lista ({categories.length})
+                  Pastas da Lista
                 </TabButtonText>
+                <TabBadge isActive={activeTab === 'server'}>
+                  <TabBadgeText isActive={activeTab === 'server'}>
+                    {categories.length}
+                  </TabBadgeText>
+                </TabBadge>
               </TabButton>
 
               <TabButton
@@ -251,9 +274,20 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                 }}
                 testID="tab-custom"
               >
+                <MaterialIcons
+                  name="folder-special"
+                  size={16}
+                  color={activeTab === 'custom' ? theme.colors.primary : theme.colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
                 <TabButtonText isActive={activeTab === 'custom'}>
-                  Minhas Pastas ({customFolders.length})
+                  Minhas Pastas
                 </TabButtonText>
+                <TabBadge isActive={activeTab === 'custom'}>
+                  <TabBadgeText isActive={activeTab === 'custom'}>
+                    {customFolders.length}
+                  </TabBadgeText>
+                </TabBadge>
               </TabButton>
 
               <TabButton
@@ -264,9 +298,20 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                 }}
                 testID="tab-streams"
               >
+                <MaterialIcons
+                  name="visibility-off"
+                  size={16}
+                  color={activeTab === 'streams' ? theme.colors.primary : theme.colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
                 <TabButtonText isActive={activeTab === 'streams'}>
-                  {type === 'live' ? 'Canais' : 'Conteúdos'} Ocultos ({hiddenStreams.length})
+                  {type === 'live' ? 'Canais' : 'Conteúdos'} Ocultos
                 </TabButtonText>
+                <TabBadge isActive={activeTab === 'streams'}>
+                  <TabBadgeText isActive={activeTab === 'streams'}>
+                    {hiddenStreams.length}
+                  </TabBadgeText>
+                </TabBadge>
               </TabButton>
             </TabBar>
 
@@ -343,18 +388,25 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
               {/* Tab 2: Minhas Pastas (Custom User Folders) */}
               {activeTab === 'custom' && (
                 <>
-                  <ActionBanner>
-                    <BannerInfoText>
-                      Crie pastas personalizadas com apenas seus canais favoritos
-                    </BannerInfoText>
-                    <CreateFolderButton
-                      onPress={handleOpenNewFolder}
-                      testID="create-custom-folder-btn"
-                    >
-                      <MaterialIcons name="add" size={18} color="#FFFFFF" />
-                      <CreateFolderButtonText>Nova Pasta</CreateFolderButtonText>
-                    </CreateFolderButton>
-                  </ActionBanner>
+                  <CreateFolderBanner
+                    onPress={handleOpenNewFolder}
+                    testID="create-custom-folder-btn"
+                  >
+                    <CreateFolderBannerLeft>
+                      <CreateFolderIconCircle>
+                        <MaterialIcons name="add" size={20} color="#FFFFFF" />
+                      </CreateFolderIconCircle>
+                      <CreateFolderBannerTexts>
+                        <CreateFolderBannerTitle>Criar Nova Pasta</CreateFolderBannerTitle>
+                        <CreateFolderBannerSub>
+                          {type === 'live'
+                            ? 'Agrupe seus canais favoritos (ex: Canais Abertos)'
+                            : 'Agrupe seus conteúdos favoritos'}
+                        </CreateFolderBannerSub>
+                      </CreateFolderBannerTexts>
+                    </CreateFolderBannerLeft>
+                    <MaterialIcons name="chevron-right" size={20} color="rgba(255, 255, 255, 0.8)" />
+                  </CreateFolderBanner>
 
                   <FlatList
                     data={customFolders}
@@ -364,26 +416,33 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                     contentContainerStyle={{ paddingBottom: 24 }}
                     renderItem={({ item }) => (
                       <CustomFolderRow testID={`custom-folder-row-${item.id}`}>
-                        <CategoryInfo>
-                          <CategoryName isHidden={false} numberOfLines={1}>
-                            📁 {item.name}
-                          </CategoryName>
-                          <BannerInfoText style={{ marginTop: 2 }}>
-                            {item.streamIds.length}{' '}
-                            {type === 'live' ? 'canal(is) adicionado(s)' : 'item(ns) adicionado(s)'}
-                          </BannerInfoText>
-                        </CategoryInfo>
+                        <FolderInfoContainer>
+                          <FolderIconBox>
+                            <MaterialIcons name="folder" size={22} color="#4CAF50" />
+                          </FolderIconBox>
+                          <FolderTextsContainer>
+                            <CategoryName isHidden={false} numberOfLines={1}>
+                              📁 {item.name}
+                            </CategoryName>
+                            <FolderMetaText>
+                              {item.streamIds.length}{' '}
+                              {type === 'live' ? 'canal(is) adicionado(s)' : 'item(ns) adicionado(s)'}
+                            </FolderMetaText>
+                          </FolderTextsContainer>
+                        </FolderInfoContainer>
 
                         <FolderActions>
                           <ActionIconButton
                             onPress={() => handleOpenEditFolder(item)}
                             testID={`edit-folder-${item.id}`}
+                            accessibilityLabel="Editar pasta"
                           >
                             <MaterialIcons name="edit" size={18} color={theme.colors.text} />
                           </ActionIconButton>
                           <ActionIconButton
                             onPress={() => handleDeleteFolder(item)}
                             testID={`delete-folder-${item.id}`}
+                            accessibilityLabel="Excluir pasta"
                           >
                             <MaterialIcons name="delete" size={18} color={theme.colors.error} />
                           </ActionIconButton>
