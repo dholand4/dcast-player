@@ -72,10 +72,10 @@ export const catalogSyncService = {
   },
 
   /**
-   * Puxa em segundo plano as categorias de filmes e séries
-   * com delay suave após os canais ao vivo.
+   * Puxa em segundo plano as categorias e o catálogo de séries
+   * com delay suave de 3s após a TV ao vivo.
    */
-  async syncVodCategories(
+  async syncSeriesCatalog(
     account: IAccountCredentials,
     signal?: AbortSignal
   ): Promise<boolean> {
@@ -83,25 +83,22 @@ export const catalogSyncService = {
     if (signal?.aborted) return false;
 
     const accKey = `${account.serverUrl}_${account.username}`;
-    const vodCatKey = `${accKey}_cat_movie`;
     const seriesCatKey = `${accKey}_cat_series`;
+    const seriesAllKey = `${accKey}_streams_series_all`;
 
     try {
-      const [vodCats, seriesCats] = await Promise.allSettled([
-        xtreamService.getVodCategories(account),
-        xtreamService.getSeriesCategories(account),
-      ]);
-
+      const categories = await xtreamService.getSeriesCategories(account);
       if (signal?.aborted) return false;
-
-      if (vodCats.status === 'fulfilled' && vodCats.value.length > 0) {
-        setCachedCategories(vodCatKey, vodCats.value);
-        storageService.saveCachedCategories(vodCatKey, vodCats.value);
+      if (categories && categories.length > 0) {
+        setCachedCategories(seriesCatKey, categories);
+        storageService.saveCachedCategories(seriesCatKey, categories);
       }
 
-      if (seriesCats.status === 'fulfilled' && seriesCats.value.length > 0) {
-        setCachedCategories(seriesCatKey, seriesCats.value);
-        storageService.saveCachedCategories(seriesCatKey, seriesCats.value);
+      const series = await xtreamService.getSeries(account, undefined, signal);
+      if (signal?.aborted) return false;
+      if (series && series.length > 0) {
+        setCachedStreams(seriesAllKey, series);
+        storageService.saveCachedStreams(seriesAllKey, series);
       }
 
       return true;
@@ -111,9 +108,46 @@ export const catalogSyncService = {
   },
 
   /**
-   * Inicia a fila inteligente na Home:
-   * 1. Puxa canais ao vivo imediatamente
-   * 2. Puxa categorias de filmes/séries após 2.5s
+   * Puxa em segundo plano as categorias e o catálogo de filmes
+   * com delay suave de 6s após os canais e séries.
+   */
+  async syncMovieCatalog(
+    account: IAccountCredentials,
+    signal?: AbortSignal
+  ): Promise<boolean> {
+    if (!account || !account.serverUrl || !account.username) return false;
+    if (signal?.aborted) return false;
+
+    const accKey = `${account.serverUrl}_${account.username}`;
+    const movieCatKey = `${accKey}_cat_movie`;
+    const movieAllKey = `${accKey}_streams_movie_all`;
+
+    try {
+      const categories = await xtreamService.getVodCategories(account);
+      if (signal?.aborted) return false;
+      if (categories && categories.length > 0) {
+        setCachedCategories(movieCatKey, categories);
+        storageService.saveCachedCategories(movieCatKey, categories);
+      }
+
+      const movies = await xtreamService.getVodStreams(account, undefined, signal);
+      if (signal?.aborted) return false;
+      if (movies && movies.length > 0) {
+        setCachedStreams(movieAllKey, movies);
+        storageService.saveCachedStreams(movieAllKey, movies);
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Inicia a fila inteligente sequencial na Home:
+   * 1. Puxa TV Ao Vivo imediatamente (jogos do dia e canais)
+   * 2. Puxa Séries após 3 segundos
+   * 3. Puxa Filmes após 6 segundos
    */
   startBackgroundQueue(account: IAccountCredentials | null): () => void {
     if (!account) return () => {};
@@ -121,15 +155,23 @@ export const catalogSyncService = {
     let isMounted = true;
     const controller = new AbortController();
 
-    // Etapa 1: TV Ao Vivo imediatamente
+    // Etapa 1: TV Ao Vivo imediatamente (prioridade máxima por causa dos jogos)
     this.syncLiveCatalog(account).then(() => {
       if (!isMounted || controller.signal.aborted) return;
 
-      // Etapa 2: Filmes e Séries após 2.5 segundos
+      // Etapa 2: Séries após 3 segundos
       setTimeout(() => {
         if (!isMounted || controller.signal.aborted) return;
-        this.syncVodCategories(account, controller.signal);
-      }, 2500);
+        this.syncSeriesCatalog(account, controller.signal).then(() => {
+          if (!isMounted || controller.signal.aborted) return;
+
+          // Etapa 3: Filmes após mais 3 segundos (total 6s)
+          setTimeout(() => {
+            if (!isMounted || controller.signal.aborted) return;
+            this.syncMovieCatalog(account, controller.signal);
+          }, 3000);
+        });
+      }, 3000);
     });
 
     return () => {
