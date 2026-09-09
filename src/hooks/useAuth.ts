@@ -14,6 +14,13 @@ export function useAuth(): IAuthContextData {
   // Standalone fallback for testing or unprovided trees
   const [account, setAccount] = useState<IAccountCredentials | null>(null);
   const [userInfo, setUserInfo] = useState<IXtreamUserInfo | null>(null);
+  const [savedAccounts, setSavedAccounts] = useState<IAccountCredentials[]>(() => {
+    try {
+      return storageService.getSavedAccounts();
+    } catch {
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +29,7 @@ export function useAuth(): IAuthContextData {
     const savedInfo = storageService.getUserInfo();
     setAccount(saved);
     setUserInfo(savedInfo);
+    setSavedAccounts(storageService.getSavedAccounts());
   }, []);
 
   const loginWithM3u = useCallback(async (m3uUrl: string, label?: string): Promise<boolean> => {
@@ -39,6 +47,7 @@ export function useAuth(): IAuthContextData {
       const authData = await xtreamService.authenticate(creds);
       storageService.saveAccount(creds);
       setAccount(creds);
+      setSavedAccounts(storageService.getSavedAccounts());
       if (authData?.user_info) {
         storageService.saveUserInfo(authData.user_info);
         setUserInfo(authData.user_info);
@@ -61,6 +70,7 @@ export function useAuth(): IAuthContextData {
       const authData = await xtreamService.authenticate(creds);
       storageService.saveAccount(creds);
       setAccount(creds);
+      setSavedAccounts(storageService.getSavedAccounts());
       if (authData?.user_info) {
         storageService.saveUserInfo(authData.user_info);
         setUserInfo(authData.user_info);
@@ -75,19 +85,27 @@ export function useAuth(): IAuthContextData {
     }
   }, []);
 
+  const removeSavedAccount = useCallback((serverUrl: string, username: string) => {
+    storageService.removeSavedAccount(serverUrl, username);
+    setSavedAccounts(storageService.getSavedAccounts());
+  }, []);
+
   const logout = useCallback(() => {
     storageService.clearAccount();
     setAccount(null);
     setUserInfo(null);
+    setSavedAccounts(storageService.getSavedAccounts());
   }, []);
 
   return {
     account,
     userInfo,
+    savedAccounts,
     isLoading,
     error,
     loginWithM3u,
     loginWithCredentials,
+    removeSavedAccount,
     logout,
   };
 }

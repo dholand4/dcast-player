@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, FlatList } from 'react-native';
+import { Modal, FlatList, Platform, Alert, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { useAuth } from '../../hooks/useAuth';
+import { clearXtreamCache } from '../../hooks/useXtream';
+import { storageService } from '../../services/storageService';
 import { formatExpirationDate } from '../../utils/formatters';
 import { ICategoryDrawerGlobalProps } from './types';
 import { InputGlobal } from '../inputGlobal';
@@ -24,7 +26,6 @@ import {
   DrawerFooterExp,
 } from './style';
 
-
 export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   visible,
   categories,
@@ -37,8 +38,30 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
 }) => {
   const theme = useTheme();
   const insets = useAppInsets();
-  const { account, userInfo } = useAuth();
+  const { account, userInfo, logout } = useAuth();
   const [filterText, setFilterText] = useState('');
+
+  const handleConfirmLogout = () => {
+    onClose();
+    const userLabel = account?.label || account?.username || 'esta lista';
+    const msg = `Deseja sair de "${userLabel}"? Suas listas salvas continuarão salvas para você alternar quando quiser.`;
+    const doLogout = () => {
+      clearXtreamCache();
+      storageService.clearCatalogCache();
+      logout();
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(msg)) {
+        doLogout();
+      }
+    } else {
+      Alert.alert('Sair da Lista', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair e Trocar', style: 'destructive', onPress: doLogout },
+      ]);
+    }
+  };
 
 
   const filteredCategories = useMemo(() => {
@@ -231,6 +254,27 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
               <DrawerFooterExp>
                 📅 {formatExpirationDate(userInfo?.exp_date)}
               </DrawerFooterExp>
+
+              <TouchableOpacity
+                onPress={handleConfirmLogout}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: 10,
+                  paddingTop: 8,
+                  borderTopWidth: 1,
+                  borderTopColor: 'rgba(255, 255, 255, 0.08)',
+                  gap: 6,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Sair ou trocar lista"
+                testID="drawer-logout-button"
+              >
+                <MaterialIcons name="logout" size={16} color="#E50914" />
+                <Text style={{ color: '#E50914', fontSize: 12, fontWeight: 'bold' }}>
+                  Trocar / Sair da Lista
+                </Text>
+              </TouchableOpacity>
             </DrawerFooter>
           )}
         </DrawerContainer>

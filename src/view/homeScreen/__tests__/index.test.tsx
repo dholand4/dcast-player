@@ -86,5 +86,18 @@ describe('HomeScreen', () => {
     fireEvent.press(diagBtn);
     expect(getByTestId('network-diagnostic-modal')).toBeTruthy();
   });
+
+  it('renders logout button in header and quick actions row', () => {
+    const { getByTestId, getByText } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const headerLogout = getByTestId('header-logout-button');
+    const quickLogout = getByTestId('home-logout-button');
+
+    expect(headerLogout).toBeTruthy();
+    expect(quickLogout).toBeTruthy();
+    expect(getByText('Trocar Lista')).toBeTruthy();
+  });
 });
 

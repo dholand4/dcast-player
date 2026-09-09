@@ -7,6 +7,9 @@ jest.mock('../../services/storageService', () => ({
   storageService: {
     getAccount: jest.fn(() => null),
     saveAccount: jest.fn(),
+    getSavedAccounts: jest.fn(() => []),
+    saveAccountToSavedList: jest.fn(),
+    removeSavedAccount: jest.fn(),
     getUserInfo: jest.fn(() => null),
     saveUserInfo: jest.fn(),
     clearAccount: jest.fn(),

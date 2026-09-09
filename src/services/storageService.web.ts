@@ -64,6 +64,7 @@ export const storage: IStorageLike = {
 
 const KEYS = {
   ACCOUNT: 'user_account',
+  SAVED_ACCOUNTS: 'saved_accounts',
   USER_INFO: 'user_info',
   FAVORITES: 'user_favorites',
   HISTORY_PREFIX: 'history_',
@@ -83,6 +84,55 @@ export const storageService = {
 
   saveAccount(credentials: IAccountCredentials): void {
     storage.set(KEYS.ACCOUNT, JSON.stringify(credentials));
+    this.saveAccountToSavedList(credentials);
+  },
+
+  getSavedAccounts(): IAccountCredentials[] {
+    try {
+      const raw = storage.getString(KEYS.SAVED_ACCOUNTS);
+      if (!raw) {
+        const current = this.getAccount();
+        return current ? [current] : [];
+      }
+      return JSON.parse(raw) as IAccountCredentials[];
+    } catch {
+      return [];
+    }
+  },
+
+  saveAccountToSavedList(credentials: IAccountCredentials): void {
+    try {
+      const accounts = this.getSavedAccounts();
+      const existingIdx = accounts.findIndex(
+        (a) =>
+          a.serverUrl.toLowerCase() === credentials.serverUrl.toLowerCase() &&
+          a.username.toLowerCase() === credentials.username.toLowerCase()
+      );
+      if (existingIdx >= 0) {
+        accounts[existingIdx] = credentials;
+      } else {
+        accounts.unshift(credentials);
+      }
+      storage.set(KEYS.SAVED_ACCOUNTS, JSON.stringify(accounts.slice(0, 10)));
+    } catch {
+      // ignore
+    }
+  },
+
+  removeSavedAccount(serverUrl: string, username: string): void {
+    try {
+      const accounts = this.getSavedAccounts();
+      const filtered = accounts.filter(
+        (a) =>
+          !(
+            a.serverUrl.toLowerCase() === serverUrl.toLowerCase() &&
+            a.username.toLowerCase() === username.toLowerCase()
+          )
+      );
+      storage.set(KEYS.SAVED_ACCOUNTS, JSON.stringify(filtered));
+    } catch {
+      // ignore
+    }
   },
 
   getUserInfo(): IXtreamUserInfo | null {

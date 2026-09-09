@@ -3,6 +3,7 @@ import { View, Platform, Alert, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
+import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
@@ -30,11 +31,41 @@ import {
 } from './style';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { account, userInfo } = useAuth();
+  const { account, userInfo, logout } = useAuth();
+  const { isCasting, stopCast } = useCast();
   const { continueWatching, removeProgress, clearHistory } = useWatchHistory();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const formattedExpDate = formatExpirationDate(userInfo?.exp_date);
+
+  const handleConfirmLogout = useCallback(() => {
+    const doLogout = () => {
+      if (isCasting) {
+        try {
+          stopCast();
+        } catch {
+          // ignore
+        }
+      }
+      clearXtreamCache();
+      storageService.clearCatalogCache();
+      logout();
+    };
+
+    const userLabel = account?.label || account?.username || 'esta lista';
+    const msg = `Deseja sair de "${userLabel}"? Suas listas salvas continuarão salvas para você alternar quando quiser.`;
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(msg)) {
+        doLogout();
+      }
+    } else {
+      Alert.alert('Sair da Lista', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair e Trocar', style: 'destructive', onPress: doLogout },
+      ]);
+    }
+  }, [account, isCasting, stopCast, logout]);
 
   const collapsedContinueWatching = useMemo(() => {
     const map = new Map<string, typeof continueWatching[0]>();
@@ -139,6 +170,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         subtitle={account?.username ? `@${account.username}` : undefined}
         extraInfo={formattedExpDate}
         onSearchPress={() => navigation.navigate('SearchScreen')}
+        onLogoutPress={handleConfirmLogout}
       />
 
       <ScrollArea>
@@ -183,6 +215,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           >
             <MaterialIcons name="speed" size={18} color="#46D369" />
             <QuickActionText>Teste de Conexão</QuickActionText>
+          </QuickActionButton>
+
+          <QuickActionButton
+            onPress={handleConfirmLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Sair ou trocar de lista IPTV"
+            testID="home-logout-button"
+            style={{ borderColor: 'rgba(229, 9, 20, 0.4)' }}
+          >
+            <MaterialIcons name="logout" size={18} color="#E50914" />
+            <QuickActionText style={{ color: '#E50914' }}>
+              Trocar Lista
+            </QuickActionText>
           </QuickActionButton>
         </QuickActionsRow>
 
