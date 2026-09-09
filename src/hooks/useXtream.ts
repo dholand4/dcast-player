@@ -23,6 +23,22 @@ export function clearXtreamCache() {
   seriesInfoCache.clear();
 }
 
+export function setCachedStreams(key: string, items: StreamItem[]) {
+  streamCache.set(key, items);
+}
+
+export function setCachedCategories(key: string, cats: IXtreamCategory[]) {
+  categoryCache.set(key, cats);
+}
+
+export function hasCachedStreams(key: string): boolean {
+  return streamCache.has(key);
+}
+
+export function hasCachedCategories(key: string): boolean {
+  return categoryCache.has(key);
+}
+
 export function useXtream(account: IAccountCredentials | null) {
   const [categories, setCategories] = useState<IXtreamCategory[]>([]);
   const [items, setItems] = useState<StreamItem[]>([]);

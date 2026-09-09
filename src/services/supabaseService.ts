@@ -1,5 +1,5 @@
 import { IAccountCredentials } from '../@types/xtream';
-import { IWatchProgress, IFavoriteItem, ContentType } from '../@types/storage';
+import { IWatchProgress, IFavoriteItem, ContentType, ICustomCategoryFolder } from '../@types/storage';
 
 const DEFAULT_SUPABASE_URL = 'https://xfxvjnxjqlqapqebrvye.supabase.co';
 const DEFAULT_ANON_KEY = 'sb_publishable_M5cWmFHIiEjYHtOYbCgKzA_zShRUHRd';
@@ -244,6 +244,143 @@ export async function fetchFavoritesList(userKey: string): Promise<IFavoriteItem
   }
 }
 
+// ---------------------------------------------------------------------------
+// Custom Folders (Pastas Personalizadas)
+// ---------------------------------------------------------------------------
+
+export async function upsertCustomFolder(
+  userKey: string,
+  folder: ICustomCategoryFolder
+): Promise<void> {
+  if (!userKey || userKey === 'guest' || !folder?.id) return;
+  try {
+    const recordId = `${userKey}_${folder.id}`;
+    const payload = {
+      id: recordId,
+      user_key: userKey,
+      folder_id: String(folder.id),
+      name: folder.name || '',
+      content_type: folder.type || 'live',
+      stream_ids: folder.streamIds || [],
+      created_at: folder.createdAt || Date.now(),
+      updated_at: Date.now(),
+    };
+
+    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_custom_folders`, {
+      method: 'POST',
+      headers: getHeaders('resolution=merge-duplicates'),
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Sincronização em background nunca deve quebrar o app
+  }
+}
+
+export async function removeCustomFolder(
+  userKey: string,
+  folderId: string
+): Promise<void> {
+  if (!userKey || userKey === 'guest' || !folderId) return;
+  try {
+    const recordId = encodeURIComponent(`${userKey}_${folderId}`);
+    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_custom_folders?id=eq.${recordId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+  } catch {
+    // ignore
+  }
+}
+
+export async function fetchCustomFoldersList(
+  userKey: string,
+  type?: ContentType
+): Promise<ICustomCategoryFolder[]> {
+  if (!userKey || userKey === 'guest') return [];
+  try {
+    const encodedUser = encodeURIComponent(userKey);
+    let url = `${SUPABASE_URL}/rest/v1/dcast_custom_folders?user_key=eq.${encodedUser}&order=created_at.desc`;
+    if (type) {
+      url += `&content_type=eq.${encodeURIComponent(type)}`;
+    }
+    const res = await fetchWithTimeout(url, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+
+    return rows.map((row) => ({
+      id: String(row.folder_id),
+      name: String(row.name || ''),
+      type: (row.content_type || 'live') as ContentType,
+      streamIds: Array.isArray(row.stream_ids) ? row.stream_ids.map(String) : [],
+      createdAt: Number(row.created_at || Date.now()),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hidden Items (Pastas e Canais Ocultos)
+// ---------------------------------------------------------------------------
+
+export async function upsertHiddenItems(
+  userKey: string,
+  contentType: ContentType,
+  hiddenCategories: string[],
+  hiddenStreams: string[]
+): Promise<void> {
+  if (!userKey || userKey === 'guest' || !contentType) return;
+  try {
+    const recordId = `${userKey}_${contentType}`;
+    const payload = {
+      id: recordId,
+      user_key: userKey,
+      content_type: contentType,
+      hidden_categories: hiddenCategories || [],
+      hidden_streams: hiddenStreams || [],
+      updated_at: Date.now(),
+    };
+
+    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_hidden_items`, {
+      method: 'POST',
+      headers: getHeaders('resolution=merge-duplicates'),
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // ignore
+  }
+}
+
+export async function fetchHiddenItems(
+  userKey: string,
+  contentType: ContentType
+): Promise<{ hiddenCategories: string[]; hiddenStreams: string[] } | null> {
+  if (!userKey || userKey === 'guest' || !contentType) return null;
+  try {
+    const recordId = encodeURIComponent(`${userKey}_${contentType}`);
+    const url = `${SUPABASE_URL}/rest/v1/dcast_hidden_items?id=eq.${recordId}&limit=1`;
+    const res = await fetchWithTimeout(url, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    const row = rows[0];
+    return {
+      hiddenCategories: Array.isArray(row.hidden_categories) ? row.hidden_categories.map(String) : [],
+      hiddenStreams: Array.isArray(row.hidden_streams) ? row.hidden_streams.map(String) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const supabaseService = {
   getUserKey,
   upsertWatchProgress,
@@ -253,4 +390,9 @@ export const supabaseService = {
   upsertFavorite,
   removeFavorite,
   fetchFavoritesList,
+  upsertCustomFolder,
+  removeCustomFolder,
+  fetchCustomFoldersList,
+  upsertHiddenItems,
+  fetchHiddenItems,
 };

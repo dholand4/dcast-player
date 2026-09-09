@@ -7,8 +7,13 @@ import {
   upsertFavorite,
   removeFavorite,
   fetchFavoritesList,
+  upsertCustomFolder,
+  removeCustomFolder,
+  fetchCustomFoldersList,
+  upsertHiddenItems,
+  fetchHiddenItems,
 } from '../supabaseService';
-import { IWatchProgress, IFavoriteItem } from '../../@types/storage';
+import { IWatchProgress, IFavoriteItem, ICustomCategoryFolder } from '../../@types/storage';
 import { IAccountCredentials } from '../../@types/xtream';
 
 global.fetch = jest.fn();
@@ -197,6 +202,90 @@ describe('supabaseService', () => {
           method: 'DELETE',
         })
       );
+    });
+  });
+
+  describe('custom folders', () => {
+    it('sends POST request to dcast_custom_folders on upsertCustomFolder', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+      const folder: ICustomCategoryFolder = {
+        id: 'c1',
+        name: 'Pastas TV',
+        type: 'live',
+        streamIds: ['10', '20'],
+        createdAt: 1700000000,
+      };
+
+      await upsertCustomFolder('user_1', folder);
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/rest/v1/dcast_custom_folders'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('sends DELETE request to dcast_custom_folders on removeCustomFolder', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+      await removeCustomFolder('user_1', 'c1');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/rest/v1/dcast_custom_folders?id=eq.user_1_c1'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+
+    it('fetches and parses custom folders list', async () => {
+      const mockFolders = [
+        {
+          folder_id: 'c1',
+          name: 'Pastas TV',
+          content_type: 'live',
+          stream_ids: ['10', '20'],
+          created_at: 1700000000,
+        },
+      ];
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => mockFolders });
+
+      const list = await fetchCustomFoldersList('user_1', 'live');
+      expect(list).toHaveLength(1);
+      expect(list[0].id).toBe('c1');
+      expect(list[0].name).toBe('Pastas TV');
+      expect(list[0].streamIds).toEqual(['10', '20']);
+    });
+  });
+
+  describe('hidden items', () => {
+    it('sends POST to dcast_hidden_items on upsertHiddenItems', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+      await upsertHiddenItems('user_1', 'live', ['cat1'], ['stream1']);
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/rest/v1/dcast_hidden_items'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('fetches and parses hidden items', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            hidden_categories: ['cat1'],
+            hidden_streams: ['stream1'],
+          },
+        ],
+      });
+
+      const res = await fetchHiddenItems('user_1', 'live');
+      expect(res).not.toBeNull();
+      expect(res?.hiddenCategories).toEqual(['cat1']);
+      expect(res?.hiddenStreams).toEqual(['stream1']);
     });
   });
 });

@@ -393,6 +393,10 @@ export const storageService = {
     storage.set(`${KEYS.CUSTOM_FOLDERS_PREFIX}${folder.type}`, JSON.stringify(list));
   },
 
+  setCustomFolders(type: ContentType, folders: ICustomCategoryFolder[]): void {
+    storage.set(`${KEYS.CUSTOM_FOLDERS_PREFIX}${type}`, JSON.stringify(folders));
+  },
+
   deleteCustomFolder(type: ContentType, folderId: string): void {
     const list = this.getCustomFolders(type).filter((f) => f.id !== folderId);
     storage.set(`${KEYS.CUSTOM_FOLDERS_PREFIX}${type}`, JSON.stringify(list));

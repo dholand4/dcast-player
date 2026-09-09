@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Platform, Alert, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
@@ -7,6 +7,7 @@ import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
+import { catalogSyncService } from '../../services/catalogSyncService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
@@ -93,11 +94,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     []
   );
 
+  useEffect(() => {
+    if (!account) return;
+    const cleanup = catalogSyncService.startBackgroundQueue(account);
+    return cleanup;
+  }, [account]);
+
   const handleSyncCatalog = useCallback(() => {
     setIsSyncing(true);
     try {
       clearXtreamCache();
       storageService.clearCatalogCache();
+      catalogSyncService.resetThrottle();
+      if (account) {
+        catalogSyncService.syncLiveCatalog(account, true);
+      }
 
       setSyncModal({
         visible: true,
@@ -117,7 +128,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [account]);
 
   return (
     <Container testID="home-screen">
