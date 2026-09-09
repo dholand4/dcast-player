@@ -287,6 +287,48 @@ export const xtreamService = {
     }
   },
 
+  async getFullEpgTable(
+    creds: IAccountCredentials,
+    streamId: string | number
+  ): Promise<IEpgListing[]> {
+    try {
+      const url = `${creds.serverUrl}/player_api.php?username=${encodeURIComponent(
+        creds.username
+      )}&password=${encodeURIComponent(
+        creds.password
+      )}&action=get_simple_data_table&stream_id=${streamId}`;
+
+      const res = await fetchWithTimeout(url);
+      if (res.ok) {
+        const data = await res.json();
+        const listings = toArray<any>(data?.epg_listings);
+        if (listings.length > 0) {
+          return listings.map((item) => {
+            const rawTitle = item.title || '';
+            const rawDesc = item.description || '';
+            return {
+              id: String(item.id || ''),
+              epg_id: item.epg_id ? String(item.epg_id) : undefined,
+              title: safeDecodeBase64(rawTitle),
+              lang: item.lang,
+              start: item.start || '',
+              end: item.end || '',
+              description: safeDecodeBase64(rawDesc),
+              start_timestamp: Number(item.start_timestamp) || 0,
+              stop_timestamp: Number(item.stop_timestamp) || 0,
+              now_playing: Number(item.now_playing) || 0,
+              has_archive: Number(item.has_archive) || 0,
+            };
+          });
+        }
+      }
+    } catch {
+      // Fallback para getShortEpg
+    }
+
+    return this.getShortEpg(creds, streamId, 20);
+  },
+
   // 7. Informações detalhadas de VOD (incluindo trailer do YouTube)
   async getVodInfo(
     creds: IAccountCredentials,

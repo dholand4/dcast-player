@@ -292,7 +292,7 @@ export const ErrorButtonGroup = styled.View`
 `;
 
 /* --- EPG (Guia de TV) --- */
-export const EpgContainer = styled.View`
+export const EpgContainer = styled.TouchableOpacity`
   background-color: rgba(18, 18, 18, 0.88);
   border-radius: ${({ theme }) => theme.radii.md}px;
   padding: ${({ theme }) => theme.spacing.md}px;

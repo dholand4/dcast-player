@@ -30,6 +30,7 @@ import { xtreamService } from '../../services/xtreamService';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
+import { EpgModalGlobal } from '../../components/epgModalGlobal';
 import {
   Container,
   VideoWrapper,
@@ -219,6 +220,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // EPG (Guia de Programação) para TV ao Vivo
   const [epgList, setEpgList] = useState<IEpgListing[]>([]);
   const [epgLoading, setEpgLoading] = useState(false);
+  const [showEpgModal, setShowEpgModal] = useState(false);
 
   // Gaveta lateral de canais (Zapping)
   const [showChannelDrawer, setShowChannelDrawer] = useState(false);
@@ -1846,6 +1848,21 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     <MaterialIcons name="format-list-bulleted" size={24} color="#FFFFFF" />
                   </ControlButton>
                 )}
+                {type === 'live' && (
+                  <ControlButton
+                    onPress={() => {
+                      resetHideTimer();
+                      setShowEpgModal(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Grade de Programação"
+                    testID="epg-modal-button"
+                    style={{ marginRight: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <MaterialIcons name="event-note" size={24} color="#FFFFFF" />
+                  </ControlButton>
+                )}
                 <ControlButton
                   onPress={handleTogglePip}
                   accessibilityRole="button"
@@ -2000,19 +2017,36 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   </TimeRow>
                 </>
               ) : (
-                <EpgContainer testID="epg-container">
+                <EpgContainer
+                  testID="epg-container"
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    resetHideTimer();
+                    setShowEpgModal(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir grade de programação completa"
+                >
                   <EpgHeaderRow>
                     <EpgNowBadge>
                       <EpgNowBadgeText>No Ar</EpgNowBadgeText>
                     </EpgNowBadge>
-                    {currentProgram ? (
-                      <EpgTimeText>
-                        {formatEpgTime(currentProgram.start_timestamp || currentProgram.start)}
-                        {currentProgram.stop_timestamp || currentProgram.end
-                          ? ` - ${formatEpgTime(currentProgram.stop_timestamp || currentProgram.end)}`
-                          : ''}
-                      </EpgTimeText>
-                    ) : null}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {currentProgram ? (
+                        <EpgTimeText>
+                          {formatEpgTime(currentProgram.start_timestamp || currentProgram.start)}
+                          {currentProgram.stop_timestamp || currentProgram.end
+                            ? ` - ${formatEpgTime(currentProgram.stop_timestamp || currentProgram.end)}`
+                            : ''}
+                        </EpgTimeText>
+                      ) : null}
+                      <MaterialIcons
+                        name="chevron-right"
+                        size={16}
+                        color="rgba(255, 255, 255, 0.5)"
+                        style={{ marginLeft: 4 }}
+                      />
+                    </View>
                   </EpgHeaderRow>
                   <EpgProgramTitle numberOfLines={1}>
                     {currentProgram ? cleanProgramTitle(currentProgram.title) : 'Programação ao vivo'}
@@ -2272,6 +2306,31 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               </ScrollView>
             </SettingsModalContent>
           </SettingsModalBackdrop>
+        )}
+
+        {/* Modal de Grade Completa de Programação (EPG 24h-48h) */}
+        {type === 'live' && (
+          <EpgModalGlobal
+            visible={showEpgModal}
+            onClose={() => setShowEpgModal(false)}
+            channelName={activeTitle || title}
+            channelLogo={activePoster}
+            channelNumber={
+              liveChannelsList.findIndex(
+                (ch) =>
+                  String(ch.id) === String(activeContentId) ||
+                  String(ch.streamId) === String(activeContentId)
+              ) >= 0
+                ? liveChannelsList.findIndex(
+                    (ch) =>
+                      String(ch.id) === String(activeContentId) ||
+                      String(ch.streamId) === String(activeContentId)
+                  ) + 1
+                : undefined
+            }
+            streamId={String(activeContentId || '')}
+            initialEpgList={epgList}
+          />
         )}
 
         {/* Card de Próximo Episódio estilo Netflix */}

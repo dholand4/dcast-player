@@ -228,7 +228,42 @@ describe('PlayerScreen', () => {
     expect(getByText('No Ar')).toBeTruthy();
     expect(getByTestId('pip-button')).toBeTruthy();
     expect(getByTestId('channel-drawer-button')).toBeTruthy();
+    expect(getByTestId('epg-modal-button')).toBeTruthy();
     expect(getByTestId('settings-modal-button')).toBeTruthy();
+  });
+
+  it('opens EPG schedule modal when pressing epg button or epg container', () => {
+    const liveRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/live/user/pass/1.m3u8',
+        title: 'Globo HD',
+        type: 'live',
+        contentId: '1',
+        liveChannels: [
+          { id: '1', name: 'Globo HD', streamUrl: 'http://server.com/live/1.m3u8' },
+        ],
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={liveRoute} />
+    );
+
+    expect(queryByTestId('epg-modal-container')).toBeNull();
+
+    // Press top bar EPG button
+    fireEvent.press(getByTestId('epg-modal-button'));
+    expect(getByTestId('epg-modal-container')).toBeTruthy();
+
+    // Close modal
+    fireEvent.press(getByTestId('epg-modal-close'));
+    expect(queryByTestId('epg-modal-container')).toBeNull();
+
+    // Press bottom EPG container
+    fireEvent.press(getByTestId('epg-container'));
+    expect(getByTestId('epg-modal-container')).toBeTruthy();
   });
 
   it('opens channel drawer and allows channel switching', () => {
