@@ -49,14 +49,14 @@ export const ManageBannerButton = styled.TouchableOpacity`
   align-items: center;
   justify-content: space-between;
   margin-horizontal: ${({ theme }) => theme.spacing.md}px;
-  margin-top: ${({ theme }) => theme.spacing.sm}px;
-  margin-bottom: 2px;
-  padding-vertical: 10px;
-  padding-horizontal: 12px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  padding-vertical: 7px;
+  padding-horizontal: 10px;
   background-color: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.radii.md}px;
+  border-radius: ${({ theme }) => theme.radii.sm}px;
   border-width: 1px;
-  border-color: rgba(229, 9, 20, 0.3);
+  border-color: rgba(229, 9, 20, 0.35);
 `;
 
 export const ManageBannerLeft = styled.View`
@@ -65,30 +65,10 @@ export const ManageBannerLeft = styled.View`
   flex: 1;
 `;
 
-export const ManageIconCircle = styled.View`
-  width: 32px;
-  height: 32px;
-  border-radius: 16px;
-  background-color: rgba(229, 9, 20, 0.15);
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-`;
-
-export const ManageBannerTexts = styled.View`
-  flex: 1;
-`;
-
 export const ManageBannerTitle = styled.Text`
   color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+  font-size: 12px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
-`;
-
-export const ManageBannerSub = styled.Text`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 11px;
-  margin-top: 1px;
 `;
 
 export const SectionHeader = styled.View`

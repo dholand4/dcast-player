@@ -26,16 +26,8 @@ import {
   TabBadgeText,
   TabContent,
   SearchWrapper,
-  ActionBanner,
-  BannerInfoText,
   CreateFolderBanner,
-  CreateFolderBannerLeft,
-  CreateFolderIconCircle,
-  CreateFolderBannerTexts,
   CreateFolderBannerTitle,
-  CreateFolderBannerSub,
-  CreateFolderButton,
-  CreateFolderButtonText,
   CategoryRow,
   CategoryInfo,
   CategoryName,
@@ -319,14 +311,6 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
               {/* Tab 1: Pastas da Lista (Server Categories) */}
               {activeTab === 'server' && (
                 <>
-                  <ActionBanner>
-                    <BannerInfoText>
-                      {hiddenCategoriesCount > 0
-                        ? `${hiddenCategoriesCount} pasta(s) oculta(s) nesta lista`
-                        : 'Nenhuma pasta oculta'}
-                    </BannerInfoText>
-                  </ActionBanner>
-
                   <SearchWrapper>
                     <InputGlobal
                       placeholder="Buscar pasta da lista..."
@@ -392,20 +376,8 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                     onPress={handleOpenNewFolder}
                     testID="create-custom-folder-btn"
                   >
-                    <CreateFolderBannerLeft>
-                      <CreateFolderIconCircle>
-                        <MaterialIcons name="add" size={20} color="#FFFFFF" />
-                      </CreateFolderIconCircle>
-                      <CreateFolderBannerTexts>
-                        <CreateFolderBannerTitle>Criar Nova Pasta</CreateFolderBannerTitle>
-                        <CreateFolderBannerSub>
-                          {type === 'live'
-                            ? 'Agrupe seus canais favoritos (ex: Canais Abertos)'
-                            : 'Agrupe seus conteúdos favoritos'}
-                        </CreateFolderBannerSub>
-                      </CreateFolderBannerTexts>
-                    </CreateFolderBannerLeft>
-                    <MaterialIcons name="chevron-right" size={20} color="rgba(255, 255, 255, 0.8)" />
+                    <MaterialIcons name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <CreateFolderBannerTitle>+ Nova Pasta Personalizada</CreateFolderBannerTitle>
                   </CreateFolderBanner>
 
                   <FlatList
@@ -465,12 +437,6 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
               {/* Tab 3: Canais / Itens Ocultos */}
               {activeTab === 'streams' && (
                 <>
-                  <ActionBanner>
-                    <BannerInfoText>
-                      Oculte variações redundantes de canais (ex: múltiplas Globos)
-                    </BannerInfoText>
-                  </ActionBanner>
-
                   <SearchWrapper>
                     <InputGlobal
                       placeholder={type === 'live' ? 'Buscar canal para ocultar...' : 'Buscar conteúdo...'}

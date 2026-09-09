@@ -19,10 +19,7 @@ import {
   CloseButton,
   ManageBannerButton,
   ManageBannerLeft,
-  ManageIconCircle,
-  ManageBannerTexts,
   ManageBannerTitle,
-  ManageBannerSub,
   SectionHeader,
   SectionHeaderText,
   FolderIconCircle,
@@ -126,15 +123,10 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
               testID="drawer-manage-folders-button"
             >
               <ManageBannerLeft>
-                <ManageIconCircle>
-                  <MaterialIcons name="tune" size={18} color={theme.colors.primary} />
-                </ManageIconCircle>
-                <ManageBannerTexts>
-                  <ManageBannerTitle>Gerenciador de Pastas</ManageBannerTitle>
-                  <ManageBannerSub>Personalizar, organizar e ocultar</ManageBannerSub>
-                </ManageBannerTexts>
+                <MaterialIcons name="tune" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <ManageBannerTitle>Gerenciar Pastas e Categorias</ManageBannerTitle>
               </ManageBannerLeft>
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.textSecondary} />
+              <MaterialIcons name="chevron-right" size={18} color={theme.colors.textMuted} />
             </ManageBannerButton>
           )}
 
