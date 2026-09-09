@@ -1,48 +1,38 @@
-import React from 'react';
-import { UIManager, Alert } from 'react-native';
+import React, { useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import GoogleCast from 'react-native-google-cast';
 import { useCast } from '../../hooks/useCast';
+import { CastModalGlobal } from '../castModalGlobal';
 import { ICastButtonGlobalProps } from './types';
-import { CastContainer, StyledCastButton, CastPressable } from './style';
-
-const isNativeCastAvailable = Boolean(
-  UIManager.getViewManagerConfig?.('RNGoogleCastButton')
-);
+import { CastContainer, CastPressable } from './style';
 
 export const CastButtonGlobal: React.FC<ICastButtonGlobalProps> = ({
   tintColor,
   testID,
 }) => {
   const theme = useTheme();
-  const { isCasting } = useCast();
+  const { isCasting, currentMedia, stopCast } = useCast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handlePressFallback = async () => {
+  const handleOpenCastDialog = async () => {
     try {
       if (GoogleCast && typeof GoogleCast.showCastDialog === 'function') {
         await GoogleCast.showCastDialog();
-        return;
       }
     } catch {
       // ignore
     }
-    Alert.alert(
-      'Google Cast (Chromecast)',
-      'O app suporta transmissão oficial para Chromecast e Android TV / Google TV. No Expo Go, a detecção de dispositivos na rede local requer a geração de Development Build (npx expo run:android).'
-    );
   };
 
   const iconColor =
     tintColor || (isCasting ? theme.colors.primaryLight : theme.colors.text);
 
   return (
-    <CastContainer testID={testID}>
-      {isNativeCastAvailable ? (
-        <StyledCastButton tintColor={tintColor} />
-      ) : (
+    <>
+      <CastContainer testID={testID}>
         <CastPressable
-          onPress={handlePressFallback}
+          onPress={() => setIsModalOpen(true)}
           accessibilityRole="button"
           accessibilityLabel="Transmitir na TV"
           testID="cast-button-pressable"
@@ -54,8 +44,23 @@ export const CastButtonGlobal: React.FC<ICastButtonGlobalProps> = ({
             color={iconColor}
           />
         </CastPressable>
-      )}
-    </CastContainer>
+      </CastContainer>
+
+      <CastModalGlobal
+        visible={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        isCasting={isCasting}
+        currentMediaTitle={currentMedia?.title}
+        onDisconnect={() => {
+          stopCast();
+          setIsModalOpen(false);
+        }}
+        onOpenNativePicker={() => {
+          setIsModalOpen(false);
+          handleOpenCastDialog();
+        }}
+      />
+    </>
   );
 };
 

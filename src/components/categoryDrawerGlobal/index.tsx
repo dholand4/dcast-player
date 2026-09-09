@@ -9,6 +9,7 @@ import { storageService } from '../../services/storageService';
 import { formatExpirationDate } from '../../utils/formatters';
 import { ICategoryDrawerGlobalProps } from './types';
 import { InputGlobal } from '../inputGlobal';
+import { ConfirmModalGlobal } from '../confirmModalGlobal';
 import {
   ModalOverlay,
   DrawerContainer,
@@ -40,27 +41,18 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   const insets = useAppInsets();
   const { account, userInfo, logout } = useAuth();
   const [filterText, setFilterText] = useState('');
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
   const handleConfirmLogout = () => {
-    onClose();
-    const userLabel = account?.label || account?.username || 'esta lista';
-    const msg = `Deseja sair de "${userLabel}"? Suas listas salvas continuarão salvas para você alternar quando quiser.`;
-    const doLogout = () => {
-      clearXtreamCache();
-      storageService.clearCatalogCache();
-      logout();
-    };
+    setIsLogoutModalVisible(true);
+  };
 
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm(msg)) {
-        doLogout();
-      }
-    } else {
-      Alert.alert('Sair da Lista', msg, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair e Trocar', style: 'destructive', onPress: doLogout },
-      ]);
-    }
+  const handleExecuteLogout = () => {
+    setIsLogoutModalVisible(false);
+    onClose();
+    clearXtreamCache();
+    storageService.clearCatalogCache();
+    logout();
   };
 
 
@@ -279,6 +271,19 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
           )}
         </DrawerContainer>
       </ModalOverlay>
+
+      <ConfirmModalGlobal
+        visible={isLogoutModalVisible}
+        title="Sair da Lista"
+        description={`Deseja sair de "${account?.label || account?.username || 'esta lista'}"? Suas listas continuarão salvas para você alternar quando quiser.`}
+        confirmText="Sair e Trocar"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="logout"
+        onConfirm={handleExecuteLogout}
+        onCancel={() => setIsLogoutModalVisible(false)}
+        testID="drawer-logout-modal"
+      />
     </Modal>
   );
 };

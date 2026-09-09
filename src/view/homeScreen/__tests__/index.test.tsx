@@ -100,5 +100,16 @@ describe('HomeScreen', () => {
     expect(quickLogout).toBeTruthy();
     expect(getByText('Trocar Lista')).toBeTruthy();
   });
+
+  it('opens custom logout confirmation modal when quick logout button is clicked', () => {
+    const { getByTestId } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const quickLogout = getByTestId('home-logout-button');
+    fireEvent.press(quickLogout);
+
+    expect(getByTestId('home-logout-modal')).toBeTruthy();
+  });
 });
 

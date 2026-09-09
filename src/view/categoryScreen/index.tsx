@@ -16,6 +16,7 @@ import { ChannelCardGlobal } from '../../components/channelCardGlobal';
 import { LoadingGlobal } from '../../components/loadingGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { CategoryDrawerGlobal } from '../../components/categoryDrawerGlobal';
+import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
 import { cleanSeriesTitle, cleanEpisodeDisplayTitle } from '../../utils/formatters';
 import {
@@ -84,6 +85,8 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isClearHistoryModalVisible, setIsClearHistoryModalVisible] = useState<boolean>(false);
+  const [itemToRemove, setItemToRemove] = useState<{ id: string; seriesId?: string; title: string } | null>(null);
 
   useEffect(() => {
     if (searchQuery.trim() !== debouncedQuery.trim()) {
@@ -361,55 +364,14 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   }, [selectedCategory, reload, fetchStreams, type]);
 
   const handleConfirmClearHistory = useCallback(() => {
-    const typeLabel = type === 'series' ? 'de Séries' : 'de Filmes';
-    const doClear = () => {
-      clearHistory(type);
-    };
-
-    if (Platform.OS === 'web') {
-      if (
-        typeof window !== 'undefined' &&
-        window.confirm(`Deseja limpar todo o histórico de Continuar Assistindo ${typeLabel}?`)
-      ) {
-        doClear();
-      }
-    } else {
-      Alert.alert(
-        'Limpar Histórico',
-        `Deseja limpar todo o histórico de Continuar Assistindo ${typeLabel}?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Limpar Tudo', style: 'destructive', onPress: doClear },
-        ]
-      );
-    }
-  }, [clearHistory, type]);
+    setIsClearHistoryModalVisible(true);
+  }, []);
 
   const handleConfirmRemoveItem = useCallback(
     (item: { id: string; seriesId?: string; title: string }) => {
-      const doRemove = () => {
-        removeProgress(item.id, item.seriesId);
-      };
-
-      if (Platform.OS === 'web') {
-        if (
-          typeof window !== 'undefined' &&
-          window.confirm(`Deseja remover "${item.title}" do Continuar Assistindo?`)
-        ) {
-          doRemove();
-        }
-      } else {
-        Alert.alert(
-          'Remover Conteúdo',
-          `Deseja remover "${item.title}" do Continuar Assistindo?`,
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Remover', style: 'destructive', onPress: doRemove },
-          ]
-        );
-      }
+      setItemToRemove(item);
     },
-    [removeProgress]
+    []
   );
 
 
@@ -921,6 +883,44 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         favoritesCount={typeFavoritesCount}
         continueWatchingCount={continueWatchingCount}
         type={type}
+      />
+
+      <ConfirmModalGlobal
+        visible={isClearHistoryModalVisible}
+        title="Limpar Histórico"
+        description={`Deseja limpar todo o histórico de Continuar Assistindo ${type === 'series' ? 'de Séries' : 'de Filmes'}? Esta ação não pode ser desfeita.`}
+        confirmText="Apagar Tudo"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-sweep"
+        onConfirm={() => {
+          setIsClearHistoryModalVisible(false);
+          clearHistory(type);
+        }}
+        onCancel={() => setIsClearHistoryModalVisible(false)}
+        testID="category-clear-history-modal"
+      />
+
+      <ConfirmModalGlobal
+        visible={Boolean(itemToRemove)}
+        title="Remover do Histórico"
+        description={
+          itemToRemove
+            ? `Deseja remover "${itemToRemove.title}" do Continuar Assistindo?`
+            : ''
+        }
+        confirmText="Remover"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-outline"
+        onConfirm={() => {
+          if (itemToRemove) {
+            removeProgress(itemToRemove.id, itemToRemove.seriesId);
+            setItemToRemove(null);
+          }
+        }}
+        onCancel={() => setItemToRemove(null)}
+        testID="category-remove-item-modal"
       />
     </Container>
   );

@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { IAccountCredentials } from '../../@types/xtream';
 import { InputGlobal } from '../../components/inputGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
+import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import {
   Container,
   BrandContainer,
@@ -35,6 +36,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ navigation }) => {
   const [label, setLabel] = useState('Minha Lista');
   const [url, setUrl] = useState('');
   const [connectingKey, setConnectingKey] = useState<string | null>(null);
+  const [accountToRemove, setAccountToRemove] = useState<IAccountCredentials | null>(null);
   const {
     loginWithM3u,
     loginWithCredentials,
@@ -84,23 +86,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ navigation }) => {
   };
 
   const handleRemoveSaved = (acc: IAccountCredentials) => {
-    const doRemove = () => {
-      removeSavedAccount(acc.serverUrl, acc.username);
-    };
-
-    const host = acc.serverUrl.replace(/^https?:\/\//i, '').replace(/:\d+.*$/, '');
-    const msg = `Deseja remover "${acc.label || host}" da lista de acessos rápidos?`;
-
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm(msg)) {
-        doRemove();
-      }
-    } else {
-      Alert.alert('Remover Lista', msg, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Remover', style: 'destructive', onPress: doRemove },
-      ]);
-    }
+    setAccountToRemove(acc);
   };
 
   return (
@@ -212,6 +198,36 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ navigation }) => {
           O DCast Player não armazena nem distribui canais. O link inserido é processado de forma 100% segura e local no seu dispositivo.
         </HelperText>
       </Card>
+
+      <ConfirmModalGlobal
+        visible={Boolean(accountToRemove)}
+        title="Remover Lista"
+        description={
+          accountToRemove
+            ? `Deseja remover "${
+                accountToRemove.label ||
+                accountToRemove.serverUrl
+                  .replace(/^https?:\/\//i, '')
+                  .replace(/:\d+.*$/, '')
+              }" dos seus acessos rápidos?`
+            : ''
+        }
+        confirmText="Remover"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-outline"
+        onConfirm={() => {
+          if (accountToRemove) {
+            removeSavedAccount(
+              accountToRemove.serverUrl,
+              accountToRemove.username
+            );
+            setAccountToRemove(null);
+          }
+        }}
+        onCancel={() => setAccountToRemove(null)}
+        testID="setup-remove-account-modal"
+      />
     </Container>
   );
 };

@@ -12,6 +12,7 @@ import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
 import { NetworkDiagnosticModal } from '../../components/networkDiagnosticModal';
+import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import {
   formatExpirationDate,
   cleanSeriesTitle,
@@ -36,36 +37,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { continueWatching, removeProgress, clearHistory } = useWatchHistory();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [isClearHistoryModalVisible, setIsClearHistoryModalVisible] = useState(false);
+  const [itemToRemove, setItemToRemove] = useState<{ id: string; seriesId?: string; title: string } | null>(null);
   const formattedExpDate = formatExpirationDate(userInfo?.exp_date);
 
-  const handleConfirmLogout = useCallback(() => {
-    const doLogout = () => {
-      if (isCasting) {
-        try {
-          stopCast();
-        } catch {
-          // ignore
-        }
-      }
-      clearXtreamCache();
-      storageService.clearCatalogCache();
-      logout();
-    };
-
-    const userLabel = account?.label || account?.username || 'esta lista';
-    const msg = `Deseja sair de "${userLabel}"? Suas listas salvas continuarão salvas para você alternar quando quiser.`;
-
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm(msg)) {
-        doLogout();
-      }
-    } else {
-      Alert.alert('Sair da Lista', msg, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair e Trocar', style: 'destructive', onPress: doLogout },
-      ]);
+  const handleExecuteLogout = useCallback(() => {
+    if (isCasting) {
+      stopCast();
     }
-  }, [account, isCasting, stopCast, logout]);
+    clearXtreamCache();
+    storageService.clearCatalogCache();
+    logout();
+  }, [isCasting, stopCast, logout]);
+
+  const handleConfirmLogout = useCallback(() => {
+    setIsLogoutModalVisible(true);
+  }, []);
 
   const collapsedContinueWatching = useMemo(() => {
     const map = new Map<string, typeof continueWatching[0]>();
@@ -84,54 +72,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, [continueWatching]);
 
   const handleConfirmClearHistory = useCallback(() => {
-    const doClear = () => {
-      clearHistory();
-    };
-
-    if (Platform.OS === 'web') {
-      if (
-        typeof window !== 'undefined' &&
-        window.confirm('Deseja limpar todo o histórico de Continuar Assistindo?')
-      ) {
-        doClear();
-      }
-    } else {
-      Alert.alert(
-        'Limpar Histórico',
-        'Deseja limpar todo o histórico de Continuar Assistindo?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Limpar Tudo', style: 'destructive', onPress: doClear },
-        ]
-      );
-    }
-  }, [clearHistory]);
+    setIsClearHistoryModalVisible(true);
+  }, []);
 
   const handleConfirmRemoveItem = useCallback(
     (item: { id: string; seriesId?: string; title: string }) => {
-      const doRemove = () => {
-        removeProgress(item.id, item.seriesId);
-      };
-
-      if (Platform.OS === 'web') {
-        if (
-          typeof window !== 'undefined' &&
-          window.confirm(`Deseja remover "${item.title}" do Continuar Assistindo?`)
-        ) {
-          doRemove();
-        }
-      } else {
-        Alert.alert(
-          'Remover Conteúdo',
-          `Deseja remover "${item.title}" do Continuar Assistindo?`,
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Remover', style: 'destructive', onPress: doRemove },
-          ]
-        );
-      }
+      setItemToRemove(item);
     },
-    [removeProgress]
+    []
   );
 
   const handleSyncCatalog = useCallback(() => {
@@ -334,6 +282,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         visible={isDiagnosticOpen}
         onClose={() => setIsDiagnosticOpen(false)}
         account={account}
+      />
+
+      <ConfirmModalGlobal
+        visible={isLogoutModalVisible}
+        title="Sair da Lista"
+        description={`Deseja sair de "${account?.label || account?.username || 'esta lista'}"? Suas listas continuarão salvas para alternar com facilidade.`}
+        confirmText="Sair e Trocar"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="logout"
+        onConfirm={() => {
+          setIsLogoutModalVisible(false);
+          handleExecuteLogout();
+        }}
+        onCancel={() => setIsLogoutModalVisible(false)}
+        testID="home-logout-modal"
+      />
+
+      <ConfirmModalGlobal
+        visible={isClearHistoryModalVisible}
+        title="Limpar Histórico"
+        description="Deseja limpar todo o histórico de Continuar Assistindo? Esta ação não pode ser desfeita."
+        confirmText="Apagar Tudo"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-sweep"
+        onConfirm={() => {
+          setIsClearHistoryModalVisible(false);
+          clearHistory();
+        }}
+        onCancel={() => setIsClearHistoryModalVisible(false)}
+        testID="home-clear-history-modal"
+      />
+
+      <ConfirmModalGlobal
+        visible={Boolean(itemToRemove)}
+        title="Remover do Histórico"
+        description={
+          itemToRemove
+            ? `Deseja remover "${itemToRemove.title}" do Continuar Assistindo?`
+            : ''
+        }
+        confirmText="Remover"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-outline"
+        onConfirm={() => {
+          if (itemToRemove) {
+            removeProgress(itemToRemove.id, itemToRemove.seriesId);
+            setItemToRemove(null);
+          }
+        }}
+        onCancel={() => setItemToRemove(null)}
+        testID="home-remove-item-modal"
       />
     </Container>
   );
