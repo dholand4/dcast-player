@@ -157,20 +157,15 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       const cats = await fetchCategories(type);
       if (!isMounted) return;
 
-      if (cats && cats.length > 0) {
-        const firstCatId = String(cats[0].category_id);
-        setSelectedCategory(firstCatId);
-        await fetchStreams(type, firstCatId);
+      await fetchStreams(type, undefined);
 
-        // Pre-fetch the next 3 categories silently in the background
-        const nextCats = cats.slice(1, 4);
-        for (const nextCat of nextCats) {
+      if (cats && cats.length > 0) {
+        // Pre-fetch the top categories silently in the background
+        const topCats = cats.slice(0, 3);
+        for (const cat of topCats) {
           if (!isMounted) break;
-          prefetchCategory(type, String(nextCat.category_id));
+          prefetchCategory(type, String(cat.category_id));
         }
-      } else {
-        setSelectedCategory('all');
-        fetchStreams(type, undefined);
       }
       initializedRef.current = true;
     }

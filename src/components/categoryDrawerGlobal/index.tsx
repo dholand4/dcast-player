@@ -226,7 +226,13 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                         }
                       />
                       <CategoryItemText isSelected={selectedCategory === 'all'}>
-                        Todos os Conteúdos
+                        {type === 'live'
+                          ? 'Todos os Canais'
+                          : type === 'movie'
+                          ? 'Todos os Filmes'
+                          : type === 'series'
+                          ? 'Todas as Séries'
+                          : 'Todos os Conteúdos'}
                       </CategoryItemText>
                     </CategoryItemContent>
                     {selectedCategory === 'all' && (
