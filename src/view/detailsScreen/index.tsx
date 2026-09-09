@@ -16,6 +16,11 @@ import { ProgressBarGlobal } from '../../components/progressBarGlobal';
 import { LoadingGlobal } from '../../components/loadingGlobal';
 import { IXtreamEpisode } from '../../@types/xtream';
 import {
+  cleanSeriesTitle,
+  cleanEpisodeDisplayTitle,
+  formatEpisodeTitle,
+} from '../../utils/formatters';
+import {
   Container,
   HeroContainer,
   HeroBackdrop,
@@ -162,6 +167,11 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     return all.find((item) => item.seriesId === id || item.id === id) || null;
   }, [type, id, getAllWatchProgress]);
 
+  const baseSeriesTitle = useMemo(() => {
+    if (type !== 'series') return title;
+    return seriesInfo?.info?.name || cleanSeriesTitle(title);
+  }, [type, title, seriesInfo]);
+
   const allSeriesEpisodes = useMemo(() => {
     if (type !== 'series' || !seriesInfo?.episodes || !account) return [];
     const epsMap = seriesInfo.episodes;
@@ -169,7 +179,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       const eps = epsMap[seasonKey] || [];
       return eps.map((ep) => ({
         id: String(ep.id),
-        title: `${title} - T${seasonKey}E${ep.episode_num}: ${ep.title}`,
+        title: formatEpisodeTitle(baseSeriesTitle, seasonKey, ep.episode_num, ep.title),
         streamUrl: xtreamService.buildSeriesStreamUrl(
           account,
           ep.id,
@@ -180,7 +190,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         episodeNumber: Number(ep.episode_num),
       }));
     });
-  }, [type, seriesInfo, availableSeasons, account, title, posterUrl]);
+  }, [type, seriesInfo, availableSeasons, account, baseSeriesTitle, posterUrl]);
 
   const handlePlayMovie = () => {
     if (!account) return;
@@ -203,7 +213,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       episode.container_extension || 'mp4'
     );
     const season = seasonNum ? String(seasonNum) : selectedSeason;
-    const epTitle = `${title} - T${season}E${episode.episode_num}: ${episode.title}`;
+    const epTitle = formatEpisodeTitle(baseSeriesTitle, season, episode.episode_num, episode.title);
     const epProgress =
       getProgress(String(episode.id)) ||
       (latestSeriesProgress &&
@@ -262,9 +272,17 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         latestSeriesProgress.streamUrl ||
         xtreamService.buildSeriesStreamUrl(account, Number(latestSeriesProgress.id), 'mp4');
 
+      const resumeTitle =
+        cleanEpisodeDisplayTitle(latestSeriesProgress.title) ||
+        formatEpisodeTitle(
+          baseSeriesTitle,
+          latestSeriesProgress.seasonNumber,
+          latestSeriesProgress.episodeNumber
+        );
+
       navigation.navigate('PlayerScreen', {
         streamUrl,
-        title: latestSeriesProgress.title || title,
+        title: resumeTitle,
         posterUrl: latestSeriesProgress.posterUrl || posterUrl,
         type: 'series',
         contentId: latestSeriesProgress.id,
@@ -287,7 +305,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const handleToggleFav = () => {
     toggleFavorite({
       id,
-      name: title,
+      name: baseSeriesTitle,
       posterUrl: posterUrl || '',
       type,
       categoryId: '',
@@ -325,7 +343,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       </HeroContainer>
 
       <ContentPadding>
-        <TitleText>{title}</TitleText>
+        <TitleText>{baseSeriesTitle}</TitleText>
 
         <MetaRow>
           {type === 'series' && seriesInfo?.info?.rating ? (

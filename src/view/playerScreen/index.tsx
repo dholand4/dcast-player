@@ -19,7 +19,13 @@ import { IEpgListing } from '../../@types/xtream';
 import { useCast } from '../../hooks/useCast';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
-import { formatSeconds, calculatePercentage } from '../../utils/formatters';
+import {
+  formatSeconds,
+  calculatePercentage,
+  cleanSeriesTitle,
+  cleanEpisodeDisplayTitle,
+  formatEpisodeTitle,
+} from '../../utils/formatters';
 import { xtreamService } from '../../services/xtreamService';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
@@ -134,13 +140,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           if (!info?.episodes) return;
           const epsMap = info.episodes;
           const seasons = Object.keys(epsMap).sort((a, b) => Number(a) - Number(b));
+          const baseSeries = info.info?.name || cleanSeriesTitle(title);
           const flatEps = seasons.flatMap((seasonKey) => {
             const eps = epsMap[seasonKey] || [];
             return eps.map((ep: any) => ({
               id: String(ep.id),
               episodeNumber: Number(ep.episode_num),
               seasonNumber: Number(seasonKey),
-              title: `${info.info?.name || title} - T${seasonKey}E${ep.episode_num}: ${ep.title}`,
+              title: formatEpisodeTitle(baseSeries, seasonKey, ep.episode_num, ep.title),
               streamUrl: xtreamService.buildSeriesStreamUrl(
                 account,
                 ep.id,
@@ -191,7 +198,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Informações ativas de canais / conteúdos
   const [activeContentId, setActiveContentId] = useState(contentId);
-  const [activeTitle, setActiveTitle] = useState(title);
+  const [activeTitle, setActiveTitle] = useState(() =>
+    type === 'series' ? cleanEpisodeDisplayTitle(title) : title
+  );
   const [activePoster, setActivePoster] = useState(posterUrl);
   const [liveChannelsList, setLiveChannelsList] = useState<LiveChannelItem[]>(liveChannels || []);
 
@@ -202,10 +211,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [liveChannels]);
 
   useEffect(() => {
-    setActiveTitle(title);
+    setActiveTitle(type === 'series' ? cleanEpisodeDisplayTitle(title) : title);
     setActivePoster(posterUrl);
     setActiveContentId(contentId);
-  }, [title, posterUrl, contentId]);
+  }, [title, posterUrl, contentId, type]);
 
   // EPG (Guia de Programação) para TV ao Vivo
   const [epgList, setEpgList] = useState<IEpgListing[]>([]);
@@ -900,10 +909,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     (time: number, totalDur: number) => {
       if (type === 'live') return;
       const pct = calculatePercentage(time, totalDur);
+      const titleToSave = type === 'series' ? cleanEpisodeDisplayTitle(title) : title;
       saveProgress({
         id: contentId,
         seriesId,
-        title,
+        title: titleToSave,
         posterUrl: posterUrl || '',
         type,
         seasonNumber,
@@ -922,10 +932,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   useEffect(() => {
     if (type === 'series' && contentId) {
       const existing = getProgress(contentId);
+      const titleToSave = cleanEpisodeDisplayTitle(title);
       saveProgress({
         id: contentId,
         seriesId,
-        title,
+        title: titleToSave,
         posterUrl: posterUrl || '',
         type: 'series',
         seasonNumber,
@@ -953,7 +964,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       saveProgress({
         id: contentId,
         seriesId,
-        title,
+        title: cleanEpisodeDisplayTitle(title),
         posterUrl: posterUrl || '',
         type: 'series',
         seasonNumber,
@@ -967,7 +978,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
 
     // 2. Registra o próximo episódio imediatamente como ativo com o título correto
-    const nextTitle = nextEpisode.title;
+    const nextTitle = cleanEpisodeDisplayTitle(nextEpisode.title);
     saveProgress({
       id: nextEpisode.id,
       seriesId,
@@ -985,7 +996,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     navigation.replace('PlayerScreen', {
       streamUrl: nextEpisode.streamUrl,
-      title: nextEpisode.title,
+      title: nextTitle,
       posterUrl: nextEpisode.posterUrl || posterUrl,
       type: 'series',
       contentId: nextEpisode.id,
@@ -1071,7 +1082,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
 
     // Registra o episódio anterior imediatamente como o ativo
-    const prevTitle = prevEpisode.title;
+    const prevTitle = cleanEpisodeDisplayTitle(prevEpisode.title);
     saveProgress({
       id: prevEpisode.id,
       seriesId,
@@ -1089,7 +1100,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     navigation.replace('PlayerScreen', {
       streamUrl: prevEpisode.streamUrl,
-      title: prevEpisode.title,
+      title: prevTitle,
       posterUrl: prevEpisode.posterUrl || posterUrl,
       type: 'series',
       contentId: prevEpisode.id,

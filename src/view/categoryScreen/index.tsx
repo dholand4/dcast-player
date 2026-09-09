@@ -17,6 +17,7 @@ import { LoadingGlobal } from '../../components/loadingGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { CategoryDrawerGlobal } from '../../components/categoryDrawerGlobal';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
+import { cleanSeriesTitle, cleanEpisodeDisplayTitle } from '../../utils/formatters';
 import {
   Container,
   SearchRow,
@@ -104,7 +105,11 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     if (type === 'live') return [];
     const all = continueWatching.filter((p) => p.type === type);
     const map = new Map<string, typeof all[0]>();
-    for (const item of all) {
+    for (const rawItem of all) {
+      const item =
+        rawItem.type === 'series'
+          ? { ...rawItem, title: cleanEpisodeDisplayTitle(rawItem.title) }
+          : rawItem;
       const key = type === 'series' && item.seriesId ? item.seriesId : item.id;
       if (!map.has(key) || item.updatedAt > map.get(key)!.updatedAt) {
         map.set(key, item);
@@ -462,7 +467,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       navigation.navigate('DetailsScreen', {
         id: String(series.series_id),
         type: 'series',
-        title: series.name,
+        title: cleanSeriesTitle(series.name),
         posterUrl: series.cover,
       });
     },

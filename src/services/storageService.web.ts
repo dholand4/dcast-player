@@ -1,5 +1,6 @@
 import { IAccountCredentials, IXtreamUserInfo } from '../@types/xtream';
 import { IWatchProgress, IFavoriteItem, ContentType } from '../@types/storage';
+import { cleanEpisodeDisplayTitle } from '../utils/formatters';
 
 interface IStorageLike {
   getString: (key: string) => string | undefined;
@@ -105,8 +106,12 @@ export const storageService = {
 
   // --- Watch Progress / History ---
   saveWatchProgress(progress: IWatchProgress): void {
-    const key = `${KEYS.HISTORY_PREFIX}${progress.id}`;
-    storage.set(key, JSON.stringify(progress));
+    const itemToSave =
+      progress.type === 'series' && progress.title
+        ? { ...progress, title: cleanEpisodeDisplayTitle(progress.title) }
+        : progress;
+    const key = `${KEYS.HISTORY_PREFIX}${itemToSave.id}`;
+    storage.set(key, JSON.stringify(itemToSave));
   },
 
   getWatchProgress(contentId: string): IWatchProgress | null {
@@ -114,7 +119,11 @@ export const storageService = {
       const key = `${KEYS.HISTORY_PREFIX}${contentId}`;
       const raw = storage.getString(key);
       if (!raw) return null;
-      return JSON.parse(raw) as IWatchProgress;
+      const parsed = JSON.parse(raw) as IWatchProgress;
+      if (parsed.type === 'series' && parsed.title) {
+        parsed.title = cleanEpisodeDisplayTitle(parsed.title);
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -159,6 +168,9 @@ export const storageService = {
       if (raw) {
         try {
           const parsed = JSON.parse(raw) as IWatchProgress;
+          if (parsed.type === 'series' && parsed.title) {
+            parsed.title = cleanEpisodeDisplayTitle(parsed.title);
+          }
           list.push(parsed);
         } catch {
           // ignore

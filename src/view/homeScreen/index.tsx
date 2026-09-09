@@ -11,7 +11,11 @@ import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
 import { NetworkDiagnosticModal } from '../../components/networkDiagnosticModal';
-import { formatExpirationDate } from '../../utils/formatters';
+import {
+  formatExpirationDate,
+  cleanSeriesTitle,
+  cleanEpisodeDisplayTitle,
+} from '../../utils/formatters';
 import {
   Container,
   ScrollArea,
@@ -34,7 +38,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const collapsedContinueWatching = useMemo(() => {
     const map = new Map<string, typeof continueWatching[0]>();
-    for (const item of continueWatching) {
+    for (const rawItem of continueWatching) {
+      const item =
+        rawItem.type === 'series'
+          ? { ...rawItem, title: cleanEpisodeDisplayTitle(rawItem.title) }
+          : rawItem;
       const key = item.type === 'series' ? item.seriesId || item.id : item.id;
       const existing = map.get(key);
       if (!existing || item.updatedAt > existing.updatedAt) {
@@ -244,7 +252,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       navigation.navigate('DetailsScreen', {
                         id: item.seriesId || item.id,
                         type: 'series',
-                        title: item.title,
+                        title: cleanSeriesTitle(item.title),
                         posterUrl: item.posterUrl,
                       });
                     } else if (item.type === 'movie') {

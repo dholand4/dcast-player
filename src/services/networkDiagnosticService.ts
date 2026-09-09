@@ -154,9 +154,6 @@ export const networkDiagnosticService = {
     )}&password=${encodeURIComponent(password)}&action=get_live_streams&_dl=${Date.now()}`;
     const targetUrl = resolveUrlForPlatform(url);
 
-    const startTime = performance.now();
-    let totalBytes = 0;
-
     const res = await fetch(targetUrl, {
       method: 'GET',
       signal,
@@ -167,6 +164,9 @@ export const networkDiagnosticService = {
       throw new Error(`Falha no download de teste (HTTP ${res.status})`);
     }
 
+    const transferStartTime = performance.now();
+    let totalBytes = 0;
+
     if (res.body && typeof res.body.getReader === 'function') {
       const reader = res.body.getReader();
       try {
@@ -176,8 +176,8 @@ export const networkDiagnosticService = {
           if (done) break;
           if (value) {
             totalBytes += value.length;
-            const elapsedSeconds = (performance.now() - startTime) / 1000;
-            if (elapsedSeconds > 0.2) {
+            const elapsedSeconds = (performance.now() - transferStartTime) / 1000;
+            if (elapsedSeconds > 0.1) {
               const currentMbps = (totalBytes * 8) / (elapsedSeconds * 1024 * 1024);
               onSpeedUpdate?.(Math.round(currentMbps * 10) / 10);
             }
@@ -191,7 +191,7 @@ export const networkDiagnosticService = {
       totalBytes = blob.size || 0;
     }
 
-    const elapsedSeconds = Math.max(0.1, (performance.now() - startTime) / 1000);
+    const elapsedSeconds = Math.max(0.1, (performance.now() - transferStartTime) / 1000);
     const speedMbps = (totalBytes * 8) / (elapsedSeconds * 1024 * 1024);
 
     return Math.max(0.5, Math.round(speedMbps * 10) / 10);
