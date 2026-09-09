@@ -3,10 +3,12 @@ import { Image as ExpoImage } from 'expo-image';
 
 interface ICardContainerProps {
   cardWidth?: number;
+  cardHeight?: number;
 }
 
 export const CardContainer = styled.TouchableOpacity<ICardContainerProps>`
   width: ${({ cardWidth }) => (cardWidth ? `${cardWidth}px` : '100%')};
+  ${({ cardHeight }) => (cardHeight ? `height: ${cardHeight}px;` : '')}
   margin-bottom: ${({ theme }) => theme.spacing.md}px;
 `;
 
@@ -17,6 +19,17 @@ export const ImageWrapper = styled.View`
   overflow: hidden;
   background-color: ${({ theme }) => theme.colors.surfaceCard};
   position: relative;
+`;
+
+export const PlaceholderContainer = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  justify-content: center;
+  align-items: center;
+  background-color: ${({ theme }) => theme.colors.surfaceCard};
 `;
 
 export const PosterImage = styled(ExpoImage)`
@@ -44,4 +57,6 @@ export const TitleText = styled.Text.attrs({
   font-size: ${({ theme }) => theme.typography.sizes.xs}px;
   font-weight: ${({ theme }) => theme.typography.weights.medium};
   margin-top: ${({ theme }) => theme.spacing.xs}px;
+  height: 18px;
+  line-height: 18px;
 `;

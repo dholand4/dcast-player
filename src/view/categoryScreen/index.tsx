@@ -350,7 +350,9 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       });
     }
 
-    return result;
+    return result.filter(
+      (item) => !!item && !!(item.name || ('stream_id' in item ? item.stream_id : (item as IXtreamSeries).series_id))
+    );
   }, [items, selectedCategory, debouncedQuery, favorites, type, typeContinueWatchingList, sortMode]);
 
   const handleRefresh = useCallback(() => {
@@ -437,13 +439,15 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   );
 
   const keyExtractorLive = useCallback(
-    (item: IXtreamLiveStream) => `live-${item.stream_id}`,
+    (item: IXtreamLiveStream, index: number) => `live-${item?.stream_id ?? 'item'}-${index}`,
     []
   );
 
   const keyExtractorVod = useCallback(
-    (item: IXtreamVodStream | IXtreamSeries) =>
-      `item-${'stream_id' in item ? item.stream_id : item.series_id}`,
+    (item: IXtreamVodStream | IXtreamSeries, index: number) => {
+      const id = item && 'stream_id' in item ? item.stream_id : (item as IXtreamSeries)?.series_id;
+      return `vod-${id ?? 'item'}-${index}`;
+    },
     []
   );
 

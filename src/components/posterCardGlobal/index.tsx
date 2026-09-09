@@ -8,6 +8,7 @@ import {
   CardContainer,
   ImageWrapper,
   PosterImage,
+  PlaceholderContainer,
   BadgeWrapper,
   ProgressWrapper,
   TitleText,
@@ -25,9 +26,12 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
     width,
     testID,
   }) => {
+    const cardHeight = width ? Math.round(width * 1.5) + 38 : undefined;
+
     return (
       <CardContainer
         cardWidth={width}
+        cardHeight={cardHeight}
         onPress={onPress}
         onLongPress={onLongPress || onRemove}
         activeOpacity={0.8}
@@ -36,13 +40,18 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
         accessibilityLabel={title}
       >
         <ImageWrapper>
-          <PosterImage
-            source={posterUrl ? { uri: posterUrl } : undefined}
-            contentFit="cover"
-            recyclingKey={posterUrl || title}
-            cachePolicy="memory-disk"
-            transition={0}
-          />
+          <PlaceholderContainer>
+            <MaterialIcons name="movie" size={32} color="rgba(255, 255, 255, 0.2)" />
+          </PlaceholderContainer>
+          {posterUrl ? (
+            <PosterImage
+              source={{ uri: posterUrl }}
+              contentFit="cover"
+              recyclingKey={posterUrl || title}
+              cachePolicy="memory-disk"
+              transition={150}
+            />
+          ) : null}
           {rating ? (
             <BadgeWrapper>
               <BadgeGlobal text={rating} variant="rating" />
