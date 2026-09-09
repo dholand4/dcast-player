@@ -66,6 +66,12 @@ export const ChannelCardGlobal: React.FC<IChannelCardGlobalProps> = React.memo(
         </ActionsContainer>
       </Container>
     );
-  }
+  },
+  (prev, next) =>
+    prev.name === next.name &&
+    prev.logoUrl === next.logoUrl &&
+    prev.channelNumber === next.channelNumber &&
+    prev.isFavorite === next.isFavorite &&
+    prev.testID === next.testID
 );
 

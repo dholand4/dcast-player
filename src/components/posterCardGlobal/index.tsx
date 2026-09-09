@@ -84,6 +84,13 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
         <TitleText>{title}</TitleText>
       </CardContainer>
     );
-  }
+  },
+  (prev, next) =>
+    prev.title === next.title &&
+    prev.posterUrl === next.posterUrl &&
+    prev.rating === next.rating &&
+    prev.percentage === next.percentage &&
+    prev.width === next.width &&
+    prev.testID === next.testID
 );
 

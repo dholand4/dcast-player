@@ -855,16 +855,21 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
               renderItem={renderLiveItem}
               refreshing={isLoading}
               onRefresh={handleRefresh}
-              initialNumToRender={20}
-              maxToRenderPerBatch={20}
-              windowSize={7}
+              initialNumToRender={40}
+              maxToRenderPerBatch={40}
+              windowSize={41}
+              updateCellsBatchingPeriod={25}
+              removeClippedSubviews={false}
+              style={{ flex: 1 }}
             />
           ) : (
             <FlashList
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
               renderItem={renderLiveItem}
-              drawDistance={500}
+              drawDistance={2500}
+              maintainVisibleContentPosition={{ disabled: true }}
+              overScrollMode="never"
               refreshing={isLoading}
               onRefresh={handleRefresh}
             />
@@ -881,9 +886,12 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             onRefresh={handleRefresh}
             ListHeaderComponent={renderVodHeader}
             ListEmptyComponent={renderEmptyComponent}
-            initialNumToRender={numColumns * 4}
-            maxToRenderPerBatch={numColumns * 3}
-            windowSize={7}
+            initialNumToRender={numColumns * 6}
+            maxToRenderPerBatch={numColumns * 6}
+            windowSize={41}
+            updateCellsBatchingPeriod={25}
+            removeClippedSubviews={false}
+            style={{ flex: 1 }}
           />
         ) : (
           <FlashList
@@ -892,7 +900,10 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             numColumns={numColumns}
             keyExtractor={keyExtractorVod}
             renderItem={renderVodItem}
-            drawDistance={500}
+            getItemType={(item) => ('stream_id' in item ? 'vod' : 'series')}
+            drawDistance={2500}
+            maintainVisibleContentPosition={{ disabled: true }}
+            overScrollMode="never"
             refreshing={isLoading}
             onRefresh={handleRefresh}
             ListHeaderComponent={renderVodHeader}
