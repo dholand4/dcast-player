@@ -71,10 +71,22 @@ export const CustomFolderEditModalGlobal: React.FC<ICustomFolderEditModalGlobalP
 
   const filteredStreams = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return availableStreams.slice(0, 100);
-    return availableStreams
-      .filter((s) => (s.name || '').toLowerCase().includes(q))
-      .slice(0, 100);
+    const source = q
+      ? availableStreams.filter((s) => (s.name || '').toLowerCase().includes(q))
+      : availableStreams;
+
+    const seen = new Set<string>();
+    const deduplicated: typeof availableStreams = [];
+    for (const item of source) {
+      if (!item) continue;
+      const id = getStreamId(item);
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        deduplicated.push(item);
+      }
+      if (deduplicated.length >= 100) break;
+    }
+    return deduplicated;
   }, [availableStreams, searchQuery]);
 
   const handleToggleSelect = useCallback((id: string) => {

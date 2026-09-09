@@ -25,7 +25,7 @@ export const ModalHeader = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-bottom-width: 1px;
   border-bottom-color: ${({ theme }) => theme.colors.border};
   background-color: ${({ theme }) => theme.colors.surface};
@@ -37,18 +37,16 @@ export const HeaderTitleContainer = styled.View`
 
 export const ModalTitle = styled.Text`
   color: ${({ theme }) => theme.colors.text};
-  font-size: 16px;
+  font-size: 15px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
 export const ModalSubtitle = styled.Text`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 11px;
-  margin-top: 1px;
+  display: none;
 `;
 
 export const CloseButton = styled.TouchableOpacity`
-  padding: ${({ theme }) => theme.spacing.xs}px;
+  padding: 4px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
   align-items: center;
@@ -59,87 +57,83 @@ export const CloseButton = styled.TouchableOpacity`
 export const TabBar = styled.ScrollView.attrs({
   horizontal: true,
   showsHorizontalScrollIndicator: false,
-  contentContainerStyle: { paddingHorizontal: 10 },
+  contentContainerStyle: { paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
 })`
   background-color: ${({ theme }) => theme.colors.surface};
   border-bottom-width: 1px;
   border-bottom-color: ${({ theme }) => theme.colors.border};
+  flex-grow: 0;
 `;
 
 export const TabButton = styled.TouchableOpacity<{ isActive: boolean }>`
   flex-direction: row;
   align-items: center;
-  padding-vertical: 9px;
+  padding-vertical: 5px;
   padding-horizontal: 10px;
-  border-bottom-width: 2px;
-  border-bottom-color: ${({ isActive, theme }) =>
+  border-radius: 14px;
+  background-color: ${({ isActive, theme }) =>
+    isActive ? 'rgba(229, 9, 20, 0.15)' : theme.colors.surfaceLight};
+  border-width: 1px;
+  border-color: ${({ isActive, theme }) =>
     isActive ? theme.colors.primary : 'transparent'};
+  margin-right: 6px;
 `;
 
 export const TabButtonText = styled.Text<{ isActive: boolean }>`
   color: ${({ isActive, theme }) =>
     isActive ? theme.colors.primary : theme.colors.textSecondary};
-  font-size: 12px;
+  font-size: 11px;
   font-weight: ${({ isActive, theme }) =>
     isActive ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
 export const TabBadge = styled.View<{ isActive: boolean }>`
   background-color: ${({ isActive, theme }) =>
-    isActive ? 'rgba(229, 9, 20, 0.15)' : theme.colors.surfaceLight};
+    isActive ? theme.colors.primary : 'rgba(255, 255, 255, 0.1)'};
   padding-horizontal: 5px;
   padding-vertical: 1px;
-  border-radius: 8px;
-  margin-left: 5px;
+  border-radius: 6px;
+  margin-left: 4px;
 `;
 
 export const TabBadgeText = styled.Text<{ isActive: boolean }>`
-  color: ${({ isActive, theme }) =>
-    isActive ? theme.colors.primary : theme.colors.textSecondary};
-  font-size: 10px;
+  color: #ffffff;
+  font-size: 9px;
   font-weight: bold;
 `;
 
 export const TabContent = styled.View`
   flex: 1;
-  padding: 8px 10px;
+  padding: 6px 8px;
 `;
 
 export const SearchWrapper = styled.View`
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 `;
 
 export const ActionBanner = styled.View`
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  background-color: ${({ theme }) => theme.colors.surfaceLight};
-  padding: 8px 10px;
-  border-radius: ${({ theme }) => theme.radii.sm}px;
-  margin-bottom: 6px;
+  display: none;
 `;
 
 export const BannerInfoText = styled.Text`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 11px;
-  flex: 1;
+  display: none;
 `;
 
 export const CreateFolderBanner = styled.TouchableOpacity`
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  background-color: ${({ theme }) => theme.colors.primary};
-  padding-vertical: 9px;
-  padding-horizontal: 12px;
+  background-color: #2E7D32;
+  padding-vertical: 7px;
+  padding-horizontal: 10px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
-  margin-bottom: 8px;
-  gap: 6px;
+  margin-bottom: 6px;
+  gap: 4px;
 `;
 
 export const CreateFolderBannerTitle = styled.Text`
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
@@ -147,14 +141,14 @@ export const CategoryRow = styled.View<{ isHidden: boolean }>`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 6px 10px;
   background-color: ${({ isHidden, theme }) =>
     isHidden ? 'rgba(0, 0, 0, 0.3)' : theme.colors.surface};
   border-radius: ${({ theme }) => theme.radii.md}px;
   border-width: 1px;
   border-color: ${({ isHidden, theme }) =>
     isHidden ? 'rgba(255, 255, 255, 0.05)' : theme.colors.border};
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   opacity: ${({ isHidden }) => (isHidden ? 0.6 : 1)};
 `;
 
@@ -212,12 +206,12 @@ export const CustomFolderRow = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 6px 10px;
   background-color: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.radii.md}px;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 `;
 
 export const FolderInfoContainer = styled.View`

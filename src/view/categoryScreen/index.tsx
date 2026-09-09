@@ -209,14 +209,21 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
 
     const customFolder = customFolders.find((f) => f.id === selectedCategory);
     if (customFolder) {
-      result = (items || []).filter((item) => {
-        if (!item) return false;
+      // Map each unique streamId in the custom folder to at most ONE item from items to guarantee 1-to-1 match
+      const streamMap = new Map<string, IXtreamLiveStream | IXtreamVodStream | IXtreamSeries>();
+      for (const item of items || []) {
+        if (!item) continue;
         const id =
           'stream_id' in item
             ? String(item.stream_id)
             : String((item as IXtreamSeries).series_id);
-        return customFolder.streamIds.includes(id);
-      });
+        if (id && !streamMap.has(id)) {
+          streamMap.set(id, item);
+        }
+      }
+      result = customFolder.streamIds
+        .map((id) => streamMap.get(id))
+        .filter((item): item is IXtreamLiveStream | IXtreamVodStream | IXtreamSeries => !!item);
     } else if (selectedCategory === 'favorites') {
       const typeFavs = favorites.filter((f) =>
         type === 'live' ? f.type === 'live' : f.type === type
@@ -380,10 +387,39 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       });
     }
 
-    return result.filter(
-      (item) => !!item && !!(item.name || ('stream_id' in item ? item.stream_id : (item as IXtreamSeries).series_id))
-    );
-  }, [items, selectedCategory, debouncedQuery, favorites, type, typeContinueWatchingList, sortMode]);
+    // Deduplicate by unique stream/series ID to prevent duplicate server items
+    const seenIds = new Set<string>();
+    const deduplicated: (IXtreamLiveStream | IXtreamVodStream | IXtreamSeries)[] = [];
+    for (const item of result) {
+      if (!item) continue;
+      const rawId = 'stream_id' in item ? item.stream_id : (item as IXtreamSeries).series_id;
+      const id =
+        rawId != null && String(rawId) !== ''
+          ? String(rawId)
+          : 'num' in item && item.num != null
+          ? String(item.num)
+          : item.name;
+      if (id && id !== 'undefined' && id !== 'null') {
+        if (seenIds.has(id)) {
+          continue;
+        }
+        seenIds.add(id);
+      }
+      deduplicated.push(item);
+    }
+
+    return deduplicated;
+  }, [
+    items,
+    selectedCategory,
+    debouncedQuery,
+    favorites,
+    type,
+    typeContinueWatchingList,
+    sortMode,
+    customFolders,
+    hiddenStreams,
+  ]);
 
   const handleRefresh = useCallback(() => {
     if (selectedCategory === 'favorites') {
@@ -469,7 +505,15 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   );
 
   const keyExtractorLive = useCallback(
-    (item: IXtreamLiveStream, index: number) => `live-${item?.stream_id ?? 'item'}-${index}`,
+    (item: IXtreamLiveStream, index: number) => {
+      const id =
+        item?.stream_id != null && String(item.stream_id) !== ''
+          ? item.stream_id
+          : item?.num != null
+          ? item.num
+          : index;
+      return `live-${id}-${index}`;
+    },
     []
   );
 
@@ -482,25 +526,34 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   );
 
   const renderLiveItem = useCallback(
-    ({ item }: { item: IXtreamLiveStream }) => (
-      <ChannelCardGlobal
-        name={item.name}
-        logoUrl={item.stream_icon}
-        channelNumber={item.num}
-        isFavorite={isFavorite(String(item.stream_id))}
-        onToggleFavorite={() =>
-          toggleFavorite({
-            id: String(item.stream_id),
-            name: item.name,
-            posterUrl: item.stream_icon || '',
-            type: 'live',
-            categoryId: item.category_id,
-            addedAt: Date.now(),
-          })
-        }
-        onPlay={() => handleLivePlay(item)}
-      />
-    ),
+    ({ item }: { item: IXtreamLiveStream }) => {
+      const liveId =
+        item.stream_id != null && String(item.stream_id) !== ''
+          ? String(item.stream_id)
+          : item.num != null
+          ? String(item.num)
+          : item.name;
+
+      return (
+        <ChannelCardGlobal
+          name={item.name}
+          logoUrl={item.stream_icon}
+          channelNumber={item.num}
+          isFavorite={isFavorite(liveId)}
+          onToggleFavorite={() =>
+            toggleFavorite({
+              id: liveId,
+              name: item.name,
+              posterUrl: item.stream_icon || '',
+              type: 'live',
+              categoryId: item.category_id,
+              addedAt: Date.now(),
+            })
+          }
+          onPlay={() => handleLivePlay(item)}
+        />
+      );
+    },
     [isFavorite, toggleFavorite, handleLivePlay]
   );
 
