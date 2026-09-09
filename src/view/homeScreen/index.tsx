@@ -170,7 +170,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         subtitle={account?.username ? `@${account.username}` : undefined}
         extraInfo={formattedExpDate}
         onSearchPress={() => navigation.navigate('SearchScreen')}
-        onLogoutPress={handleConfirmLogout}
       />
 
       <ScrollArea>
@@ -190,20 +189,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <QuickActionsRow testID="quick-actions-row">
           <QuickActionButton
+            onPress={handleConfirmLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Sair ou trocar de lista IPTV"
+            testID="home-logout-button"
+            style={{ borderColor: 'rgba(229, 9, 20, 0.4)' }}
+          >
+            <MaterialIcons name="logout" size={20} color="#E50914" />
+            <QuickActionText
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{ color: '#E50914' }}
+            >
+              Trocar Lista
+            </QuickActionText>
+          </QuickActionButton>
+
+          <QuickActionButton
             onPress={handleSyncCatalog}
             disabled={isSyncing}
             accessibilityRole="button"
-            accessibilityLabel="Atualizar listas de canais e filmes"
+            accessibilityLabel="Atualizar lista de canais, filmes e séries"
             testID="sync-catalog-button"
             style={{ opacity: isSyncing ? 0.6 : 1 }}
           >
             <MaterialIcons
               name={isSyncing ? 'hourglass-empty' : 'sync'}
-              size={18}
+              size={20}
               color="#29B6F6"
             />
-            <QuickActionText>
-              {isSyncing ? 'Sincronizando...' : 'Atualizar Listas'}
+            <QuickActionText numberOfLines={1} adjustsFontSizeToFit>
+              {isSyncing ? 'Atualizando...' : 'Atualizar Lista'}
             </QuickActionText>
           </QuickActionButton>
 
@@ -213,20 +229,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             accessibilityLabel="Diagnóstico e velocidade da conexão"
             testID="network-diagnostic-button"
           >
-            <MaterialIcons name="speed" size={18} color="#46D369" />
-            <QuickActionText>Teste de Conexão</QuickActionText>
-          </QuickActionButton>
-
-          <QuickActionButton
-            onPress={handleConfirmLogout}
-            accessibilityRole="button"
-            accessibilityLabel="Sair ou trocar de lista IPTV"
-            testID="home-logout-button"
-            style={{ borderColor: 'rgba(229, 9, 20, 0.4)' }}
-          >
-            <MaterialIcons name="logout" size={18} color="#E50914" />
-            <QuickActionText style={{ color: '#E50914' }}>
-              Trocar Lista
+            <MaterialIcons name="speed" size={20} color="#46D369" />
+            <QuickActionText numberOfLines={1} adjustsFontSizeToFit>
+              Testar Conexão
             </QuickActionText>
           </QuickActionButton>
         </QuickActionsRow>

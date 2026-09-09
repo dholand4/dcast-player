@@ -66,9 +66,9 @@ export const QuickActionButton = styled.TouchableOpacity`
   border-radius: ${({ theme }) => theme.radii.md}px;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
-  padding-vertical: ${({ theme }) => theme.spacing.sm + 2}px;
-  padding-horizontal: ${({ theme }) => theme.spacing.sm}px;
-  flex-direction: row;
+  padding-vertical: 10px;
+  padding-horizontal: 4px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -76,8 +76,9 @@ export const QuickActionButton = styled.TouchableOpacity`
 
 export const QuickActionText = styled.Text`
   color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.typography.sizes.xs + 1}px;
+  font-size: 11px;
   font-weight: ${({ theme }) => theme.typography.weights.semiBold};
+  text-align: center;
 `;
 
 

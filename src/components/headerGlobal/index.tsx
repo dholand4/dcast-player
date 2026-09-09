@@ -23,7 +23,6 @@ export const HeaderGlobal: React.FC<IHeaderGlobalProps> = ({
   extraInfo,
   onBack,
   onSearchPress,
-  onLogoutPress,
   showCast = true,
   testID,
 }) => {
@@ -61,16 +60,6 @@ export const HeaderGlobal: React.FC<IHeaderGlobalProps> = ({
           </SearchButton>
         )}
         {showCast && <CastButtonGlobal />}
-        {onLogoutPress && (
-          <SearchButton
-            onPress={onLogoutPress}
-            accessibilityRole="button"
-            accessibilityLabel="Sair ou trocar lista"
-            testID="header-logout-button"
-          >
-            <MaterialIcons name="logout" size={22} color="#E50914" />
-          </SearchButton>
-        )}
       </RightSection>
     </Container>
   );

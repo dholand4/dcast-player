@@ -56,14 +56,15 @@ describe('HomeScreen', () => {
     expect(mockNavigation.navigate).toHaveBeenCalledWith('SearchScreen');
   });
 
-  it('renders quick actions row with sync catalog and network diagnostic buttons', () => {
+  it('renders quick actions row with trocar lista, atualizar lista and testar conexao buttons', () => {
     const { getByTestId, getByText } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     expect(getByTestId('quick-actions-row')).toBeTruthy();
-    expect(getByText('Atualizar Listas')).toBeTruthy();
-    expect(getByText('Teste de Conexão')).toBeTruthy();
+    expect(getByText('Trocar Lista')).toBeTruthy();
+    expect(getByText('Atualizar Lista')).toBeTruthy();
+    expect(getByText('Testar Conexão')).toBeTruthy();
   });
 
   it('triggers catalog cache clearing when sync button is clicked', () => {
@@ -87,15 +88,15 @@ describe('HomeScreen', () => {
     expect(getByTestId('network-diagnostic-modal')).toBeTruthy();
   });
 
-  it('renders logout button in header and quick actions row', () => {
-    const { getByTestId, getByText } = wrap(
+  it('renders logout button in quick actions row and not in header', () => {
+    const { getByTestId, getByText, queryByTestId } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    const headerLogout = getByTestId('header-logout-button');
+    const headerLogout = queryByTestId('header-logout-button');
     const quickLogout = getByTestId('home-logout-button');
 
-    expect(headerLogout).toBeTruthy();
+    expect(headerLogout).toBeNull();
     expect(quickLogout).toBeTruthy();
     expect(getByText('Trocar Lista')).toBeTruthy();
   });
