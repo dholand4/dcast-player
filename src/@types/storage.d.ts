@@ -24,3 +24,12 @@ export interface IFavoriteItem {
   rating?: string;
   addedAt: number;
 }
+
+export interface ICustomCategoryFolder {
+  id: string;
+  name: string;
+  type: ContentType;
+  streamIds: string[];
+  createdAt: number;
+}
+

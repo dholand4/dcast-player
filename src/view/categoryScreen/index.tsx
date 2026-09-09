@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useXtream } from '../../hooks/useXtream';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
+import { useCategoryManager } from '../../hooks/useCategoryManager';
 import { xtreamService } from '../../services/xtreamService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { InputGlobal } from '../../components/inputGlobal';
@@ -16,6 +17,7 @@ import { ChannelCardGlobal } from '../../components/channelCardGlobal';
 import { LoadingGlobal } from '../../components/loadingGlobal';
 import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { CategoryDrawerGlobal } from '../../components/categoryDrawerGlobal';
+import { CategoryManagerModalGlobal } from '../../components/categoryManagerModalGlobal';
 import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
 import { cleanSeriesTitle, cleanEpisodeDisplayTitle } from '../../utils/formatters';
@@ -78,8 +80,10 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   } = useXtream(account);
   const { favorites, isFavorite, toggleFavorite, reload } = useFavorites();
   const { continueWatching, clearHistory, removeProgress } = useWatchHistory();
+  const { hiddenCategories, hiddenStreams, customFolders } = useCategoryManager(type);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isCategoryManagerVisible, setIsCategoryManagerVisible] = useState<boolean>(false);
   const [sortMode, setSortMode] = useState<SortMode>('default');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -136,9 +140,13 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       if (type === 'series') return 'Todas as Séries';
       return 'Todos os Conteúdos';
     }
+    const customFolder = customFolders.find((f) => f.id === selectedCategory);
+    if (customFolder) {
+      return `📁 ${customFolder.name} ${customFolder.streamIds.length > 0 ? `(${customFolder.streamIds.length})` : ''}`;
+    }
     const cat = categories.find((c) => String(c.category_id) === String(selectedCategory));
     return cat ? cat.category_name : 'Conteúdo';
-  }, [selectedCategory, categories, type, typeFavoritesCount, continueWatchingCount]);
+  }, [selectedCategory, categories, customFolders, type, typeFavoritesCount, continueWatchingCount]);
 
   const initializedRef = useRef(false);
 
@@ -188,17 +196,28 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     (categoryId: string) => {
       setSelectedCategory(categoryId);
       setIsDrawerOpen(false);
+      const isCustom = customFolders.some((f) => f.id === categoryId);
       if (categoryId !== 'favorites' && categoryId !== 'continue_watching') {
-        fetchStreams(type, categoryId === 'all' ? undefined : categoryId);
+        fetchStreams(type, categoryId === 'all' || isCustom ? undefined : categoryId);
       }
     },
-    [type, fetchStreams]
+    [type, fetchStreams, customFolders]
   );
 
   const filteredItems = useMemo(() => {
     let result: (IXtreamLiveStream | IXtreamVodStream | IXtreamSeries)[] = [];
 
-    if (selectedCategory === 'favorites') {
+    const customFolder = customFolders.find((f) => f.id === selectedCategory);
+    if (customFolder) {
+      result = (items || []).filter((item) => {
+        if (!item) return false;
+        const id =
+          'stream_id' in item
+            ? String(item.stream_id)
+            : String((item as IXtreamSeries).series_id);
+        return customFolder.streamIds.includes(id);
+      });
+    } else if (selectedCategory === 'favorites') {
       const typeFavs = favorites.filter((f) =>
         type === 'live' ? f.type === 'live' : f.type === type
       );
@@ -314,6 +333,17 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           );
         }
       }
+    }
+
+    if (!customFolder) {
+      result = result.filter((item) => {
+        if (!item) return false;
+        const id =
+          'stream_id' in item
+            ? String(item.stream_id)
+            : String((item as IXtreamSeries).series_id);
+        return !hiddenStreams.includes(id);
+      });
     }
 
     const q = (debouncedQuery || '').trim().toLowerCase();
@@ -925,6 +955,15 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         favoritesCount={typeFavoritesCount}
         continueWatchingCount={continueWatchingCount}
         type={type}
+        onOpenCategoryManager={() => setIsCategoryManagerVisible(true)}
+      />
+
+      <CategoryManagerModalGlobal
+        visible={isCategoryManagerVisible}
+        onClose={() => setIsCategoryManagerVisible(false)}
+        type={type}
+        categories={categories}
+        availableStreams={items || []}
       />
 
       <ConfirmModalGlobal

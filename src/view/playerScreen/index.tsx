@@ -19,6 +19,7 @@ import { IEpgListing } from '../../@types/xtream';
 import { useCast } from '../../hooks/useCast';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
+import { useCategoryManager } from '../../hooks/useCategoryManager';
 import {
   formatSeconds,
   calculatePercentage,
@@ -225,6 +226,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // Gaveta lateral de canais (Zapping)
   const [showChannelDrawer, setShowChannelDrawer] = useState(false);
   const [channelSearchQuery, setChannelSearchQuery] = useState('');
+  const { hiddenStreams } = useCategoryManager('live');
 
   // Modal de Ajustes (Velocidade, Áudio e Legendas)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -543,10 +545,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Troca rápida de canal (Zapping)
   const filteredChannels = useMemo(() => {
-    if (!channelSearchQuery.trim()) return liveChannelsList;
+    const visibleChannels = liveChannelsList.filter(
+      (ch) =>
+        !hiddenStreams.includes(String(ch.id)) &&
+        !hiddenStreams.includes(String(ch.streamId))
+    );
+    if (!channelSearchQuery.trim()) return visibleChannels;
     const q = channelSearchQuery.toLowerCase();
-    return liveChannelsList.filter((ch) => ch.name.toLowerCase().includes(q));
-  }, [liveChannelsList, channelSearchQuery]);
+    return visibleChannels.filter((ch) => ch.name.toLowerCase().includes(q));
+  }, [liveChannelsList, channelSearchQuery, hiddenStreams]);
 
   const handleSwitchChannel = useCallback(
     (channel: LiveChannelItem) => {

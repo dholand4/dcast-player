@@ -10,4 +10,5 @@ export interface ICategoryDrawerGlobalProps {
   continueWatchingCount?: number;
   type?: 'live' | 'movie' | 'series';
   totalStreamsCount?: number;
+  onOpenCategoryManager?: () => void;
 }

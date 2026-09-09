@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, FlatList, Platform, Alert, TouchableOpacity, Text } from 'react-native';
+import { Modal, FlatList, Platform, Alert, TouchableOpacity, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { useAuth } from '../../hooks/useAuth';
+import { useCategoryManager } from '../../hooks/useCategoryManager';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
 import { formatExpirationDate } from '../../utils/formatters';
@@ -36,10 +37,12 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   favoritesCount = 0,
   continueWatchingCount = 0,
   type,
+  onOpenCategoryManager,
 }) => {
   const theme = useTheme();
   const insets = useAppInsets();
   const { account, userInfo, logout } = useAuth();
+  const { hiddenCategories, customFolders } = useCategoryManager(type || 'live');
   const [filterText, setFilterText] = useState('');
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
@@ -58,11 +61,14 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
 
   const filteredCategories = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter((cat) =>
+    const visibleCats = categories.filter(
+      (cat) => !hiddenCategories.includes(String(cat.category_id))
+    );
+    if (!q) return visibleCats;
+    return visibleCats.filter((cat) =>
       (cat.category_name || '').toLowerCase().includes(q)
     );
-  }, [categories, filterText]);
+  }, [categories, filterText, hiddenCategories]);
 
   const handleSelect = (categoryId: string) => {
     onSelectCategory(categoryId);
@@ -87,14 +93,41 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
           {/* Header */}
           <DrawerHeader>
             <DrawerTitle>Listas & Categorias</DrawerTitle>
-            <CloseButton
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Fechar menu"
-              testID="close-drawer-button"
-            >
-              <MaterialIcons name="close" size={22} color={theme.colors.text} />
-            </CloseButton>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {onOpenCategoryManager && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onOpenCategoryManager();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Gerenciar pastas"
+                  testID="drawer-manage-folders-button"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    marginRight: 8,
+                  }}
+                >
+                  <MaterialIcons name="tune" size={16} color={theme.colors.text} style={{ marginRight: 4 }} />
+                  <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: 'bold' }}>
+                    Gerenciar
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <CloseButton
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar menu"
+                testID="close-drawer-button"
+              >
+                <MaterialIcons name="close" size={22} color={theme.colors.text} />
+              </CloseButton>
+            </View>
           </DrawerHeader>
 
           {/* Busca de Categoria */}
@@ -200,6 +233,38 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                       />
                     )}
                   </CategoryItem>
+
+                  {customFolders.map((folder) => {
+                    const isSelected = selectedCategory === folder.id;
+                    return (
+                      <CategoryItem
+                        key={folder.id}
+                        isSelected={isSelected}
+                        onPress={() => handleSelect(folder.id)}
+                        accessibilityRole="button"
+                        testID={`drawer-item-custom-${folder.id}`}
+                      >
+                        <CategoryItemContent>
+                          <MaterialIcons
+                            name="folder"
+                            size={20}
+                            color={isSelected ? theme.colors.primary : '#4CAF50'}
+                          />
+                          <CategoryItemText isSelected={isSelected}>
+                            {folder.name}{' '}
+                            {folder.streamIds.length > 0 ? `(${folder.streamIds.length})` : ''}
+                          </CategoryItemText>
+                        </CategoryItemContent>
+                        {isSelected && (
+                          <MaterialIcons
+                            name="check"
+                            size={18}
+                            color={theme.colors.primary}
+                          />
+                        )}
+                      </CategoryItem>
+                    );
+                  })}
                 </>
               ) : null
             }
