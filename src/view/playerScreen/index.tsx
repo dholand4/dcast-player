@@ -218,6 +218,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const touchStartY = useRef<number | null>(null);
   const touchStartVol = useRef<number>(1.0);
   const isDraggingVolume = useRef(false);
+  const isDraggingSliderVolume = useRef(false);
 
   const [hoverScrub, setHoverScrub] = useState<{
     percentage: number;
@@ -227,6 +228,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const previewVideoRef = useRef<any>(null);
   const volumeTrackRef = useRef<any>(null);
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingPreviewSeekRef = useRef<number | null>(null);
 
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -428,10 +430,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         const videoEls = document.querySelectorAll('video');
         videoEls.forEach((v) => {
-          try {
-            v.volume = clamped;
-            v.muted = clamped === 0;
-          } catch {}
+          if (v !== previewVideoRef.current) {
+            try {
+              v.volume = clamped;
+              v.muted = clamped === 0;
+            } catch {}
+          }
         });
       }
 
@@ -457,26 +461,83 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     } catch {
       // ignore
     }
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const videoEls = document.querySelectorAll('video');
+      videoEls.forEach((v) => {
+        if (v !== previewVideoRef.current) {
+          try {
+            v.muted = nextMuted;
+            if (!nextMuted && volume === 0) {
+              v.volume = 1.0;
+            }
+          } catch {}
+        }
+      });
+    }
   }, [isMuted, volume, player, resetHideTimer]);
+
+  const calculateVolumeFromEvent = useCallback((e: any): number => {
+    const native = e.nativeEvent || e;
+    if (typeof window !== 'undefined' && volumeTrackRef.current?.getBoundingClientRect) {
+      const rect = volumeTrackRef.current.getBoundingClientRect();
+      const clientX = native.clientX ?? native.pageX ?? 0;
+      if (rect && rect.width > 0) {
+        const x = clientX - rect.left;
+        return Math.max(0, Math.min(1, x / rect.width));
+      }
+    }
+    const x = native.locationX ?? 45;
+    return Math.max(0, Math.min(1, x / 90));
+  }, []);
 
   const handleVolumeTrackClick = useCallback(
     (e: any) => {
       resetHideTimer();
-      const native = e.nativeEvent || e;
-      if (typeof window !== 'undefined' && volumeTrackRef.current?.getBoundingClientRect) {
-        const rect = volumeTrackRef.current.getBoundingClientRect();
-        const clientX = native.clientX ?? native.pageX ?? 0;
-        if (rect && rect.width > 0) {
-          const x = clientX - rect.left;
-          const clampedVol = Math.max(0, Math.min(1, x / rect.width));
-          handleSetVolume(clampedVol);
-          return;
-        }
-      }
-      const x = native.locationX ?? 45;
-      handleSetVolume(Math.max(0, Math.min(1, x / 90)));
+      const vol = calculateVolumeFromEvent(e);
+      handleSetVolume(vol);
     },
-    [handleSetVolume, resetHideTimer]
+    [calculateVolumeFromEvent, handleSetVolume, resetHideTimer]
+  );
+
+  const handleVolumePointerDown = useCallback(
+    (e: any) => {
+      resetHideTimer();
+      isDraggingSliderVolume.current = true;
+      if (e.currentTarget?.setPointerCapture && e.pointerId !== undefined) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      }
+      const vol = calculateVolumeFromEvent(e);
+      handleSetVolume(vol);
+    },
+    [calculateVolumeFromEvent, handleSetVolume, resetHideTimer]
+  );
+
+  const handleVolumePointerMove = useCallback(
+    (e: any) => {
+      if (!isDraggingSliderVolume.current) return;
+      resetHideTimer();
+      const vol = calculateVolumeFromEvent(e);
+      handleSetVolume(vol);
+    },
+    [calculateVolumeFromEvent, handleSetVolume, resetHideTimer]
+  );
+
+  const handleVolumePointerUp = useCallback(
+    (e: any) => {
+      if (!isDraggingSliderVolume.current) return;
+      isDraggingSliderVolume.current = false;
+      if (e.currentTarget?.releasePointerCapture && e.pointerId !== undefined) {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {}
+      }
+      resetHideTimer();
+      const vol = calculateVolumeFromEvent(e);
+      handleSetVolume(vol);
+    },
+    [calculateVolumeFromEvent, handleSetVolume, resetHideTimer]
   );
 
   const volumeIconName = useMemo(() => {
@@ -1597,6 +1658,124 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [duration, player, resetHideTimer]
   );
 
+  const performPreviewSeek = useCallback(
+    (timeSecs: number) => {
+      const v = previewVideoRef.current;
+      if (!v) {
+        pendingPreviewSeekRef.current = timeSecs;
+        return;
+      }
+
+      const dur =
+        duration && Number.isFinite(duration) && duration > 0
+          ? duration
+          : v.duration && Number.isFinite(v.duration) && v.duration > 0
+          ? v.duration
+          : 0;
+
+      const target = dur > 0 ? Math.max(0, Math.min(dur - 0.5, timeSecs)) : Math.max(0, timeSecs);
+
+      if (v.readyState < 1) {
+        pendingPreviewSeekRef.current = target;
+        const onMeta = () => {
+          try {
+            v.pause();
+            if (pendingPreviewSeekRef.current !== null) {
+              const next = pendingPreviewSeekRef.current;
+              pendingPreviewSeekRef.current = null;
+              if ('fastSeek' in v && typeof v.fastSeek === 'function') {
+                v.fastSeek(next);
+              } else {
+                v.currentTime = next;
+              }
+            }
+          } catch {}
+        };
+        v.addEventListener('loadedmetadata', onMeta, { once: true });
+        return;
+      }
+
+      try {
+        v.pause();
+      } catch {}
+
+      if (!v.seeking) {
+        try {
+          if ('fastSeek' in v && typeof v.fastSeek === 'function') {
+            v.fastSeek(target);
+          } else {
+            v.currentTime = target;
+          }
+        } catch {
+          // ignore
+        }
+      } else {
+        pendingPreviewSeekRef.current = target;
+      }
+    },
+    [duration]
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !hoverScrub) return;
+    performPreviewSeek(hoverScrub.timeSecs);
+  }, [hoverScrub?.timeSecs, performPreviewSeek]);
+
+  // Suporte a HLS (.m3u8) no preview de timeline para Web
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (type === 'live') return;
+    if (!currentStreamUrl.includes('.m3u8')) return;
+
+    let hlsPreview: any = null;
+    let isCancelled = false;
+
+    const initHlsPreview = () => {
+      if (isCancelled) return;
+      const v = previewVideoRef.current;
+      if (!v) return;
+
+      const Hls = (window as any).Hls;
+      if (Hls && Hls.isSupported()) {
+        try {
+          if (hlsPreview) hlsPreview.destroy();
+          hlsPreview = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            maxBufferLength: 10,
+            maxMaxBufferLength: 20,
+          });
+          hlsPreview.loadSource(currentStreamUrl);
+          hlsPreview.attachMedia(v);
+          hlsPreview.on(Hls.Events.MANIFEST_PARSED, () => {
+            v.pause();
+            if (pendingPreviewSeekRef.current !== null) {
+              const next = pendingPreviewSeekRef.current;
+              pendingPreviewSeekRef.current = null;
+              v.currentTime = next;
+            }
+          });
+        } catch {}
+      }
+    };
+
+    if (!(window as any).Hls) {
+      const script = document.getElementById('hls-cdn-script');
+      if (script) {
+        script.addEventListener('load', initHlsPreview);
+      }
+    } else {
+      initHlsPreview();
+    }
+
+    return () => {
+      isCancelled = true;
+      if (hlsPreview) {
+        hlsPreview.destroy();
+      }
+    };
+  }, [currentStreamUrl, type]);
+
   const handleProgressBarHover = useCallback(
     (data: IProgressBarHoverData | null) => {
       if (!data) {
@@ -1617,21 +1796,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         timeSecs,
       });
 
-      if (Platform.OS === 'web' && previewVideoRef.current) {
+      if (Platform.OS === 'web') {
         if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
         seekTimeoutRef.current = setTimeout(() => {
-          try {
-            const v = previewVideoRef.current;
-            if (v && v.readyState >= 1) {
-              v.currentTime = timeSecs;
-            }
-          } catch {
-            // ignore
-          }
-        }, 80);
+          performPreviewSeek(timeSecs);
+        }, 30);
       }
     },
-    [duration, player]
+    [duration, player, performPreviewSeek]
   );
 
   const handleBackgroundPress = useCallback(
@@ -2227,7 +2399,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 <VolumeControlGroup
                   {...({
                     onMouseEnter: () => setIsVolumeSliderOpen(true),
-                    onMouseLeave: () => setIsVolumeSliderOpen(false),
+                    onMouseLeave: () => {
+                      if (!isDraggingSliderVolume.current) {
+                        setIsVolumeSliderOpen(false);
+                      }
+                    },
                   } as any)}
                 >
                   <ControlButton
@@ -2247,18 +2423,53 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   </ControlButton>
 
                   {(isVolumeSliderOpen || Platform.OS === 'web') && (
-                    <TouchableOpacity
-                      ref={volumeTrackRef}
-                      activeOpacity={1}
-                      onPress={handleVolumeTrackClick}
+                    <View
                       testID="volume-slider-touch"
-                      style={{ paddingVertical: 12, paddingHorizontal: 4, marginRight: 8, cursor: 'pointer' } as any}
+                      accessibilityRole="adjustable"
+                      accessibilityLabel={`Volume: ${Math.round(volume * 100)}%`}
+                      onStartShouldSetResponder={() => true}
+                      onMoveShouldSetResponder={() => true}
+                      onResponderGrant={(e) => {
+                        resetHideTimer();
+                        isDraggingSliderVolume.current = true;
+                        const vol = calculateVolumeFromEvent(e);
+                        handleSetVolume(vol);
+                      }}
+                      onResponderMove={(e) => {
+                        resetHideTimer();
+                        const vol = calculateVolumeFromEvent(e);
+                        handleSetVolume(vol);
+                      }}
+                      onResponderRelease={(e) => {
+                        resetHideTimer();
+                        isDraggingSliderVolume.current = false;
+                        const vol = calculateVolumeFromEvent(e);
+                        handleSetVolume(vol);
+                      }}
+                      onResponderTerminate={() => {
+                        isDraggingSliderVolume.current = false;
+                      }}
+                      {...({
+                        onPress: handleVolumeTrackClick,
+                        onPointerDown: handleVolumePointerDown,
+                        onPointerMove: handleVolumePointerMove,
+                        onPointerUp: handleVolumePointerUp,
+                        onPointerCancel: handleVolumePointerUp,
+                      } as any)}
+                      style={{
+                        paddingVertical: 12,
+                        paddingHorizontal: 4,
+                        marginRight: 8,
+                        cursor: 'pointer',
+                        touchAction: 'none',
+                        userSelect: 'none',
+                      } as any}
                     >
-                      <VolumeSliderTrack pointerEvents="none">
+                      <VolumeSliderTrack ref={volumeTrackRef} pointerEvents="none">
                         <VolumeSliderFill percentage={isMuted ? 0 : volume * 100} pointerEvents="none" />
                         <VolumeSliderThumb percentage={isMuted ? 0 : volume * 100} pointerEvents="none" />
                       </VolumeSliderTrack>
-                    </TouchableOpacity>
+                    </View>
                   )}
                 </VolumeControlGroup>
                 <CastButtonGlobal />
@@ -2332,62 +2543,100 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             <BottomControls pointerEvents="box-none">
               {type !== 'live' ? (
                 <>
-                  {hoverScrub && (
-                    <TimelinePreviewContainer
-                      leftPx={Math.max(
-                        90,
-                        Math.min((screenWidth || 360) - 90, hoverScrub.clientX)
-                      )}
-                      testID="timeline-preview-tooltip"
-                    >
-                      <TimelinePreviewCard>
-                        <TimelinePreviewVideoWrapper>
-                          {posterUrl ? (
-                            <ExpoImage
-                              source={{ uri: posterUrl }}
-                              contentFit="cover"
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                opacity: 0.85,
-                              }}
-                            />
-                          ) : (
-                            <MaterialIcons
-                              name="movie"
-                              size={32}
-                              color="rgba(255, 255, 255, 0.4)"
-                            />
-                          )}
-
-                          {Platform.OS === 'web' && (
-                            <video
-                              ref={previewVideoRef}
-                              src={currentStreamUrl}
-                              muted
-                              preload="auto"
-                              playsInline
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                zIndex: 2,
-                              }}
-                            />
-                          )}
-                        </TimelinePreviewVideoWrapper>
-                        <TimelinePreviewBadge>
-                          {formatSeconds(hoverScrub.timeSecs)} • {hoverScrub.percentage.toFixed(0)}%
-                        </TimelinePreviewBadge>
-                      </TimelinePreviewCard>
-                    </TimelinePreviewContainer>
+                  <TimelinePreviewContainer
+                  leftPx={Math.max(
+                    90,
+                    Math.min(
+                      (screenWidth || 360) - 90,
+                      hoverScrub?.clientX ?? ((screenWidth || 360) / 2)
+                    )
                   )}
+                  testID={hoverScrub ? 'timeline-preview-tooltip' : undefined}
+                  style={{
+                    opacity: hoverScrub ? 1 : 0,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <TimelinePreviewCard>
+                    <TimelinePreviewVideoWrapper>
+                      {posterUrl ? (
+                        <ExpoImage
+                          source={{ uri: posterUrl }}
+                          contentFit="cover"
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            opacity: 0.85,
+                          }}
+                        />
+                      ) : (
+                        <MaterialIcons
+                          name="movie"
+                          size={32}
+                          color="rgba(255, 255, 255, 0.4)"
+                        />
+                      )}
+
+                      {Platform.OS === 'web' && (
+                        <video
+                          ref={previewVideoRef}
+                          src={currentStreamUrl.includes('.m3u8') ? undefined : currentStreamUrl}
+                          muted
+                          preload="auto"
+                          playsInline
+                          onSeeked={() => {
+                            if (pendingPreviewSeekRef.current !== null && previewVideoRef.current) {
+                              const next = pendingPreviewSeekRef.current;
+                              pendingPreviewSeekRef.current = null;
+                              try {
+                                if (
+                                  'fastSeek' in previewVideoRef.current &&
+                                  typeof previewVideoRef.current.fastSeek === 'function'
+                                ) {
+                                  previewVideoRef.current.fastSeek(next);
+                                } else {
+                                  previewVideoRef.current.currentTime = next;
+                                }
+                              } catch {}
+                            }
+                          }}
+                          onLoadedMetadata={(e) => {
+                            try {
+                              const v = e.currentTarget;
+                              v.pause();
+                              if (pendingPreviewSeekRef.current !== null) {
+                                const next = pendingPreviewSeekRef.current;
+                                pendingPreviewSeekRef.current = null;
+                                if ('fastSeek' in v && typeof v.fastSeek === 'function') {
+                                  v.fastSeek(next);
+                                } else {
+                                  v.currentTime = next;
+                                }
+                              }
+                            } catch {}
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            zIndex: 2,
+                          }}
+                        />
+                      )}
+                    </TimelinePreviewVideoWrapper>
+                    <TimelinePreviewBadge>
+                      {hoverScrub
+                        ? `${formatSeconds(hoverScrub.timeSecs)} • ${hoverScrub.percentage.toFixed(0)}%`
+                        : '00:00 • 0%'}
+                    </TimelinePreviewBadge>
+                  </TimelinePreviewCard>
+                </TimelinePreviewContainer>
                   <ProgressBarGlobal
                     percentage={localPct}
                     height={6}
