@@ -6,6 +6,7 @@ import { theme } from '../../../constants/theme';
 import { HomeScreen } from '../index';
 
 import { HomeScreenProps } from '../../../routes/types';
+import { storageService } from '../../../services/storageService';
 
 const mockNavigation = {
   navigate: jest.fn(),
@@ -112,6 +113,69 @@ describe('HomeScreen', () => {
     fireEvent.press(quickLogout);
 
     expect(getByTestId('home-logout-modal')).toBeTruthy();
+  });
+
+  it('navigates directly to PlayerScreen when clicking a series in continue watching', () => {
+    storageService.saveWatchProgress({
+      id: '101',
+      seriesId: '50',
+      title: 'Stranger Things S01 E03',
+      posterUrl: 'https://example.com/thumb.jpg',
+      type: 'series',
+      seasonNumber: 1,
+      episodeNumber: 3,
+      currentTime: 125,
+      duration: 3000,
+      percentage: 25,
+      updatedAt: Date.now(),
+      streamUrl: 'http://example.com/series/101.mp4',
+    });
+
+    const { getByText } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(getByText('Continuar Assistindo')).toBeTruthy();
+    const seriesCard = getByText('Stranger Things S01 E03');
+    fireEvent.press(seriesCard);
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('PlayerScreen', expect.objectContaining({
+      streamUrl: 'http://example.com/series/101.mp4',
+      type: 'series',
+      contentId: '101',
+      seriesId: '50',
+      seasonNumber: 1,
+      episodeNumber: 3,
+      initialTime: 125,
+    }));
+  });
+
+  it('navigates directly to PlayerScreen when clicking a movie in continue watching', () => {
+    storageService.saveWatchProgress({
+      id: '202',
+      title: 'Inception',
+      posterUrl: 'https://example.com/inception.jpg',
+      type: 'movie',
+      currentTime: 3600,
+      duration: 7200,
+      percentage: 50,
+      updatedAt: Date.now(),
+      streamUrl: 'http://example.com/movie/202.mp4',
+    });
+
+    const { getByText } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const movieCard = getByText('Inception');
+    fireEvent.press(movieCard);
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('PlayerScreen', expect.objectContaining({
+      streamUrl: 'http://example.com/movie/202.mp4',
+      type: 'movie',
+      contentId: '202',
+      initialTime: 3600,
+    }));
   });
 });
 

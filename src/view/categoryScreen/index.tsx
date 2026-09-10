@@ -564,6 +564,49 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           )
         : undefined;
 
+      const handlePress = () => {
+        if (isContinueWatching && cwItem) {
+          if (cwItem.type === 'series' || type === 'series') {
+            const streamUrl =
+              cwItem.streamUrl ||
+              (account ? xtreamService.buildSeriesStreamUrl(account, cwItem.id, 'mp4') : '');
+            if (!streamUrl) return;
+            navigation.navigate('PlayerScreen', {
+              streamUrl,
+              title: cwItem.title,
+              posterUrl: cwItem.posterUrl,
+              type: 'series',
+              contentId: String(cwItem.id),
+              seriesId: cwItem.seriesId ? String(cwItem.seriesId) : undefined,
+              seasonNumber: cwItem.seasonNumber,
+              episodeNumber: cwItem.episodeNumber,
+              initialTime: cwItem.currentTime || 0,
+            });
+            return;
+          } else {
+            const streamUrl =
+              cwItem.streamUrl ||
+              (account ? xtreamService.buildVodStreamUrl(account, cwItem.id, 'mp4') : '');
+            if (!streamUrl) return;
+            navigation.navigate('PlayerScreen', {
+              streamUrl,
+              title: cwItem.title,
+              posterUrl: cwItem.posterUrl,
+              type: 'movie',
+              contentId: String(cwItem.id),
+              initialTime: cwItem.currentTime || 0,
+            });
+            return;
+          }
+        }
+
+        if ('stream_id' in item) {
+          handleVodSelect(item as IXtreamVodStream);
+        } else {
+          handleSeriesSelect(item as IXtreamSeries);
+        }
+      };
+
       return (
         <PosterCardGlobal
           title={item.name}
@@ -571,11 +614,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           rating={item.rating}
           percentage={cwItem?.percentage}
           width={posterWidth}
-          onPress={() =>
-            'stream_id' in item
-              ? handleVodSelect(item as IXtreamVodStream)
-              : handleSeriesSelect(item as IXtreamSeries)
-          }
+          onPress={handlePress}
           onRemove={
             isContinueWatching
               ? () =>
@@ -590,6 +629,9 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       );
     },
     [
+      type,
+      account,
+      navigation,
       handleVodSelect,
       handleSeriesSelect,
       posterWidth,

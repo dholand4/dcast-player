@@ -314,8 +314,8 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   };
 
   const backdropUri =
-    type === 'series' && seriesInfo?.info?.backdrop_path?.[0]
-      ? seriesInfo.info.backdrop_path[0]
+    type === 'series'
+      ? seriesInfo?.info?.backdrop_path?.[0] || seriesInfo?.info?.cover || posterUrl
       : posterUrl;
 
   const insets = useAppInsets();

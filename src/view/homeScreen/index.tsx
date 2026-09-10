@@ -7,6 +7,7 @@ import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
+import { xtreamService } from '../../services/xtreamService';
 import { catalogSyncService } from '../../services/catalogSyncService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
@@ -266,18 +267,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   percentage={item.percentage}
                   onPress={() => {
                     if (item.type === 'series') {
-                      navigation.navigate('DetailsScreen', {
-                        id: item.seriesId || item.id,
-                        type: 'series',
-                        title: cleanSeriesTitle(item.title),
-                        posterUrl: item.posterUrl,
-                      });
-                    } else if (item.type === 'movie') {
-                      navigation.navigate('DetailsScreen', {
-                        id: item.id,
-                        type: 'movie',
+                      const streamUrl =
+                        item.streamUrl ||
+                        (account ? xtreamService.buildSeriesStreamUrl(account, item.id, 'mp4') : '');
+                      if (!streamUrl) return;
+                      navigation.navigate('PlayerScreen', {
+                        streamUrl,
                         title: item.title,
                         posterUrl: item.posterUrl,
+                        type: 'series',
+                        contentId: String(item.id),
+                        seriesId: item.seriesId ? String(item.seriesId) : undefined,
+                        seasonNumber: item.seasonNumber,
+                        episodeNumber: item.episodeNumber,
+                        initialTime: item.currentTime || 0,
+                      });
+                    } else if (item.type === 'movie') {
+                      const streamUrl =
+                        item.streamUrl ||
+                        (account ? xtreamService.buildVodStreamUrl(account, item.id, 'mp4') : '');
+                      if (!streamUrl) return;
+                      navigation.navigate('PlayerScreen', {
+                        streamUrl,
+                        title: item.title,
+                        posterUrl: item.posterUrl,
+                        type: 'movie',
+                        contentId: String(item.id),
+                        initialTime: item.currentTime || 0,
                       });
                     } else {
                       navigation.navigate('PlayerScreen', {
@@ -285,7 +301,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                         title: item.title,
                         posterUrl: item.posterUrl,
                         type: 'live',
-                        contentId: item.id,
+                        contentId: String(item.id),
                       });
                     }
                   }}
