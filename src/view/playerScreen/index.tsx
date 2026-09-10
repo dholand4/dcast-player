@@ -233,6 +233,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
+  const mainHlsInstanceRef = useRef<any>(null);
+  const lastPlaybackCheckRef = useRef<{
+    time: number;
+    lastChangeTimestamp: number;
+    recoveryAttempts: number;
+  }>({
+    time: initialTime,
+    lastChangeTimestamp: Date.now(),
+    recoveryAttempts: 0,
+  });
+
   const initialStreamUrl = useMemo(() => {
     if (Platform.OS === 'web' && type === 'live' && streamUrl.includes('.ts')) {
       return streamUrl.replace(/\.ts(\?|$)/, '.m3u8$1');
@@ -889,9 +900,40 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
     let applied = false;
+    let registeredVideo: HTMLVideoElement | null = null;
+
+    const onStalled = () => {
+      console.warn('[Web Video] Evento stalled detectado no elemento nativo.');
+      if (mainHlsInstanceRef.current) {
+        try {
+          mainHlsInstanceRef.current.startLoad();
+        } catch {}
+      }
+    };
+    const onWaiting = () => {
+      setIsBuffering(true);
+    };
+    const onPlaying = () => {
+      setIsBuffering(false);
+      lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+      lastPlaybackCheckRef.current.recoveryAttempts = 0;
+    };
+
     const checkAndPrepareWebVideo = () => {
       const videoEl = document.querySelector('video');
       if (!videoEl) return;
+
+      if (videoEl !== registeredVideo) {
+        if (registeredVideo) {
+          registeredVideo.removeEventListener('stalled', onStalled);
+          registeredVideo.removeEventListener('waiting', onWaiting);
+          registeredVideo.removeEventListener('playing', onPlaying);
+        }
+        registeredVideo = videoEl;
+        videoEl.addEventListener('stalled', onStalled);
+        videoEl.addEventListener('waiting', onWaiting);
+        videoEl.addEventListener('playing', onPlaying);
+      }
 
       videoEl.preload = 'auto';
       videoEl.playsInline = true;
@@ -930,6 +972,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     return () => {
       clearInterval(interval);
       clearTimeout(timer);
+      if (registeredVideo) {
+        registeredVideo.removeEventListener('stalled', onStalled);
+        registeredVideo.removeEventListener('waiting', onWaiting);
+        registeredVideo.removeEventListener('playing', onPlaying);
+      }
     };
   }, [initialTime, player]);
 
@@ -983,17 +1030,22 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             fpsDroppedMonitoringThreshold: 0.2,
             capLevelToPlayerSize: false,
             manifestLoadingTimeOut: 20000,
-            manifestLoadingMaxRetry: 5,
+            manifestLoadingMaxRetry: 6,
             manifestLoadingRetryDelay: 1000,
             levelLoadingTimeOut: 20000,
-            levelLoadingMaxRetry: 5,
+            levelLoadingMaxRetry: 6,
             levelLoadingRetryDelay: 1000,
             fragLoadingTimeOut: 25000,
             fragLoadingMaxRetry: 6,
             fragLoadingRetryDelay: 1000,
-            appendErrorMaxRetry: 5,
+            appendErrorMaxRetry: 6,
+            nudgeOffset: 0.15,
+            nudgeMaxRetry: 8,
+            maxBufferHole: 0.6,
+            highBufferWatchdogPeriod: 2,
           });
 
+          mainHlsInstanceRef.current = hlsInstance;
           hlsInstance.loadSource(currentStreamUrl);
           hlsInstance.attachMedia(videoEl);
 
@@ -1029,6 +1081,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             } else if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
               console.warn('[HLS] Buffer estagnado, retomando carregamento de chunks...');
               hlsInstance.startLoad();
+              try {
+                if (videoEl && !videoEl.paused) {
+                  videoEl.currentTime += 0.15;
+                }
+              } catch {}
             }
           });
         } catch (err) {
@@ -1061,9 +1118,110 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (pollTimer) clearTimeout(pollTimer);
       if (hlsInstance) {
         hlsInstance.destroy();
+        mainHlsInstanceRef.current = null;
       }
     };
   }, [currentStreamUrl, type]);
+
+  // Playback Stall Watchdog & Auto-Recovery Engine (Web & Mobile)
+  useEffect(() => {
+    const watchdogInterval = setInterval(() => {
+      // Se estiver pausado pelo usuário, tela bloqueada, ou erro crítico na tela: reseta contadores
+      if (!isPlaying || isScreenLocked || playbackError) {
+        lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+        lastPlaybackCheckRef.current.recoveryAttempts = 0;
+        return;
+      }
+
+      const curPos = currentTimeRef.current;
+      const prevPos = lastPlaybackCheckRef.current.time;
+      const progressDelta = Math.abs(curPos - prevPos);
+
+      // Se o vídeo avançou normalmente (pelo menos 0.1s): está saudável!
+      if (progressDelta >= 0.1) {
+        lastPlaybackCheckRef.current.time = curPos;
+        lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+        lastPlaybackCheckRef.current.recoveryAttempts = 0;
+        setIsBuffering(false);
+        return;
+      }
+
+      // Se não avançou, quanto tempo está estagnado?
+      const stuckDurationMs = Date.now() - lastPlaybackCheckRef.current.lastChangeTimestamp;
+
+      // Após 2s sem progresso, exibe o indicador visual de buffering
+      if (stuckDurationMs >= 2000 && !isBuffering) {
+        setIsBuffering(true);
+      }
+
+      // Após 3.5s estagnado: dispara auto-recuperação transparente!
+      if (stuckDurationMs >= 3500) {
+        lastPlaybackCheckRef.current.recoveryAttempts += 1;
+        const attempt = lastPlaybackCheckRef.current.recoveryAttempts;
+        lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+
+        console.warn(
+          `[Playback Watchdog] Vídeo estagnado em ${curPos.toFixed(1)}s (tentativa ${attempt}). Executando auto-recuperação...`
+        );
+
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const videoEl = document.querySelector('video');
+          const isLiveOrHls = type === 'live' || currentStreamUrl.includes('.m3u8');
+
+          if (isLiveOrHls) {
+            // Canal ao Vivo / HLS
+            if (mainHlsInstanceRef.current) {
+              try {
+                mainHlsInstanceRef.current.startLoad();
+                if (attempt >= 2) {
+                  mainHlsInstanceRef.current.recoverMediaError();
+                }
+              } catch {}
+            }
+            if (videoEl) {
+              try {
+                videoEl.currentTime += 0.15;
+                videoEl.play().catch(() => {});
+              } catch {}
+            }
+          } else {
+            // VOD (Filmes e Séries)
+            if (videoEl) {
+              try {
+                if (attempt === 1) {
+                  videoEl.currentTime = curPos;
+                  videoEl.play().catch(() => {});
+                } else {
+                  console.warn(`[Watchdog VOD] Reconectando stream em ${curPos.toFixed(1)}s sem recarregar a página`);
+                  videoEl.src = currentStreamUrl;
+                  videoEl.currentTime = Math.max(0, curPos);
+                  videoEl.load();
+                  videoEl.play().catch(() => {});
+                  try {
+                    player.currentTime = Math.max(0, curPos);
+                  } catch {}
+                }
+              } catch (e) {
+                console.warn('[Watchdog Web] Falha na auto-recuperação de VOD:', e);
+              }
+            }
+          }
+        } else {
+          // Mobile (Expo Video)
+          try {
+            if (attempt >= 2) {
+              player.currentTime = curPos;
+              player.play();
+            }
+          } catch {}
+        }
+      }
+    }, 1500);
+
+    return () => {
+      clearInterval(watchdogInterval);
+    };
+  }, [isPlaying, isScreenLocked, playbackError, type, currentStreamUrl, player, isBuffering]);
 
   useEffect(() => {
     try {
