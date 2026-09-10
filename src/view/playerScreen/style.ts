@@ -2,12 +2,13 @@ import styled from 'styled-components/native';
 import { Image as ExpoImage } from 'expo-image';
 import { VideoView } from 'expo-video';
 
-export const Container = styled.View`
+export const Container = styled.View<{ showControls?: boolean }>`
   flex: 1;
   width: 100%;
   height: 100%;
   background-color: ${({ theme }) => theme.colors.black};
   overflow: hidden;
+  ${({ showControls }) => (showControls === false ? 'cursor: none;' : 'cursor: default;')}
 `;
 
 export const VideoWrapper = styled.View`
@@ -634,5 +635,175 @@ export const SleepTimerBadgeText = styled.Text`
   font-size: 11px;
   font-weight: bold;
   margin-left: 4px;
+`;
+
+/* --- Duplo Toque / Duplo Clique Feedback --- */
+export const DoubleTapFeedbackContainer = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  flex-direction: row;
+  pointer-events: none;
+`;
+
+export const DoubleTapFeedbackSide = styled.View<{ side: 'left' | 'right' }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  ${({ side }) => (side === 'left' ? 'left: 0;' : 'right: 0;')}
+  width: 35%;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const DoubleTapFeedbackCircle = styled.View`
+  background-color: rgba(0, 0, 0, 0.65);
+  border-radius: 50px;
+  padding-horizontal: 18px;
+  padding-vertical: 14px;
+  align-items: center;
+  justify-content: center;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.25);
+`;
+
+export const DoubleTapFeedbackText = styled.Text`
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  margin-top: 4px;
+`;
+
+/* --- Controle de Volume Expandido --- */
+export const VolumeControlGroup = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-right: 8px;
+  position: relative;
+`;
+
+export const VolumeSliderTrack = styled.View`
+  width: 80px;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  margin-left: 6px;
+  position: relative;
+  justify-content: center;
+`;
+
+export const VolumeSliderFill = styled.View<{ percentage: number }>`
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: ${({ percentage }) => `${Math.max(0, Math.min(100, percentage))}%`};
+  background-color: ${({ theme }) => theme.colors.primary};
+  border-radius: 3px;
+`;
+
+export const VolumeSliderThumb = styled.View<{ percentage: number }>`
+  position: absolute;
+  left: ${({ percentage }) => `${Math.max(0, Math.min(100, percentage))}%`};
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background-color: #ffffff;
+  margin-left: -7px;
+  elevation: 4;
+`;
+
+/* --- HUD de Volume Flutuante (Mobile & Web) --- */
+export const VolumeHudContainer = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 100;
+`;
+
+export const VolumeHudCard = styled.View`
+  background-color: rgba(18, 18, 18, 0.85);
+  border-radius: 20px;
+  padding-horizontal: 20px;
+  padding-vertical: 14px;
+  flex-direction: row;
+  align-items: center;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.2);
+  gap: 12px;
+`;
+
+export const VolumeHudText = styled.Text`
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: bold;
+  min-width: 44px;
+`;
+
+export const VolumeHudBar = styled.View`
+  width: 120px;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  overflow: hidden;
+`;
+
+export const VolumeHudBarFill = styled.View<{ percentage: number }>`
+  height: 100%;
+  width: ${({ percentage }) => `${Math.max(0, Math.min(100, percentage))}%`};
+  background-color: ${({ theme }) => theme.colors.primary};
+  border-radius: 3px;
+`;
+
+/* --- Timeline Preview Tooltip --- */
+export const TimelinePreviewContainer = styled.View<{ leftPx: number }>`
+  position: absolute;
+  bottom: 40px;
+  left: ${({ leftPx }) => `${leftPx}px`};
+  transform: translateX(-80px);
+  align-items: center;
+  pointer-events: none;
+  z-index: 999;
+`;
+
+export const TimelinePreviewCard = styled.View`
+  background-color: #000000;
+  border-radius: 8px;
+  padding: 4px;
+  border-width: 1.5px;
+  border-color: rgba(255, 255, 255, 0.6);
+  elevation: 10;
+  align-items: center;
+  shadow-color: #000000;
+  shadow-opacity: 0.8;
+  shadow-radius: 8px;
+`;
+
+export const TimelinePreviewVideoWrapper = styled.View`
+  width: 160px;
+  height: 90px;
+  background-color: #121212;
+  border-radius: 4px;
+  overflow: hidden;
+  justify-content: center;
+  align-items: center;
+`;
+
+export const TimelinePreviewBadge = styled.Text`
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  margin-top: 4px;
+  padding-horizontal: 8px;
+  padding-vertical: 2px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
 `;
 

@@ -375,6 +375,69 @@ describe('PlayerScreen', () => {
     expect(fillBtn).toBeTruthy();
     fireEvent.press(fillBtn);
   });
+
+  it('handles double tap to seek and displays visual feedback ripple', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const bgTouch = getByTestId('video-background-touch');
+
+    // First tap on right side (locationX: 700 is > 60% of default 750 screen width)
+    fireEvent(bgTouch, 'press', { nativeEvent: { locationX: 700 } });
+    // Second tap on right side within 300ms
+    fireEvent(bgTouch, 'press', { nativeEvent: { locationX: 700 } });
+
+    expect(queryByTestId('double-tap-feedback-container')).toBeTruthy();
+  });
+
+  it('interacts with volume controls and expands volume slider', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const muteBtn = getByTestId('player-mute-button');
+    expect(muteBtn).toBeTruthy();
+
+    // Toggle mute
+    fireEvent.press(muteBtn);
+
+    // Long press to toggle slider on mobile
+    fireEvent(muteBtn, 'longPress');
+
+    // If slider is visible, adjust volume
+    const sliderTouch = queryByTestId('volume-slider-touch');
+    if (sliderTouch) {
+      fireEvent(sliderTouch, 'press', { nativeEvent: { locationX: 50 } });
+    }
+  });
+
+  it('shows timeline preview tooltip when scrubbing progress bar on VOD', () => {
+    const movieRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/movie/user/pass/1.mp4',
+        title: 'Interestelar',
+        type: 'movie',
+        contentId: '10',
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={movieRoute} />
+    );
+
+    const progressBar = getByTestId('player-progress-bar');
+    expect(progressBar).toBeTruthy();
+
+    // Move pointer over progress bar
+    fireEvent(progressBar, 'pointerMove', {
+      nativeEvent: { locationX: 120, clientX: 120 },
+    });
+
+    expect(queryByTestId('timeline-preview-tooltip')).toBeTruthy();
+  });
 });
 
 

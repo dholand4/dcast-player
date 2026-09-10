@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
 import { ProgressBarGlobal } from '../index';
@@ -22,6 +22,21 @@ describe('ProgressBarGlobal', () => {
       <ProgressBarGlobal percentage={50} onSeek={onSeekMock} testID="test-seek-progress" />
     );
     expect(getByTestId('scrubber-thumb')).toBeTruthy();
+  });
+
+  it('calls onHover when pointer moves over interactive track', () => {
+    const onHoverMock = jest.fn();
+    const { getByTestId } = wrap(
+      <ProgressBarGlobal
+        percentage={30}
+        interactive
+        onHover={onHoverMock}
+        testID="hover-progress"
+      />
+    );
+    const progress = getByTestId('hover-progress');
+    fireEvent(progress, 'pointerMove', { nativeEvent: { locationX: 50 } });
+    expect(onHoverMock).toHaveBeenCalled();
   });
 });
 

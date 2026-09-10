@@ -9,6 +9,7 @@ import {
   StyleSheet,
   View,
   Text,
+  useWindowDimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useVideoPlayer } from 'expo-video';
@@ -29,6 +30,7 @@ import {
 } from '../../utils/formatters';
 import { xtreamService } from '../../services/xtreamService';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
+import { IProgressBarHoverData } from '../../components/progressBarGlobal/types';
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { EpgModalGlobal } from '../../components/epgModalGlobal';
@@ -105,6 +107,23 @@ import {
   UnlockButtonText,
   SleepTimerBadge,
   SleepTimerBadgeText,
+  DoubleTapFeedbackContainer,
+  DoubleTapFeedbackSide,
+  DoubleTapFeedbackCircle,
+  DoubleTapFeedbackText,
+  VolumeControlGroup,
+  VolumeSliderTrack,
+  VolumeSliderFill,
+  VolumeSliderThumb,
+  VolumeHudContainer,
+  VolumeHudCard,
+  VolumeHudText,
+  VolumeHudBar,
+  VolumeHudBarFill,
+  TimelinePreviewContainer,
+  TimelinePreviewCard,
+  TimelinePreviewVideoWrapper,
+  TimelinePreviewBadge,
 } from './style';
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
@@ -126,6 +145,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   } = route.params;
 
   const { account } = useAuth();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [episodesList, setEpisodesList] = useState(seriesEpisodes || []);
 
   useEffect(() => {
@@ -184,6 +204,27 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [currentEpIndex, episodesList]);
 
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState<number>(1.0);
+  const [isVolumeSliderOpen, setIsVolumeSliderOpen] = useState(false);
+  const [volumeHud, setVolumeHud] = useState<{ visible: boolean; level: number } | null>(null);
+  const volumeHudTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
+  const doubleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number } | null>(null);
+  const singleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const touchStartY = useRef<number | null>(null);
+  const touchStartVol = useRef<number>(1.0);
+  const isDraggingVolume = useRef(false);
+
+  const [hoverScrub, setHoverScrub] = useState<{
+    percentage: number;
+    clientX: number;
+    timeSecs: number;
+  } | null>(null);
+  const previewVideoRef = useRef<any>(null);
+
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
@@ -363,16 +404,53 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }, 4500);
   }, []);
 
+  const handleSetVolume = useCallback(
+    (newVol: number) => {
+      resetHideTimer();
+      const clamped = Math.max(0, Math.min(1, newVol));
+      setVolume(clamped);
+      try {
+        player.volume = clamped;
+        if (clamped > 0 && player.muted) {
+          player.muted = false;
+          setIsMuted(false);
+        } else if (clamped === 0 && !player.muted) {
+          player.muted = true;
+          setIsMuted(true);
+        }
+      } catch {
+        // ignore
+      }
+
+      setVolumeHud({ visible: true, level: Math.round(clamped * 100) });
+      if (volumeHudTimerRef.current) clearTimeout(volumeHudTimerRef.current);
+      volumeHudTimerRef.current = setTimeout(() => {
+        setVolumeHud(null);
+      }, 1200);
+    },
+    [player, resetHideTimer]
+  );
+
   const handleToggleMute = useCallback(() => {
     resetHideTimer();
     const nextMuted = !isMuted;
     try {
       player.muted = nextMuted;
       setIsMuted(nextMuted);
+      if (!nextMuted && volume === 0) {
+        player.volume = 1.0;
+        setVolume(1.0);
+      }
     } catch {
       // ignore
     }
-  }, [isMuted, player, resetHideTimer]);
+  }, [isMuted, volume, player, resetHideTimer]);
+
+  const volumeIconName = useMemo(() => {
+    if (isMuted || volume === 0) return 'volume-off';
+    if (volume <= 0.5) return 'volume-down';
+    return 'volume-up';
+  }, [isMuted, volume]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -1486,6 +1564,128 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [duration, player, resetHideTimer]
   );
 
+  const handleProgressBarHover = useCallback(
+    (data: IProgressBarHoverData | null) => {
+      if (!data) {
+        setHoverScrub(null);
+        return;
+      }
+      const totalDur =
+        duration && Number.isFinite(duration)
+          ? duration
+          : player.duration && Number.isFinite(player.duration)
+          ? player.duration
+          : 0;
+      if (totalDur <= 0) return;
+      const timeSecs = Math.round((data.percentage / 100) * totalDur);
+      setHoverScrub({
+        percentage: data.percentage,
+        clientX: data.clientX,
+        timeSecs,
+      });
+
+      if (Platform.OS === 'web' && previewVideoRef.current) {
+        try {
+          previewVideoRef.current.currentTime = timeSecs;
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [duration, player]
+  );
+
+  const handleBackgroundPress = useCallback(
+    (e?: any) => {
+      const native = e?.nativeEvent || e || {};
+      const now = Date.now();
+      const x =
+        native.locationX ??
+        native.clientX ??
+        (screenWidth > 0 ? screenWidth / 2 : 200);
+      const w = screenWidth > 0 ? screenWidth : 400;
+      const pctX = (x / w) * 100;
+
+      if (lastTapRef.current && now - lastTapRef.current.time < 320) {
+        if (singleTapTimerRef.current) {
+          clearTimeout(singleTapTimerRef.current);
+          singleTapTimerRef.current = null;
+        }
+        lastTapRef.current = null;
+
+        if (pctX <= 40) {
+          handleLocalSeek(-10);
+          setDoubleTapSide('left');
+          if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+          doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 650);
+          return;
+        } else if (pctX >= 60) {
+          handleLocalSeek(10);
+          setDoubleTapSide('right');
+          if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+          doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 650);
+          return;
+        }
+      }
+
+      lastTapRef.current = { time: now, x };
+      if (showControls) {
+        setShowControls(false);
+      } else {
+        resetHideTimer();
+      }
+    },
+    [handleLocalSeek, showControls, resetHideTimer, screenWidth]
+  );
+
+  const handleTouchStart = useCallback(
+    (e?: any) => {
+      const native = e?.nativeEvent || e || {};
+      const x = native.locationX ?? native.clientX ?? 0;
+      const y = native.locationY ?? native.clientY ?? 0;
+      const w = screenWidth > 0 ? screenWidth : 400;
+      if (x >= w * 0.65) {
+        touchStartY.current = y;
+        touchStartVol.current = volume;
+        isDraggingVolume.current = false;
+      } else {
+        touchStartY.current = null;
+      }
+    },
+    [screenWidth, volume]
+  );
+
+  const handleTouchMove = useCallback(
+    (e?: any) => {
+      if (touchStartY.current === null) return;
+      const native = e?.nativeEvent || e || {};
+      const y = native.locationY ?? native.clientY ?? 0;
+      const deltaY = touchStartY.current - y;
+
+      if (Math.abs(deltaY) > 15) {
+        isDraggingVolume.current = true;
+        const h = screenHeight > 0 ? screenHeight : 300;
+        const change = deltaY / (h * 0.7);
+        const newVol = Math.max(0, Math.min(1, touchStartVol.current + change));
+        handleSetVolume(newVol);
+      }
+    },
+    [screenHeight, handleSetVolume]
+  );
+
+  const handleTouchEnd = useCallback(
+    (e?: any) => {
+      if (isDraggingVolume.current) {
+        touchStartY.current = null;
+        isDraggingVolume.current = false;
+        return;
+      }
+      touchStartY.current = null;
+      handleBackgroundPress(e);
+    },
+    [handleBackgroundPress]
+  );
+
   const handleCastProgressBarSeek = useCallback(
     (percent: number) => {
       if (streamDuration > 0) {
@@ -1705,8 +1905,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const localPct = calculatePercentage(currentTime, duration);
 
   return (
-    <Container testID="local-player-screen">
-      <VideoWrapper>
+    <Container testID="local-player-screen" showControls={showControls}>
+      <VideoWrapper
+        {...({
+          onPointerMove: () => {
+            if (Platform.OS === 'web') resetHideTimer();
+          },
+          onMouseMove: () => {
+            if (Platform.OS === 'web') resetHideTimer();
+          },
+        } as any)}
+      >
         <StyledVideo
           player={player}
           contentFit={contentFitMode}
@@ -1759,14 +1968,64 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         {!isScreenLocked && (
           <BackgroundPressable
             testID="video-background-touch"
-            onPress={() => {
-              if (showControls) {
-                setShowControls(false);
-              } else {
-                resetHideTimer();
-              }
-            }}
+            onPress={handleTouchEnd}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            {...({
+              onPointerMove: () => {
+                if (Platform.OS === 'web') resetHideTimer();
+              },
+              onMouseMove: () => {
+                if (Platform.OS === 'web') resetHideTimer();
+              },
+            } as any)}
           />
+        )}
+
+        {/* Double Tap Seek Feedback Ripple (+10s / -10s) */}
+        {doubleTapSide && (
+          <DoubleTapFeedbackContainer pointerEvents="none" testID="double-tap-feedback-container">
+            {doubleTapSide === 'left' && (
+              <DoubleTapFeedbackSide side="left">
+                <DoubleTapFeedbackCircle>
+                  <MaterialIcons name="replay-10" size={34} color="#FFFFFF" />
+                  <DoubleTapFeedbackText>-10 segundos</DoubleTapFeedbackText>
+                </DoubleTapFeedbackCircle>
+              </DoubleTapFeedbackSide>
+            )}
+            {doubleTapSide === 'right' && (
+              <DoubleTapFeedbackSide side="right">
+                <DoubleTapFeedbackCircle>
+                  <MaterialIcons name="forward-10" size={34} color="#FFFFFF" />
+                  <DoubleTapFeedbackText>+10 segundos</DoubleTapFeedbackText>
+                </DoubleTapFeedbackCircle>
+              </DoubleTapFeedbackSide>
+            )}
+          </DoubleTapFeedbackContainer>
+        )}
+
+        {/* Volume HUD when adjusting volume */}
+        {volumeHud?.visible && (
+          <VolumeHudContainer pointerEvents="none" testID="volume-hud-container">
+            <VolumeHudCard>
+              <MaterialIcons
+                name={
+                  volumeHud.level === 0
+                    ? 'volume-off'
+                    : volumeHud.level <= 50
+                    ? 'volume-down'
+                    : 'volume-up'
+                }
+                size={26}
+                color="#FFFFFF"
+              />
+              <VolumeHudBar>
+                <VolumeHudBarFill percentage={volumeHud.level} />
+              </VolumeHudBar>
+              <VolumeHudText>{volumeHud.level}%</VolumeHudText>
+            </VolumeHudCard>
+          </VolumeHudContainer>
         )}
 
         {/* Lock Screen Backdrop when locked */}
@@ -1926,20 +2185,48 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     <MaterialIcons name="fullscreen" size={24} color="#FFFFFF" />
                   </ControlButton>
                 )}
-                <ControlButton
-                  onPress={handleToggleMute}
-                  accessibilityRole="button"
-                  accessibilityLabel={isMuted ? 'Ativar som' : 'Desativar som'}
-                  testID="player-mute-button"
-                  style={{ marginRight: 8 }}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                <VolumeControlGroup
+                  {...({
+                    onMouseEnter: () => setIsVolumeSliderOpen(true),
+                    onMouseLeave: () => setIsVolumeSliderOpen(false),
+                  } as any)}
                 >
-                  <MaterialIcons
-                    name={isMuted ? 'volume-off' : 'volume-up'}
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                </ControlButton>
+                  <ControlButton
+                    onPress={handleToggleMute}
+                    onLongPress={() => setIsVolumeSliderOpen((prev) => !prev)}
+                    accessibilityRole="button"
+                    accessibilityLabel={isMuted ? 'Ativar som' : `Volume: ${Math.round(volume * 100)}%`}
+                    testID="player-mute-button"
+                    style={{ marginRight: isVolumeSliderOpen || Platform.OS === 'web' ? 4 : 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <MaterialIcons
+                      name={volumeIconName}
+                      size={22}
+                      color="#FFFFFF"
+                    />
+                  </ControlButton>
+
+                  {(isVolumeSliderOpen || Platform.OS === 'web') && (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={(e: any) => {
+                        resetHideTimer();
+                        const native = e.nativeEvent;
+                        const x = native.locationX ?? 0;
+                        const newVol = Math.max(0, Math.min(1, x / 80));
+                        handleSetVolume(newVol);
+                      }}
+                      testID="volume-slider-touch"
+                      style={{ paddingVertical: 10, marginRight: 8 }}
+                    >
+                      <VolumeSliderTrack>
+                        <VolumeSliderFill percentage={isMuted ? 0 : volume * 100} />
+                        <VolumeSliderThumb percentage={isMuted ? 0 : volume * 100} />
+                      </VolumeSliderTrack>
+                    </TouchableOpacity>
+                  )}
+                </VolumeControlGroup>
                 <CastButtonGlobal />
               </TopRightActions>
             </TopControls>
@@ -2011,11 +2298,48 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             <BottomControls pointerEvents="box-none">
               {type !== 'live' ? (
                 <>
+                  {hoverScrub && (
+                    <TimelinePreviewContainer
+                      leftPx={Math.max(
+                        90,
+                        Math.min((screenWidth || 360) - 90, hoverScrub.clientX)
+                      )}
+                      testID="timeline-preview-tooltip"
+                    >
+                      <TimelinePreviewCard>
+                        <TimelinePreviewVideoWrapper>
+                          {Platform.OS === 'web' ? (
+                            <video
+                              ref={previewVideoRef}
+                              src={currentStreamUrl}
+                              muted
+                              preload="metadata"
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                            />
+                          ) : (
+                            <MaterialIcons
+                              name="play-circle-outline"
+                              size={32}
+                              color="rgba(255, 255, 255, 0.8)"
+                            />
+                          )}
+                        </TimelinePreviewVideoWrapper>
+                        <TimelinePreviewBadge>
+                          {formatSeconds(hoverScrub.timeSecs)}
+                        </TimelinePreviewBadge>
+                      </TimelinePreviewCard>
+                    </TimelinePreviewContainer>
+                  )}
                   <ProgressBarGlobal
                     percentage={localPct}
                     height={6}
                     interactive
                     onSeek={handleProgressBarSeek}
+                    onHover={handleProgressBarHover}
                     testID="player-progress-bar"
                   />
                   <TimeRow pointerEvents="none">
