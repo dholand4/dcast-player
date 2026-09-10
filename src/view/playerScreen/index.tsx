@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer } from 'expo-video';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useAppInsets } from '../../hooks/useAppInsets';
@@ -224,6 +225,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     timeSecs: number;
   } | null>(null);
   const previewVideoRef = useRef<any>(null);
+  const volumeTrackRef = useRef<any>(null);
+  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -407,19 +410,29 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const handleSetVolume = useCallback(
     (newVol: number) => {
       resetHideTimer();
-      const clamped = Math.max(0, Math.min(1, newVol));
+      const clamped = Math.max(0, Math.min(1, Math.round(newVol * 100) / 100));
       setVolume(clamped);
       try {
         player.volume = clamped;
-        if (clamped > 0 && player.muted) {
+        if (clamped > 0) {
           player.muted = false;
           setIsMuted(false);
-        } else if (clamped === 0 && !player.muted) {
+        } else {
           player.muted = true;
           setIsMuted(true);
         }
       } catch {
         // ignore
+      }
+
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const videoEls = document.querySelectorAll('video');
+        videoEls.forEach((v) => {
+          try {
+            v.volume = clamped;
+            v.muted = clamped === 0;
+          } catch {}
+        });
       }
 
       setVolumeHud({ visible: true, level: Math.round(clamped * 100) });
@@ -445,6 +458,26 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       // ignore
     }
   }, [isMuted, volume, player, resetHideTimer]);
+
+  const handleVolumeTrackClick = useCallback(
+    (e: any) => {
+      resetHideTimer();
+      const native = e.nativeEvent || e;
+      if (typeof window !== 'undefined' && volumeTrackRef.current?.getBoundingClientRect) {
+        const rect = volumeTrackRef.current.getBoundingClientRect();
+        const clientX = native.clientX ?? native.pageX ?? 0;
+        if (rect && rect.width > 0) {
+          const x = clientX - rect.left;
+          const clampedVol = Math.max(0, Math.min(1, x / rect.width));
+          handleSetVolume(clampedVol);
+          return;
+        }
+      }
+      const x = native.locationX ?? 45;
+      handleSetVolume(Math.max(0, Math.min(1, x / 90)));
+    },
+    [handleSetVolume, resetHideTimer]
+  );
 
   const volumeIconName = useMemo(() => {
     if (isMuted || volume === 0) return 'volume-off';
@@ -1585,11 +1618,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       });
 
       if (Platform.OS === 'web' && previewVideoRef.current) {
-        try {
-          previewVideoRef.current.currentTime = timeSecs;
-        } catch {
-          // ignore
-        }
+        if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
+        seekTimeoutRef.current = setTimeout(() => {
+          try {
+            const v = previewVideoRef.current;
+            if (v && v.readyState >= 1) {
+              v.currentTime = timeSecs;
+            }
+          } catch {
+            // ignore
+          }
+        }, 80);
       }
     },
     [duration, player]
@@ -2198,7 +2237,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     accessibilityLabel={isMuted ? 'Ativar som' : `Volume: ${Math.round(volume * 100)}%`}
                     testID="player-mute-button"
                     style={{ marginRight: isVolumeSliderOpen || Platform.OS === 'web' ? 4 : 8 }}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 0 }}
                   >
                     <MaterialIcons
                       name={volumeIconName}
@@ -2209,20 +2248,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
                   {(isVolumeSliderOpen || Platform.OS === 'web') && (
                     <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={(e: any) => {
-                        resetHideTimer();
-                        const native = e.nativeEvent;
-                        const x = native.locationX ?? 0;
-                        const newVol = Math.max(0, Math.min(1, x / 80));
-                        handleSetVolume(newVol);
-                      }}
+                      ref={volumeTrackRef}
+                      activeOpacity={1}
+                      onPress={handleVolumeTrackClick}
                       testID="volume-slider-touch"
-                      style={{ paddingVertical: 10, marginRight: 8 }}
+                      style={{ paddingVertical: 12, paddingHorizontal: 4, marginRight: 8, cursor: 'pointer' } as any}
                     >
-                      <VolumeSliderTrack>
-                        <VolumeSliderFill percentage={isMuted ? 0 : volume * 100} />
-                        <VolumeSliderThumb percentage={isMuted ? 0 : volume * 100} />
+                      <VolumeSliderTrack pointerEvents="none">
+                        <VolumeSliderFill percentage={isMuted ? 0 : volume * 100} pointerEvents="none" />
+                        <VolumeSliderThumb percentage={isMuted ? 0 : volume * 100} pointerEvents="none" />
                       </VolumeSliderTrack>
                     </TouchableOpacity>
                   )}
@@ -2308,28 +2342,48 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     >
                       <TimelinePreviewCard>
                         <TimelinePreviewVideoWrapper>
-                          {Platform.OS === 'web' ? (
-                            <video
-                              ref={previewVideoRef}
-                              src={currentStreamUrl}
-                              muted
-                              preload="metadata"
+                          {posterUrl ? (
+                            <ExpoImage
+                              source={{ uri: posterUrl }}
+                              contentFit="cover"
                               style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                opacity: 0.85,
                               }}
                             />
                           ) : (
                             <MaterialIcons
-                              name="play-circle-outline"
+                              name="movie"
                               size={32}
-                              color="rgba(255, 255, 255, 0.8)"
+                              color="rgba(255, 255, 255, 0.4)"
+                            />
+                          )}
+
+                          {Platform.OS === 'web' && (
+                            <video
+                              ref={previewVideoRef}
+                              src={currentStreamUrl}
+                              muted
+                              preload="auto"
+                              playsInline
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                zIndex: 2,
+                              }}
                             />
                           )}
                         </TimelinePreviewVideoWrapper>
                         <TimelinePreviewBadge>
-                          {formatSeconds(hoverScrub.timeSecs)}
+                          {formatSeconds(hoverScrub.timeSecs)} • {hoverScrub.percentage.toFixed(0)}%
                         </TimelinePreviewBadge>
                       </TimelinePreviewCard>
                     </TimelinePreviewContainer>

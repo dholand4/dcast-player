@@ -685,10 +685,10 @@ export const VolumeControlGroup = styled.View`
 `;
 
 export const VolumeSliderTrack = styled.View`
-  width: 80px;
-  height: 6px;
-  background-color: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+  width: 90px;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
   margin-left: 6px;
   position: relative;
   justify-content: center;
