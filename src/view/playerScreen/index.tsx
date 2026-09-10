@@ -213,7 +213,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
   const doubleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTapRef = useRef<{ time: number; x: number } | null>(null);
-  const singleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wasControlsHiddenOnFirstTapRef = useRef(false);
 
   const touchStartY = useRef<number | null>(null);
   const touchStartVol = useRef<number>(1.0);
@@ -1970,34 +1970,54 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       const now = Date.now();
       const x =
         native.locationX ??
+        native.pageX ??
         native.clientX ??
         (screenWidth > 0 ? screenWidth / 2 : 200);
       const w = screenWidth > 0 ? screenWidth : 400;
       const pctX = (x / w) * 100;
 
-      if (lastTapRef.current && now - lastTapRef.current.time < 320) {
-        if (singleTapTimerRef.current) {
-          clearTimeout(singleTapTimerRef.current);
-          singleTapTimerRef.current = null;
-        }
+      const lastTap = lastTapRef.current;
+      const delta = lastTap ? now - lastTap.time : Infinity;
+
+      // Check if this is a genuine double tap: within 380ms, on the same side
+      if (lastTap && delta <= 380) {
+        const lastPctX = (lastTap.x / w) * 100;
         lastTapRef.current = null;
 
-        if (pctX <= 40) {
+        // Double tap on left side (rewind 10s)
+        if (pctX <= 40 && lastPctX <= 45) {
           handleLocalSeek(-10);
           setDoubleTapSide('left');
           if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
           doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 650);
+
+          // If controls were hidden before the double tap, keep them hidden so only ripple shows
+          if (wasControlsHiddenOnFirstTapRef.current) {
+            setShowControls(false);
+          }
           return;
-        } else if (pctX >= 60) {
+        }
+
+        // Double tap on right side (forward 10s)
+        if (pctX >= 60 && lastPctX >= 55) {
           handleLocalSeek(10);
           setDoubleTapSide('right');
           if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
           doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 650);
+
+          // If controls were hidden before the double tap, keep them hidden so only ripple shows
+          if (wasControlsHiddenOnFirstTapRef.current) {
+            setShowControls(false);
+          }
           return;
         }
       }
 
+      // Single tap: record tap position and time
+      wasControlsHiddenOnFirstTapRef.current = !showControls;
       lastTapRef.current = { time: now, x };
+
+      // Single tap toggles controls: if controls are shown, hide them; if hidden, show them and start auto-hide countdown
       if (showControls) {
         setShowControls(false);
       } else {
@@ -2042,14 +2062,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [screenHeight, handleSetVolume]
   );
 
-  const handleTouchEnd = useCallback(
+  const handleTouchEnd = useCallback(() => {
+    touchStartY.current = null;
+    if (isDraggingVolume.current) {
+      setTimeout(() => {
+        isDraggingVolume.current = false;
+      }, 120);
+    }
+  }, []);
+
+  const handlePress = useCallback(
     (e?: any) => {
       if (isDraggingVolume.current) {
-        touchStartY.current = null;
-        isDraggingVolume.current = false;
         return;
       }
-      touchStartY.current = null;
       handleBackgroundPress(e);
     },
     [handleBackgroundPress]
@@ -2337,7 +2363,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         {!isScreenLocked && (
           <BackgroundPressable
             testID="video-background-touch"
-            onPress={handleTouchEnd}
+            onPress={handlePress}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

@@ -391,6 +391,20 @@ describe('PlayerScreen', () => {
     expect(queryByTestId('double-tap-feedback-container')).toBeTruthy();
   });
 
+  it('does not trigger double-tap seek on a single tap, only toggles controls', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    const bgTouch = getByTestId('video-background-touch');
+
+    // Single tap on right side
+    fireEvent(bgTouch, 'press', { nativeEvent: { locationX: 700 } });
+
+    // Double tap feedback container should NOT be visible
+    expect(queryByTestId('double-tap-feedback-container')).toBeNull();
+  });
+
   it('interacts with volume controls and expands volume slider', () => {
     const { getByTestId, queryByTestId } = wrap(
       <PlayerScreen navigation={mockNavigation} route={mockRoute} />
