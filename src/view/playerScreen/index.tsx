@@ -365,7 +365,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         // ignore
       }
     } else {
-      p.pause();
+      try {
+        p.pause();
+        p.muted = true;
+        p.volume = 0;
+      } catch {}
     }
   });
 
@@ -756,23 +760,38 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
       setCurrentStreamUrl(newUrl);
 
-      try {
-        if (typeof (player as any).replace === 'function') {
-          player.replace({
-            uri: newUrl,
-            contentType: (newUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
-            headers: {
-              'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-              Accept: '*/*',
-            },
-          });
+      if (isCasting) {
+        castMedia({
+          streamUrl: newUrl,
+          title: channel.name,
+          posterUrl: channel.logoUrl,
+          type: 'live',
+          contentId: channel.id,
+        }).catch(() => {});
+        try {
+          player.pause();
+          player.muted = true;
+          player.volume = 0;
+        } catch {}
+      } else {
+        try {
+          if (typeof (player as any).replace === 'function') {
+            player.replace({
+              uri: newUrl,
+              contentType: (newUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
+              headers: {
+                'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+                Accept: '*/*',
+              },
+            });
+          }
+          player.play();
+        } catch (err) {
+          console.warn('[Player] Erro ao trocar de canal:', err);
         }
-        player.play();
-      } catch (err) {
-        console.warn('[Player] Erro ao trocar de canal:', err);
       }
     },
-    [activeContentId, player]
+    [activeContentId, player, isCasting, castMedia]
   );
 
   // Velocidade de Reprodução
@@ -1126,8 +1145,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // Playback Stall Watchdog & Auto-Recovery Engine (Web & Mobile)
   useEffect(() => {
     const watchdogInterval = setInterval(() => {
-      // Se estiver pausado pelo usuário, tela bloqueada, ou erro crítico na tela: reseta contadores
-      if (!isPlaying || isScreenLocked || playbackError) {
+      // Se estiver transmitindo para a TV (Cast), pausado pelo usuário, tela bloqueada, ou erro crítico: reseta contadores e NUNCA tenta auto-recuperar no celular!
+      if (isCasting || !isPlaying || isScreenLocked || playbackError) {
         lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
         lastPlaybackCheckRef.current.recoveryAttempts = 0;
         return;
@@ -1221,9 +1240,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     return () => {
       clearInterval(watchdogInterval);
     };
-  }, [isPlaying, isScreenLocked, playbackError, type, currentStreamUrl, player, isBuffering]);
+  }, [isCasting, isPlaying, isScreenLocked, playbackError, type, currentStreamUrl, player, isBuffering]);
 
   useEffect(() => {
+    if (isCasting) return;
     try {
       player.muted = false;
       player.volume = 1.0;
@@ -1232,7 +1252,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     } catch {
       // ignore
     }
-  }, [player]);
+  }, [player, isCasting]);
 
   useEffect(() => {
     resetHideTimer();
@@ -1474,6 +1494,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   useEffect(() => {
     player.timeUpdateEventInterval = 0.5;
     const subTime = player.addListener('timeUpdate', (event) => {
+      if (isCastingRef.current) {
+        if (player.playing) {
+          try {
+            player.pause();
+            player.muted = true;
+            player.volume = 0;
+          } catch {}
+        }
+        return;
+      }
+
       if (typeof event.currentTime === 'number' && Number.isFinite(event.currentTime)) {
         if (initialTime > 0 && !hasAppliedInitialTimeRef.current) {
           if (event.currentTime < 1) {
@@ -1532,6 +1563,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     });
     const subPlaying = player.addListener('playingChange', (event) => {
+      if (isCastingRef.current && event.isPlaying) {
+        try {
+          player.pause();
+          player.muted = true;
+          player.volume = 0;
+        } catch {}
+        setIsPlaying(false);
+        return;
+      }
       setIsPlaying(event.isPlaying);
       if (event.isPlaying) {
         setIsBuffering(false);
@@ -1555,7 +1595,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 Accept: '*/*',
               },
             });
-            player.play();
+            if (!isCastingRef.current) {
+              player.play();
+            }
             return;
           }
         }
@@ -1576,7 +1618,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             console.warn('[Player] Falha ao aplicar initialTime no readyToPlay:', e);
           }
         }
-        // Iniciar reprodução automaticamente assim que o buffer estiver preenchido
+        // Iniciar reprodução automaticamente apenas se NÃO estiver no Cast
         if (!isCastingRef.current && !player.playing) {
           try {
             player.play();
@@ -1589,6 +1631,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               // ignore
             }
           }
+        } else if (isCastingRef.current) {
+          try {
+            player.pause();
+            player.muted = true;
+            player.volume = 0;
+          } catch {}
         }
       }
     });
@@ -1631,7 +1679,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         Accept: '*/*',
       },
     });
-    player.play();
+    if (!isCastingRef.current) {
+      player.play();
+    }
   }, [player, streamUrl]);
 
   useEffect(() => {
@@ -1663,6 +1713,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // Gerenciar transição de desconexão da TV para retomar no celular
   useEffect(() => {
     if (prevIsCastingRef.current && !isCasting) {
+      try {
+        player.muted = false;
+        player.volume = 1.0;
+      } catch {}
       if (streamPosition > 0) {
         try {
           player.currentTime = streamPosition;
@@ -1680,46 +1734,66 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     prevIsCastingRef.current = isCasting;
   }, [isCasting, streamPosition, player]);
 
-  // Transmitir mídia para a TV quando o Cast estiver conectado
+  // Transmitir mídia para a TV quando o Cast estiver conectado e garantir silenciamento local total
   useEffect(() => {
-    if (isCasting && !hasCastRef.current) {
-      hasCastRef.current = true;
+    if (isCasting) {
+      setIsPlaying(false);
       try {
         player.pause();
+        player.muted = true;
+        player.volume = 0;
       } catch {
         // ignore
       }
 
-      // Se a mídia já estiver ativa e rodando no Chromecast (ex: reabrindo pelo MiniPlayer),
-      // NÃO recarrega o filme nem reinicia o buffer na TV!
-      const isAlreadyPlayingOnCast =
-        activeCastMedia &&
-        (activeCastMedia.contentId === contentId ||
-          activeCastMedia.streamUrl === streamUrl ||
-          (activeCastMedia.title === title && activeCastMedia.type === type));
-
-      if (isAlreadyPlayingOnCast) {
-        return;
+      // Se for Web, silencia e pausa qualquer elemento <video> nativo da página
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        try {
+          const videoEls = document.querySelectorAll('video');
+          videoEls.forEach((v) => {
+            v.pause();
+            v.muted = true;
+          });
+          if (mainHlsInstanceRef.current) {
+            mainHlsInstanceRef.current.stopLoad();
+          }
+        } catch {}
       }
 
-      castMedia({
-        streamUrl,
-        title,
-        posterUrl,
-        type,
-        contentId,
-        seriesId,
-        seasonNumber,
-        episodeNumber,
-        initialTime: currentTimeRef.current,
-      }).catch((err) => {
-        console.warn('Erro ao carregar mídia no Chromecast:', err);
-        Alert.alert(
-          'Erro na Transmissão',
-          'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-        );
-      });
-    } else if (!isCasting) {
+      if (!hasCastRef.current) {
+        hasCastRef.current = true;
+
+        // Se a mídia já estiver ativa e rodando no Chromecast (ex: reabrindo pelo MiniPlayer),
+        // NÃO recarrega o filme nem reinicia o buffer na TV!
+        const isAlreadyPlayingOnCast =
+          activeCastMedia &&
+          (activeCastMedia.contentId === contentId ||
+            activeCastMedia.streamUrl === streamUrl ||
+            (activeCastMedia.title === title && activeCastMedia.type === type));
+
+        if (isAlreadyPlayingOnCast) {
+          return;
+        }
+
+        castMedia({
+          streamUrl,
+          title,
+          posterUrl,
+          type,
+          contentId,
+          seriesId,
+          seasonNumber,
+          episodeNumber,
+          initialTime: currentTimeRef.current,
+        }).catch((err) => {
+          console.warn('Erro ao carregar mídia no Chromecast:', err);
+          Alert.alert(
+            'Erro na Transmissão',
+            'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+          );
+        });
+      }
+    } else {
       hasCastRef.current = false;
     }
   }, [
@@ -2093,12 +2167,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const handleTogglePlay = useCallback(() => {
     resetHideTimer();
+    if (isCasting) {
+      if (isCastPlaying) {
+        castPause();
+      } else {
+        castPlay();
+      }
+      return;
+    }
     if (player.playing) {
       player.pause();
     } else {
       player.play();
     }
-  }, [player, resetHideTimer]);
+  }, [player, resetHideTimer, isCasting, isCastPlaying, castPause, castPlay]);
 
   // Controles de teclado no computador (Web): Espaço = Play/Pause, Setas = Avançar/Voltar 10s, M = Mudo, F = Tela Cheia, N = Próximo EP, P = EP Anterior
   useEffect(() => {
