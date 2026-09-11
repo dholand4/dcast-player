@@ -10,7 +10,9 @@ import {
   View,
   Text,
   useWindowDimensions,
+  StatusBar as RNStatusBar,
 } from 'react-native';
+import { StatusBar, setStatusBarHidden } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer } from 'expo-video';
@@ -892,27 +894,44 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
   }, [resetHideTimer, player]);
 
-  // Lock orientation to landscape for local playback, restore to portrait on unmount or cast
+  // Lock orientation to landscape and hide system status bar for local playback, restore on unmount or cast
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    async function applyOrientation() {
+    async function applyOrientationAndStatusBar() {
       try {
         if (!isCasting) {
+          RNStatusBar.setHidden(true, 'fade');
+          setStatusBarHidden(true, 'fade');
+          navigation?.setOptions?.({
+            statusBarHidden: true,
+            statusBarAnimation: 'fade',
+          });
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         } else {
+          RNStatusBar.setHidden(false, 'fade');
+          setStatusBarHidden(false, 'fade');
+          navigation?.setOptions?.({
+            statusBarHidden: false,
+            statusBarAnimation: 'fade',
+          });
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         }
       } catch {
         // ignore on unsupported environments
       }
     }
-    applyOrientation();
+    applyOrientationAndStatusBar();
 
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      RNStatusBar.setHidden(false, 'fade');
+      setStatusBarHidden(false, 'fade');
+      navigation?.setOptions?.({
+        statusBarHidden: false,
+      });
     };
-  }, [isCasting]);
+  }, [isCasting, navigation]);
 
   // Configura pré-carregamento suave de buffer e restauração de initialTime no elemento <video> do navegador (Web)
   useEffect(() => {
@@ -2265,6 +2284,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     return (
       <RemoteContainer testID="cast-remote-screen">
+        <StatusBar hidden={false} animated={true} hideTransitionAnimation="fade" style="light" />
         <RemoteTop insetTop={insets.top}>
           <ControlButton
             onPress={handleBack}
@@ -2383,6 +2403,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   return (
     <Container testID="local-player-screen" showControls={showControls}>
+      <StatusBar hidden={true} animated={true} hideTransitionAnimation="fade" style="light" />
       <VideoWrapper
         {...({
           onPointerMove: () => {
@@ -2528,7 +2549,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
         {showControls && !isScreenLocked && (
           <ControlsOverlay pointerEvents="box-none">
-            <TopControls insetTop={insets.top} pointerEvents="box-none">
+            <TopControls insetTop={0} pointerEvents="box-none">
               <ControlButton
                 onPress={handleBack}
                 accessibilityRole="button"

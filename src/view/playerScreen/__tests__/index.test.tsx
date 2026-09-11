@@ -12,6 +12,7 @@ const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
   replace: jest.fn(),
+  setOptions: jest.fn(),
 } as unknown as PlayerScreenProps['navigation'];
 
 const mockRoute = {
@@ -451,6 +452,26 @@ describe('PlayerScreen', () => {
     });
 
     expect(queryByTestId('timeline-preview-tooltip')).toBeTruthy();
+  });
+
+  it('hides the system status bar during local playback and restores on unmount', () => {
+    const { unmount } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(mockNavigation.setOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusBarHidden: true,
+      })
+    );
+
+    unmount();
+
+    expect(mockNavigation.setOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusBarHidden: false,
+      })
+    );
   });
 });
 

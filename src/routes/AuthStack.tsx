@@ -26,7 +26,11 @@ export const AuthStack: React.FC = () => {
       <Stack.Screen
         name="PlayerScreen"
         component={PlayerScreen}
-        options={{ animation: 'fade' }}
+        options={{
+          animation: 'fade',
+          statusBarHidden: true,
+          statusBarAnimation: 'fade',
+        }}
       />
     </Stack.Navigator>
   );

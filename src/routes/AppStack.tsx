@@ -30,7 +30,11 @@ export const AppStack: React.FC = () => {
         <Stack.Screen
           name="PlayerScreen"
           component={PlayerScreen}
-          options={{ animation: 'fade' }}
+          options={{
+            animation: 'fade',
+            statusBarHidden: true,
+            statusBarAnimation: 'fade',
+          }}
         />
         <Stack.Screen name="SetupScreen" component={SetupScreen} />
       </Stack.Navigator>
