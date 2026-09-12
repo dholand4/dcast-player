@@ -36,6 +36,8 @@ function useLocalCastFallback(): ICastContextData {
   const hookMediaStatus = isNativeCastModulePresent ? useMediaStatus() : null;
   const castState = isNativeCastModulePresent ? useCastState() : null;
 
+  const [isStoppingCast, setIsStoppingCast] = useState(false);
+
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
   if (isNativeCastModulePresent && !fallbackClientRef.current) {
     try {
@@ -45,8 +47,15 @@ function useLocalCastFallback(): ICastContextData {
     }
   }
 
+  useEffect(() => {
+    if (!castSession && castState !== CastState.CONNECTED) {
+      setIsStoppingCast(false);
+    }
+  }, [castSession, castState]);
+
   const client = hookClient || (castSession as any)?.client || fallbackClientRef.current;
-  const isCasting = Boolean(castSession) || castState === CastState.CONNECTED;
+  const isCasting =
+    (Boolean(castSession) || castState === CastState.CONNECTED) && !isStoppingCast;
 
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
@@ -125,7 +134,7 @@ function useLocalCastFallback(): ICastContextData {
 
   const castMedia = useCallback(
     async (params: ICastMediaParams) => {
-      if (!client) {
+      if (!client || isStoppingCast) {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
 
@@ -206,6 +215,7 @@ function useLocalCastFallback(): ICastContextData {
   );
 
   const stopCast = useCallback(() => {
+    setIsStoppingCast(true);
     setCurrentMedia(null);
     try {
       client?.stop();

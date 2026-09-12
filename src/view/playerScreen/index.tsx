@@ -328,6 +328,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   isCastingRef.current = isCasting;
   const prevIsCastingRef = useRef(isCasting);
   const hasCastRef = useRef(false);
+  const lastCastPositionRef = useRef(0);
+  const isDisconnectingCastRef = useRef(false);
+
+  useEffect(() => {
+    if (isCasting && streamPosition > 0) {
+      lastCastPositionRef.current = streamPosition;
+    }
+  }, [isCasting, streamPosition]);
 
   const player = useVideoPlayer(videoSource, (p) => {
     p.loop = false;
@@ -1732,14 +1740,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // Gerenciar transição de desconexão da TV para retomar no celular
   useEffect(() => {
     if (prevIsCastingRef.current && !isCasting) {
+      isDisconnectingCastRef.current = true;
+      setIsPlaying(true);
       try {
         player.muted = false;
         player.volume = 1.0;
       } catch {}
-      if (streamPosition > 0) {
+      const resumePos = lastCastPositionRef.current || streamPosition;
+      if (resumePos > 0) {
         try {
-          player.currentTime = streamPosition;
-          setCurrentTime(streamPosition);
+          player.currentTime = resumePos;
+          setCurrentTime(resumePos);
         } catch {
           // ignore
         }
@@ -1749,13 +1760,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       } catch {
         // ignore
       }
+    } else if (!prevIsCastingRef.current && isCasting) {
+      isDisconnectingCastRef.current = false;
     }
     prevIsCastingRef.current = isCasting;
   }, [isCasting, streamPosition, player]);
 
   // Transmitir mídia para a TV quando o Cast estiver conectado e garantir silenciamento local total
   useEffect(() => {
-    if (isCasting) {
+    if (isCasting && !isDisconnectingCastRef.current) {
       setIsPlaying(false);
       try {
         player.pause();
@@ -1806,13 +1819,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           initialTime: currentTimeRef.current,
         }).catch((err) => {
           console.warn('Erro ao carregar mídia no Chromecast:', err);
+          if (!isCastingRef.current || isDisconnectingCastRef.current) {
+            return;
+          }
           Alert.alert(
             'Erro na Transmissão',
             'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
           );
         });
       }
-    } else {
+    } else if (!isCasting) {
       hasCastRef.current = false;
     }
   }, [
@@ -2276,6 +2292,26 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     type,
   ]);
 
+  const handleDisconnectAndPlayLocally = useCallback(() => {
+    isDisconnectingCastRef.current = true;
+    const resumePos = lastCastPositionRef.current || streamPosition;
+    stopCast();
+    try {
+      player.muted = false;
+      player.volume = 1.0;
+    } catch {}
+    if (resumePos > 0) {
+      try {
+        player.currentTime = resumePos;
+        setCurrentTime(resumePos);
+      } catch {}
+    }
+    try {
+      player.play();
+    } catch {}
+    setIsPlaying(true);
+  }, [stopCast, streamPosition, player]);
+
   const insets = useAppInsets();
 
   /* --- CENÁRIO B: Cast Ativo na TV (Controle Remoto) --- */
@@ -2390,9 +2426,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         </CenterControls>
 
         <ButtonGlobal
-          label="Desconectar da TV"
+          label="Assistir no Celular"
           variant="secondary"
-          onPress={stopCast}
+          onPress={handleDisconnectAndPlayLocally}
+          testID="disconnect-cast-play-locally-button"
         />
       </RemoteContainer>
     );

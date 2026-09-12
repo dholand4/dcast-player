@@ -53,6 +53,8 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const hookMediaStatus = isNativeCastModulePresent ? useMediaStatus() : null;
   const castState = isNativeCastModulePresent ? useCastState() : null;
 
+  const [isStoppingCast, setIsStoppingCast] = useState(false);
+
   // Fallback client instantiated once for direct native invocation
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
   if (isNativeCastModulePresent && !fallbackClientRef.current) {
@@ -63,11 +65,19 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  // Reset isStoppingCast when native session is truly gone
+  useEffect(() => {
+    if (!castSession && castState !== CastState.CONNECTED) {
+      setIsStoppingCast(false);
+    }
+  }, [castSession, castState]);
+
   // Active client: hookClient or session client or fallback client
   const client = hookClient || (castSession as any)?.client || fallbackClientRef.current;
 
-  // Connected state: session exists OR castState is connected
-  const isCasting = Boolean(castSession) || castState === CastState.CONNECTED;
+  // Connected state: session exists OR castState is connected, unless explicitly stopping
+  const isCasting =
+    (Boolean(castSession) || castState === CastState.CONNECTED) && !isStoppingCast;
 
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
@@ -148,7 +158,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const castMedia = useCallback(
     async (params: ICastMediaParams) => {
-      if (!client) {
+      if (!client || isStoppingCast) {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
 
@@ -235,6 +245,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const stopCast = useCallback(() => {
+    setIsStoppingCast(true);
     setCurrentMedia(null);
     try {
       client?.stop();

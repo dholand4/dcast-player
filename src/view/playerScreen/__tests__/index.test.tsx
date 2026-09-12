@@ -205,6 +205,53 @@ describe('PlayerScreen', () => {
     }));
   });
 
+  it('handles disconnect and play locally button without throwing TV errors', () => {
+    const castSeriesRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/series/user/pass/101.mp4',
+        title: 'Breaking Bad - T1E1',
+        type: 'series',
+        contentId: '101',
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const mockStopCast = jest.fn();
+    const mockCastValue = {
+      isCasting: true,
+      isPlaying: true,
+      isPaused: false,
+      isBuffering: false,
+      streamPosition: 45,
+      streamDuration: 180,
+      castMedia: jest.fn().mockResolvedValue(undefined),
+      play: jest.fn(),
+      pause: jest.fn(),
+      seek: jest.fn(),
+      stopCast: mockStopCast,
+      showExpandedControls: jest.fn(),
+      currentMedia: null,
+    };
+
+    const { getByTestId, getByText } = render(
+      <NavigationContainer>
+        <ThemeProvider theme={theme}>
+          <CastContext.Provider value={mockCastValue}>
+            <PlayerScreen navigation={mockNavigation} route={castSeriesRoute} />
+          </CastContext.Provider>
+        </ThemeProvider>
+      </NavigationContainer>
+    );
+
+    const disconnectBtn = getByTestId('disconnect-cast-play-locally-button');
+    expect(disconnectBtn).toBeTruthy();
+    expect(getByText('Assistir no Celular')).toBeTruthy();
+    fireEvent.press(disconnectBtn);
+
+    expect(mockStopCast).toHaveBeenCalledTimes(1);
+  });
+
   it('renders EPG container and PiP button for live stream', () => {
     const liveRoute = {
       key: 'PlayerScreen',
