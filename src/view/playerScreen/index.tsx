@@ -32,6 +32,8 @@ import {
   formatEpisodeTitle,
 } from '../../utils/formatters';
 import { xtreamService } from '../../services/xtreamService';
+import { storageService } from '../../services/storageService';
+import { prefetchService } from '../../services/prefetchService';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
 import { IProgressBarHoverData } from '../../components/progressBarGlobal/types';
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
@@ -234,6 +236,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const mainHlsInstanceRef = useRef<any>(null);
   const lastPlaybackCheckRef = useRef<{
@@ -1163,11 +1166,62 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       isCancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
       if (hlsInstance) {
-        hlsInstance.destroy();
+        try {
+          hlsInstance.destroy();
+        } catch {}
         mainHlsInstanceRef.current = null;
+      }
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        try {
+          const videoEls = document.querySelectorAll('video');
+          videoEls.forEach((el) => {
+            try {
+              el.pause();
+              el.src = '';
+              el.removeAttribute('src');
+              el.load();
+            } catch {}
+          });
+        } catch {}
       }
     };
   }, [currentStreamUrl, type]);
+
+  // Liberação agressiva de conexões e sockets IPTV no navegador Web ao fechar aba ou sair do player
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const handleWebUnload = () => {
+      if (mainHlsInstanceRef.current) {
+        try {
+          mainHlsInstanceRef.current.destroy();
+          mainHlsInstanceRef.current = null;
+        } catch {}
+      }
+      try {
+        if (typeof document !== 'undefined') {
+          const videoEls = document.querySelectorAll('video');
+          videoEls.forEach((el) => {
+            try {
+              el.pause();
+              el.src = '';
+              el.removeAttribute('src');
+              el.load();
+            } catch {}
+          });
+        }
+      } catch {}
+    };
+
+    window.addEventListener('beforeunload', handleWebUnload);
+    window.addEventListener('pagehide', handleWebUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleWebUnload);
+      window.removeEventListener('pagehide', handleWebUnload);
+      handleWebUnload();
+    };
+  }, []);
 
   // Playback Stall Watchdog & Auto-Recovery Engine (Web & Mobile)
   useEffect(() => {
@@ -1631,6 +1685,25 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         setPlaybackError(
           'Não foi possível reproduzir este conteúdo. Verifique sua conexão ou se o canal está ativo.'
         );
+
+        // Se houver conta conectada, consulta status de conexões ativas no painel IPTV
+        if (account) {
+          xtreamService
+            .authenticate(account)
+            .then((authData) => {
+              if (authData?.user_info) {
+                storageService.saveUserInfo(authData.user_info);
+                const activeCons = parseInt(authData.user_info.active_cons || '0', 10);
+                const maxCons = parseInt(authData.user_info.max_connections || '1', 10);
+                if (activeCons >= maxCons && maxCons > 0) {
+                  setPlaybackError(
+                    `Sua conta IPTV consta em uso em outro dispositivo (${activeCons}/${maxCons} telas). Feche o Chrome ou a TV e toque em "Reconectar Lista" para assistir aqui no celular.`
+                  );
+                }
+              }
+            })
+            .catch(() => {});
+        }
       } else if (event.status === 'readyToPlay') {
         setPlaybackError(null);
         if (player.duration > 0 && Number.isFinite(player.duration)) {
@@ -1695,21 +1768,51 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [player, currentStreamUrl, type]);
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
     setPlaybackError(null);
     attemptedAlternativeRef.current = false;
-    setCurrentStreamUrl(streamUrl);
-    player.replace({
-      uri: streamUrl,
-      headers: {
-        'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-        Accept: '*/*',
-      },
-    });
-    if (!isCastingRef.current) {
-      player.play();
+    prefetchService.clearPrefetchCache();
+
+    // 1. Força reautenticação com o servidor Xtream para desobstruir conexões no painel IPTV
+    if (account) {
+      try {
+        const authData = await xtreamService.authenticate(account);
+        if (authData?.user_info) {
+          storageService.saveUserInfo(authData.user_info);
+          const activeCons = parseInt(authData.user_info.active_cons || '0', 10);
+          const maxCons = parseInt(authData.user_info.max_connections || '1', 10);
+          if (activeCons >= maxCons && maxCons > 0) {
+            setPlaybackError(
+              `Sua conta IPTV continua em uso em outro dispositivo (${activeCons}/${maxCons} telas). Feche o Chrome ou a TV e aguarde alguns segundos antes de tentar novamente.`
+            );
+            setIsRetrying(false);
+            return;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[Player] Falha ao reautenticar durante retry:', authErr);
+      }
     }
-  }, [player, streamUrl]);
+
+    setCurrentStreamUrl(streamUrl);
+    try {
+      player.replace({
+        uri: streamUrl,
+        headers: {
+          'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+          Accept: '*/*',
+        },
+      });
+      if (!isCastingRef.current) {
+        player.play();
+      }
+    } catch (playErr) {
+      console.warn('[Player] Erro ao substituir stream no retry:', playErr);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [player, streamUrl, account]);
 
   useEffect(() => {
     return () => {
@@ -2483,10 +2586,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               <ErrorMessage>{playbackError}</ErrorMessage>
               <ErrorButtonGroup>
                 <ButtonGlobal
-                  label="Tentar Novamente"
+                  label={isRetrying ? 'Reconectando...' : 'Reconectar e Tentar Novamente'}
                   onPress={handleRetry}
                   variant="primary"
                   size="md"
+                  disabled={isRetrying}
+                  testID="player-retry-button"
                 />
                 <ButtonGlobal
                   label="Voltar"

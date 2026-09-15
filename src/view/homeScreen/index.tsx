@@ -101,13 +101,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return cleanup;
   }, [account]);
 
-  const handleSyncCatalog = useCallback(() => {
+  const handleSyncCatalog = useCallback(async () => {
     setIsSyncing(true);
     try {
       clearXtreamCache();
       storageService.clearCatalogCache();
       catalogSyncService.resetThrottle();
       if (account) {
+        try {
+          const authData = await xtreamService.authenticate(account);
+          if (authData?.user_info) {
+            storageService.saveUserInfo(authData.user_info);
+          }
+        } catch {
+          // ignore auth error during sync
+        }
         catalogSyncService.syncLiveCatalog(account, true);
       }
 
@@ -116,7 +124,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         success: true,
         title: 'Catálogo Atualizado',
         description:
-          'O catálogo de canais, filmes e séries foi atualizado com sucesso.',
+          'Sua conexão com o servidor foi revalidada e o catálogo de canais, filmes e séries foi atualizado com sucesso.',
       });
     } catch {
       setSyncModal({

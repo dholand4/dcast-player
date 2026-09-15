@@ -247,6 +247,9 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const stopCast = useCallback(() => {
     setIsStoppingCast(true);
     setCurrentMedia(null);
+    setMediaStatus(null);
+    setLivePosition(0);
+    setLiveDuration(0);
     try {
       client?.stop();
     } catch {

@@ -520,6 +520,13 @@ describe('PlayerScreen', () => {
       })
     );
   });
+
+  it('cleans up web and local listeners on unmount without throwing errors', () => {
+    const { unmount } = wrap(
+      <PlayerScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    expect(() => unmount()).not.toThrow();
+  });
 });
 
 

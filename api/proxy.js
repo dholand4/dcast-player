@@ -77,13 +77,19 @@ module.exports = async function handler(req, res) {
 
   const abortController = new AbortController();
 
-  // Se o cliente (navegador) cancelar a conexão (ex: usuário avançou o vídeo), cancela o download upstream
+  // Se o cliente (navegador) cancelar a conexão (ex: usuário avançou o vídeo, fechou a aba ou trocou de tela), cancela o download upstream imediatamente
+  const cleanupUpstream = () => {
+    try {
+      abortController.abort();
+    } catch {}
+  };
+
   if (typeof req.on === 'function') {
-    req.on('close', () => {
-      if (!res.writableEnded) {
-        abortController.abort();
-      }
-    });
+    req.on('close', cleanupUpstream);
+    req.on('aborted', cleanupUpstream);
+  }
+  if (typeof res.on === 'function') {
+    res.on('close', cleanupUpstream);
   }
 
   try {
@@ -186,8 +192,15 @@ module.exports = async function handler(req, res) {
     if (Readable.fromWeb) {
       const stream = Readable.fromWeb(upstreamRes.body);
 
+      const destroyStream = () => {
+        cleanupUpstream();
+        try {
+          stream.destroy();
+        } catch {}
+      };
+
       stream.on('error', () => {
-        abortController.abort();
+        destroyStream();
         if (!res.headersSent) {
           setStatus(res, 502);
         }
@@ -195,12 +208,11 @@ module.exports = async function handler(req, res) {
       });
 
       if (typeof res.on === 'function') {
-        res.on('close', () => {
-          if (!res.writableEnded) {
-            abortController.abort();
-            stream.destroy();
-          }
-        });
+        res.on('close', destroyStream);
+        res.on('finish', destroyStream);
+      }
+      if (typeof req.on === 'function') {
+        req.on('close', destroyStream);
       }
 
       stream.pipe(res);
