@@ -7,7 +7,7 @@ import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
-import { xtreamService } from '../../services/xtreamService';
+import { xtreamService, extractDirectUrl } from '../../services/xtreamService';
 import { catalogSyncService } from '../../services/catalogSyncService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { MainNavCardsGlobal } from '../../components/mainNavCardsGlobal';
@@ -275,9 +275,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   percentage={item.percentage}
                   onPress={() => {
                     if (item.type === 'series') {
-                      const streamUrl =
-                        item.streamUrl ||
-                        (account ? xtreamService.buildSeriesStreamUrl(account, item.id, 'mp4') : '');
+                      const streamUrl = account
+                        ? xtreamService.buildSeriesStreamUrl(account, item.id, 'mp4')
+                        : extractDirectUrl(item.streamUrl || '');
                       if (!streamUrl) return;
                       navigation.navigate('PlayerScreen', {
                         streamUrl,
@@ -291,9 +291,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                         initialTime: item.currentTime || 0,
                       });
                     } else if (item.type === 'movie') {
-                      const streamUrl =
-                        item.streamUrl ||
-                        (account ? xtreamService.buildVodStreamUrl(account, item.id, 'mp4') : '');
+                      const streamUrl = account
+                        ? xtreamService.buildVodStreamUrl(account, item.id, 'mp4')
+                        : extractDirectUrl(item.streamUrl || '');
                       if (!streamUrl) return;
                       navigation.navigate('PlayerScreen', {
                         streamUrl,
@@ -304,8 +304,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                         initialTime: item.currentTime || 0,
                       });
                     } else {
+                      const streamUrl = account
+                        ? xtreamService.buildLiveStreamUrl(account, item.id)
+                        : extractDirectUrl(item.streamUrl || '');
                       navigation.navigate('PlayerScreen', {
-                        streamUrl: item.streamUrl || '',
+                        streamUrl,
                         title: item.title,
                         posterUrl: item.posterUrl,
                         type: 'live',

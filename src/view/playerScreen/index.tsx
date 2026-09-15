@@ -31,7 +31,7 @@ import {
   cleanEpisodeDisplayTitle,
   formatEpisodeTitle,
 } from '../../utils/formatters';
-import { xtreamService } from '../../services/xtreamService';
+import { xtreamService, extractDirectUrl, resolveUrlForPlatform } from '../../services/xtreamService';
 import { storageService } from '../../services/storageService';
 import { prefetchService } from '../../services/prefetchService';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
@@ -250,10 +250,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   });
 
   const initialStreamUrl = useMemo(() => {
-    if (Platform.OS === 'web' && type === 'live' && streamUrl.includes('.ts')) {
-      return streamUrl.replace(/\.ts(\?|$)/, '.m3u8$1');
+    let clean = extractDirectUrl(streamUrl);
+    if (Platform.OS === 'web') {
+      if (type === 'live' && clean.includes('.ts')) {
+        clean = clean.replace(/\.ts(\?|$)/, '.m3u8$1');
+      }
+      return resolveUrlForPlatform(clean);
     }
-    return streamUrl;
+    return clean;
   }, [streamUrl, type]);
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(initialStreamUrl);
@@ -775,7 +779,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
       if (isCasting) {
         castMedia({
-          streamUrl: newUrl,
+          streamUrl: extractDirectUrl(newUrl),
           title: channel.name,
           posterUrl: channel.logoUrl,
           type: 'live',
@@ -1362,7 +1366,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         duration: Math.floor(totalDur),
         percentage: pct >= 95 ? 100 : pct,
         updatedAt: Date.now(),
-        streamUrl,
+        streamUrl: extractDirectUrl(streamUrl),
       });
     },
     [contentId, seriesId, title, posterUrl, type, seasonNumber, episodeNumber, streamUrl, saveProgress]
@@ -1385,7 +1389,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         duration: existing?.duration || 0,
         percentage: existing?.percentage && existing.percentage < 95 ? existing.percentage : 1,
         updatedAt: Date.now(),
-        streamUrl,
+        streamUrl: extractDirectUrl(streamUrl),
       });
     }
   }, [contentId, seriesId, title, type, posterUrl, seasonNumber, episodeNumber, initialTime, streamUrl, saveProgress, getProgress]);
@@ -1911,7 +1915,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         }
 
         castMedia({
-          streamUrl,
+          streamUrl: extractDirectUrl(streamUrl),
           title,
           posterUrl,
           type,

@@ -9,7 +9,7 @@ import { useXtream } from '../../hooks/useXtream';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { useCategoryManager } from '../../hooks/useCategoryManager';
-import { xtreamService } from '../../services/xtreamService';
+import { xtreamService, extractDirectUrl } from '../../services/xtreamService';
 import { HeaderGlobal } from '../../components/headerGlobal';
 import { InputGlobal } from '../../components/inputGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
@@ -567,9 +567,9 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       const handlePress = () => {
         if (isContinueWatching && cwItem) {
           if (cwItem.type === 'series' || type === 'series') {
-            const streamUrl =
-              cwItem.streamUrl ||
-              (account ? xtreamService.buildSeriesStreamUrl(account, cwItem.id, 'mp4') : '');
+            const streamUrl = account
+              ? xtreamService.buildSeriesStreamUrl(account, cwItem.id, 'mp4')
+              : extractDirectUrl(cwItem.streamUrl || '');
             if (!streamUrl) return;
             navigation.navigate('PlayerScreen', {
               streamUrl,
@@ -584,9 +584,9 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             });
             return;
           } else {
-            const streamUrl =
-              cwItem.streamUrl ||
-              (account ? xtreamService.buildVodStreamUrl(account, cwItem.id, 'mp4') : '');
+            const streamUrl = account
+              ? xtreamService.buildVodStreamUrl(account, cwItem.id, 'mp4')
+              : extractDirectUrl(cwItem.streamUrl || '');
             if (!streamUrl) return;
             navigation.navigate('PlayerScreen', {
               streamUrl,

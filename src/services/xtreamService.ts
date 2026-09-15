@@ -14,21 +14,37 @@ import { Platform } from 'react-native';
 
 const REQUEST_TIMEOUT_MS = 45000;
 
+export function extractDirectUrl(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const trimmed = rawUrl.trim();
+  if (trimmed.includes('/api/proxy?url=')) {
+    try {
+      const match = trimmed.match(/\/api\/proxy\?url=([^&]+)/);
+      if (match && match[1]) {
+        return decodeURIComponent(match[1]);
+      }
+    } catch {}
+  }
+  return trimmed;
+}
+
 export function resolveUrlForPlatform(rawUrl: string): string {
+  if (!rawUrl) return '';
+  const directUrl = extractDirectUrl(rawUrl);
   if (Platform.OS !== 'web') {
-    return rawUrl;
+    return directUrl;
   }
   try {
     if (typeof window !== 'undefined' && window.location) {
       if (rawUrl.startsWith('/api/proxy') || rawUrl.includes('/api/proxy?url=')) {
         return rawUrl;
       }
-      return `/api/proxy?url=${encodeURIComponent(rawUrl)}`;
+      return `/api/proxy?url=${encodeURIComponent(directUrl)}`;
     }
   } catch {
     // fallback
   }
-  return rawUrl;
+  return directUrl;
 }
 
 export function toArray<T>(data: unknown): T[] {
