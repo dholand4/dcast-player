@@ -82,7 +82,21 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [mediaStatus, setMediaStatus] = useState<any>(null);
   const [livePosition, setLivePosition] = useState<number>(0);
   const [liveDuration, setLiveDuration] = useState<number>(0);
-  const [currentMedia, setCurrentMedia] = useState<ICastMediaParams | null>(null);
+  const [currentMedia, setCurrentMedia] = useState<ICastMediaParams | null>(() => {
+    try {
+      return storageService.getActiveCastMedia();
+    } catch {
+      return null;
+    }
+  });
+
+  // Limpeza de mídia se o Cast não estiver conectado
+  useEffect(() => {
+    if (!isCasting) {
+      storageService.clearActiveCastMedia();
+      setCurrentMedia(null);
+    }
+  }, [isCasting]);
 
   // Sync with hook media status
   useEffect(() => {
@@ -97,7 +111,6 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMediaStatus(null);
       setLivePosition(0);
       setLiveDuration(0);
-      setCurrentMedia(null);
       return;
     }
 
@@ -121,6 +134,39 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [client, isCasting]);
 
   const activeMediaStatus = mediaStatus || hookMediaStatus;
+
+  // Recuperação e sincronização automática da mídia ativa no Chromecast (estilo Netflix)
+  useEffect(() => {
+    if (!isCasting) return;
+    const info = activeMediaStatus?.mediaInfo;
+    if (!info) return;
+
+    setCurrentMedia((prev) => {
+      const custom = info.customData || {};
+      const metadata = info.metadata || {};
+      const streamUrl = custom.streamUrl || info.contentUrl || info.contentId || prev?.streamUrl || '';
+      const title = custom.title || metadata.title || prev?.title || 'Transmitindo na TV';
+      const posterUrl = custom.posterUrl || metadata.images?.[0]?.url || prev?.posterUrl;
+      const type = (custom.type || prev?.type || 'movie') as 'live' | 'movie' | 'series';
+      const contentId = String(custom.id || custom.contentId || prev?.contentId || '');
+
+      if (!streamUrl && !title) return prev;
+
+      const restored: ICastMediaParams = {
+        streamUrl,
+        title,
+        posterUrl,
+        type,
+        contentId,
+        seriesId: custom.seriesId ? String(custom.seriesId) : prev?.seriesId,
+        seasonNumber: custom.seasonNumber ?? prev?.seasonNumber,
+        episodeNumber: custom.episodeNumber ?? prev?.episodeNumber,
+      };
+
+      storageService.saveActiveCastMedia(restored);
+      return restored;
+    });
+  }, [isCasting, activeMediaStatus]);
   const isPlaying = activeMediaStatus?.playerState === 'playing';
   const isPaused = activeMediaStatus?.playerState === 'paused';
   const isBuffering = activeMediaStatus?.playerState === 'buffering';
@@ -220,6 +266,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       await client.loadMedia(loadRequest);
       setCurrentMedia(params);
+      storageService.saveActiveCastMedia(params);
       try {
         client.play?.();
       } catch {
@@ -247,6 +294,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const stopCast = useCallback(() => {
     setIsStoppingCast(true);
     setCurrentMedia(null);
+    storageService.clearActiveCastMedia();
     setMediaStatus(null);
     setLivePosition(0);
     setLiveDuration(0);

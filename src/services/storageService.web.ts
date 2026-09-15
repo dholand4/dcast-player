@@ -71,6 +71,7 @@ const KEYS = {
   HIDDEN_CATEGORIES_PREFIX: 'hidden_categories_',
   HIDDEN_STREAMS_PREFIX: 'hidden_streams_',
   CUSTOM_FOLDERS_PREFIX: 'custom_folders_',
+  ACTIVE_CAST_MEDIA: 'active_cast_media',
 };
 
 export const storageService = {
@@ -155,6 +156,33 @@ export const storageService = {
   clearAccount(): void {
     storage.delete(KEYS.ACCOUNT);
     storage.delete(KEYS.USER_INFO);
+  },
+
+  // --- Active Cast Media Persistence (Seamless Reconnection) ---
+  getActiveCastMedia(): any | null {
+    try {
+      const raw = storage.getString(KEYS.ACTIVE_CAST_MEDIA);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
+
+  saveActiveCastMedia(media: any): void {
+    try {
+      if (!media) {
+        storage.delete(KEYS.ACTIVE_CAST_MEDIA);
+      } else {
+        storage.set(KEYS.ACTIVE_CAST_MEDIA, JSON.stringify(media));
+      }
+    } catch {}
+  },
+
+  clearActiveCastMedia(): void {
+    try {
+      storage.delete(KEYS.ACTIVE_CAST_MEDIA);
+    } catch {}
   },
 
   // --- Watch Progress / History ---

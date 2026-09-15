@@ -1908,6 +1908,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           activeCastMedia &&
           (activeCastMedia.contentId === contentId ||
             activeCastMedia.streamUrl === streamUrl ||
+            extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl) ||
             (activeCastMedia.title === title && activeCastMedia.type === type));
 
         if (isAlreadyPlayingOnCast) {
