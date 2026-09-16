@@ -6,5 +6,6 @@ export interface IInputGlobalProps extends Omit<TextInputProps, 'style'> {
   onPaste?: () => void;
   onClear?: () => void;
   noMargin?: boolean;
+  rightAction?: React.ReactNode;
   testID?: string;
 }

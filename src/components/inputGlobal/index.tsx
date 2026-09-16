@@ -19,6 +19,7 @@ export const InputGlobal: React.FC<IInputGlobalProps> = ({
   onFocus,
   onBlur,
   noMargin,
+  rightAction,
   testID,
   ...rest
 }) => {
@@ -40,15 +41,21 @@ export const InputGlobal: React.FC<IInputGlobalProps> = ({
           }}
           {...rest}
         />
-        {onPaste && !value && (
-          <ActionButton onPress={onPaste} accessibilityRole="button" accessibilityLabel="Colar">
-            <ActionText>Colar</ActionText>
-          </ActionButton>
-        )}
-        {onClear && Boolean(value) && (
-          <ActionButton onPress={onClear} accessibilityRole="button" accessibilityLabel="Limpar">
-            <ActionText>Limpar</ActionText>
-          </ActionButton>
+        {rightAction ? (
+          rightAction
+        ) : (
+          <>
+            {onPaste && !value && (
+              <ActionButton onPress={onPaste} accessibilityRole="button" accessibilityLabel="Colar">
+                <ActionText>Colar</ActionText>
+              </ActionButton>
+            )}
+            {onClear && Boolean(value) && (
+              <ActionButton onPress={onClear} accessibilityRole="button" accessibilityLabel="Limpar">
+                <ActionText>Limpar</ActionText>
+              </ActionButton>
+            )}
+          </>
         )}
       </InputWrapper>
       {error && <ErrorText>{error}</ErrorText>}

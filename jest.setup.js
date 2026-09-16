@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import React from 'react';
 
+// Mock @expo/vector-icons
+jest.mock('@expo/vector-icons', () => {
+  const { View } = require('react-native');
+  return {
+    MaterialIcons: (props) => <View testID="mock-vector-icon" {...props} />,
+    Ionicons: (props) => <View testID="mock-vector-icon" {...props} />,
+  };
+});
+
 // Mock MMKV
 jest.mock('react-native-mmkv', () => {
   const store = new Map();

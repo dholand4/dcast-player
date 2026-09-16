@@ -59,6 +59,40 @@ export const CardTitle = styled.Text`
   margin-bottom: ${({ theme }) => theme.spacing.md}px;
 `;
 
+export const TabSelectorContainer = styled.View`
+  flex-direction: row;
+  background-color: ${({ theme }) => theme.colors.surfaceLight};
+  border-radius: ${({ theme }) => theme.radii.md}px;
+  padding: 4px;
+  margin-bottom: ${({ theme }) => theme.spacing.lg}px;
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.border};
+`;
+
+export const TabButton = styled.TouchableOpacity<{ active?: boolean }>`
+  flex: 1;
+  padding-vertical: 9px;
+  padding-horizontal: 12px;
+  border-radius: ${({ theme }) => theme.radii.sm}px;
+  align-items: center;
+  justify-content: center;
+  background-color: ${({ active, theme }) =>
+    active ? theme.colors.primary : 'transparent'};
+`;
+
+export const TabButtonText = styled.Text<{ active?: boolean }>`
+  color: ${({ active, theme }) => (active ? '#FFFFFF' : theme.colors.textSecondary)};
+  font-size: 13px;
+  font-weight: ${({ active, theme }) =>
+    active ? theme.typography.weights.bold : theme.typography.weights.medium};
+`;
+
+export const PasswordToggleBtn = styled.TouchableOpacity`
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+`;
+
 export const HelperText = styled.Text`
   color: ${({ theme }) => theme.colors.textMuted};
   font-size: ${({ theme }) => theme.typography.sizes.xs}px;
