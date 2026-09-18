@@ -54,7 +54,8 @@
         {
           "receiverAppId": "CC1AD845"
         }
-      ]
+      ],
+      "./plugins/withAndroidTV.js"
     ],
     "extra": {
       "eas": {

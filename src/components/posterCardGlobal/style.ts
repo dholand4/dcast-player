@@ -12,13 +12,16 @@ export const CardContainer = styled.TouchableOpacity<ICardContainerProps>`
   margin-bottom: ${({ theme }) => theme.spacing.md}px;
 `;
 
-export const ImageWrapper = styled.View`
+export const ImageWrapper = styled.View<{ isFocused?: boolean }>`
   width: 100%;
   aspect-ratio: 0.666;
   border-radius: ${({ theme }) => theme.radii.md}px;
   overflow: hidden;
   background-color: ${({ theme }) => theme.colors.surfaceCard};
   position: relative;
+  border-width: 2px;
+  border-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.primary : 'transparent')};
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.05);' : '')}
 `;
 
 export const PlaceholderContainer = styled.View`

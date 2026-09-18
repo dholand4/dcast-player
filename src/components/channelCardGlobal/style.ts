@@ -1,16 +1,17 @@
 import styled from 'styled-components/native';
 import { Image as ExpoImage } from 'expo-image';
 
-export const Container = styled.View`
+export const Container = styled.View<{ isFocused?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding-vertical: ${({ theme }) => theme.spacing.sm}px;
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
-  background-color: ${({ theme }) => theme.colors.surface};
+  background-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.surfaceCard : theme.colors.surface)};
   border-radius: ${({ theme }) => theme.radii.md}px;
   margin-bottom: ${({ theme }) => theme.spacing.sm}px;
-  border-width: 1px;
-  border-color: ${({ theme }) => theme.colors.border};
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 1)}px;
+  border-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.primary : theme.colors.border)};
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.02);' : '')}
 `;
 
 export const ContentPressable = styled.TouchableOpacity`

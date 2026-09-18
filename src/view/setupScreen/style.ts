@@ -69,7 +69,7 @@ export const TabSelectorContainer = styled.View`
   border-color: ${({ theme }) => theme.colors.border};
 `;
 
-export const TabButton = styled.TouchableOpacity<{ active?: boolean }>`
+export const TabButton = styled.TouchableOpacity<{ active?: boolean; isFocused?: boolean }>`
   flex: 1;
   padding-vertical: 9px;
   padding-horizontal: 12px;
@@ -78,6 +78,9 @@ export const TabButton = styled.TouchableOpacity<{ active?: boolean }>`
   justify-content: center;
   background-color: ${({ active, theme }) =>
     active ? theme.colors.primary : 'transparent'};
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
+  border-color: #ffffff;
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.03);' : '')}
 `;
 
 export const TabButtonText = styled.Text<{ active?: boolean }>`
@@ -136,27 +139,31 @@ export const SavedAccountActions = styled.View`
   gap: 8px;
 `;
 
-export const SavedAccountConnectBtn = styled.TouchableOpacity`
+export const SavedAccountConnectBtn = styled.TouchableOpacity<{ isFocused?: boolean }>`
   background-color: ${({ theme }) => theme.colors.primary};
-  padding-vertical: 7px;
-  padding-horizontal: 14px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
+  padding: 6px 14px;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
+  border-color: #ffffff;
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.05);' : '')}
 `;
 
 export const SavedAccountConnectText = styled.Text`
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 12px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SavedAccountDeleteBtn = styled.TouchableOpacity`
+export const SavedAccountDeleteBtn = styled.TouchableOpacity<{ isFocused?: boolean }>`
   padding: 6px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
   align-items: center;
   justify-content: center;
   background-color: rgba(229, 9, 20, 0.1);
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
+  border-color: #ffffff;
 `;
 
 export const OrDivider = styled.View`

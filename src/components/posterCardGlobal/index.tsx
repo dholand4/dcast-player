@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { IPosterCardGlobalProps } from './types';
 import { BadgeGlobal } from '../badgeGlobal';
 import { ProgressBarGlobal } from '../progressBarGlobal';
+import { useTVFocus } from '../../hooks/useTVFocus';
 import {
   CardContainer,
   ImageWrapper,
@@ -27,6 +28,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
     testID,
   }) => {
     const cardHeight = width ? Math.round(width * 1.5) + 38 : undefined;
+    const { isFocused, focusable, onFocus, onBlur } = useTVFocus();
 
     return (
       <CardContainer
@@ -36,10 +38,13 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
         onLongPress={onLongPress || onRemove}
         activeOpacity={0.8}
         testID={testID}
+        focusable={focusable}
+        onFocus={onFocus}
+        onBlur={onBlur}
         accessibilityRole="button"
         accessibilityLabel={title}
       >
-        <ImageWrapper>
+        <ImageWrapper isFocused={isFocused}>
           <PlaceholderContainer>
             <MaterialIcons name="movie" size={32} color="rgba(255, 255, 255, 0.2)" />
           </PlaceholderContainer>

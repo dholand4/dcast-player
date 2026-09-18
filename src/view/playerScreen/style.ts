@@ -123,13 +123,16 @@ export const CenterControls = styled.View`
   gap: ${({ theme }) => theme.spacing.md}px;
 `;
 
-export const BigPlayButton = styled.TouchableOpacity`
+export const BigPlayButton = styled.TouchableOpacity<{ isFocused?: boolean }>`
   width: 68px;
   height: 68px;
   border-radius: 34px;
   background-color: ${({ theme }) => theme.colors.primary};
   align-items: center;
   justify-content: center;
+  border-width: ${({ isFocused }) => (isFocused ? 3 : 0)}px;
+  border-color: #ffffff;
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.12);' : '')}
 `;
 
 export const BigPlayText = styled.Text`
@@ -138,13 +141,16 @@ export const BigPlayText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SeekButton = styled.TouchableOpacity`
+export const SeekButton = styled.TouchableOpacity<{ isFocused?: boolean }>`
   width: 48px;
   height: 48px;
   border-radius: 24px;
-  background-color: ${({ theme }) => theme.colors.overlayDark};
+  background-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.primary : theme.colors.overlayDark)};
   align-items: center;
   justify-content: center;
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
+  border-color: #ffffff;
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.1);' : '')}
 `;
 
 export const SeekText = styled.Text`
@@ -413,13 +419,17 @@ export const DrawerSearchInput = styled.TextInput`
   margin-bottom: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const DrawerItem = styled.TouchableOpacity<{ isActive?: boolean }>`
+export const DrawerItem = styled.TouchableOpacity<{ isActive?: boolean; isFocused?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding: 10px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
-  background-color: ${({ isActive }) => (isActive ? 'rgba(229, 9, 20, 0.2)' : 'transparent')};
+  background-color: ${({ isFocused, isActive }) =>
+    isFocused ? 'rgba(229, 9, 20, 0.4)' : isActive ? 'rgba(229, 9, 20, 0.2)' : 'transparent'};
   margin-bottom: 4px;
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 1)}px;
+  border-color: ${({ isFocused }) => (isFocused ? '#E50914' : 'transparent')};
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.02);' : '')}
 `;
 
 export const DrawerItemLogo = styled(ExpoImage)`

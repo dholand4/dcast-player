@@ -11,6 +11,7 @@ import {
   Text,
   useWindowDimensions,
   StatusBar as RNStatusBar,
+  BackHandler,
 } from 'react-native';
 import { StatusBar, setStatusBarHidden } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -440,6 +441,40 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       setShowControls(false);
     }, 4500);
   }, []);
+
+  // Estados de foco para controle remoto (Android TV / TV Box)
+  const [focusedPlayerBtn, setFocusedPlayerBtn] = useState<string | null>(null);
+  const [focusedDrawerChannelId, setFocusedDrawerChannelId] = useState<string | null>(null);
+
+  // Tratamento do botão Voltar do controle remoto em TVs e Android
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showSettingsModal) {
+        setShowSettingsModal(false);
+        return true;
+      }
+      if (showChannelDrawer) {
+        setShowChannelDrawer(false);
+        return true;
+      }
+      if (showEpgModal) {
+        setShowEpgModal(false);
+        return true;
+      }
+      if (showNextEpisodePrompt) {
+        setShowNextEpisodePrompt(false);
+        return true;
+      }
+      if (showControls) {
+        setShowControls(false);
+        return true;
+      }
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [showSettingsModal, showChannelDrawer, showEpgModal, showNextEpisodePrompt, showControls]);
 
   const handleSetVolume = useCallback(
     (newVol: number) => {
@@ -923,6 +958,19 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             statusBarAnimation: 'fade',
           });
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+
+          // Oculta a barra de navegação virtual do Android (botões Voltar, Home, Recents)
+          if (Platform.OS === 'android') {
+            try {
+              const NavigationBar = require('expo-navigation-bar');
+              if (NavigationBar) {
+                await NavigationBar.setVisibilityAsync('hidden');
+                await NavigationBar.setBehaviorAsync('overlay-swipe');
+              }
+            } catch {
+              // expo-navigation-bar ainda não vinculado no runtime
+            }
+          }
         } else {
           RNStatusBar.setHidden(false, 'fade');
           setStatusBarHidden(false, 'fade');
@@ -930,7 +978,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             statusBarHidden: false,
             statusBarAnimation: 'fade',
           });
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+          if (Platform.isTV) {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+          } else {
+            await ScreenOrientation.unlockAsync();
+          }
         }
       } catch {
         // ignore on unsupported environments
@@ -939,14 +991,41 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     applyOrientationAndStatusBar();
 
     return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      if (Platform.isTV) {
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+      } else {
+        ScreenOrientation.unlockAsync().catch(() => {});
+      }
       RNStatusBar.setHidden(false, 'fade');
       setStatusBarHidden(false, 'fade');
       navigation?.setOptions?.({
         statusBarHidden: false,
       });
+      if (Platform.OS === 'android') {
+        try {
+          const NavigationBar = require('expo-navigation-bar');
+          if (NavigationBar) {
+            NavigationBar.setVisibilityAsync('visible').catch(() => {});
+          }
+        } catch {}
+      }
     };
   }, [isCasting, navigation]);
+
+  // Sincroniza a visibilidade da barra de navegação virtual do Android com o sumiço dos controles
+  useEffect(() => {
+    if (Platform.OS === 'android' && !isCasting) {
+      try {
+        const NavigationBar = require('expo-navigation-bar');
+        if (NavigationBar) {
+          if (!showControls) {
+            NavigationBar.setVisibilityAsync('hidden').catch(() => {});
+            NavigationBar.setBehaviorAsync('overlay-swipe').catch(() => {});
+          }
+        }
+      } catch {}
+    }
+  }, [showControls, isCasting]);
 
   // Configura pré-carregamento suave de buffer e restauração de initialTime no elemento <video> do navegador (Web)
   useEffect(() => {
@@ -2617,6 +2696,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            focusable={!showControls}
+            hasTVPreferredFocus={!showControls}
             {...({
               onPointerMove: () => {
                 if (Platform.OS === 'web') resetHideTimer();
@@ -2917,6 +2998,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Episódio Anterior"
                   testID="prev-episode-button"
+                  focusable={showControls}
+                  isFocused={focusedPlayerBtn === 'prev'}
+                  onFocus={() => {
+                    setFocusedPlayerBtn('prev');
+                    resetHideTimer();
+                  }}
+                  onBlur={() => setFocusedPlayerBtn(null)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <MaterialIcons name="skip-previous" size={28} color="#FFFFFF" />
@@ -2929,6 +3017,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Voltar 10 segundos"
                   testID="seek-back-button"
+                  focusable={showControls}
+                  isFocused={focusedPlayerBtn === 'seek-back'}
+                  onFocus={() => {
+                    setFocusedPlayerBtn('seek-back');
+                    resetHideTimer();
+                  }}
+                  onBlur={() => setFocusedPlayerBtn(null)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <MaterialIcons name="replay-10" size={28} color="#FFFFFF" />
@@ -2940,6 +3035,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={isPlaying ? 'Pausar' : 'Reproduzir'}
                 testID="play-pause-button"
+                focusable={showControls}
+                hasTVPreferredFocus={showControls}
+                isFocused={focusedPlayerBtn === 'play'}
+                onFocus={() => {
+                  setFocusedPlayerBtn('play');
+                  resetHideTimer();
+                }}
+                onBlur={() => setFocusedPlayerBtn(null)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <MaterialIcons
@@ -2955,6 +3058,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Avançar 10 segundos"
                   testID="seek-forward-button"
+                  focusable={showControls}
+                  isFocused={focusedPlayerBtn === 'seek-forward'}
+                  onFocus={() => {
+                    setFocusedPlayerBtn('seek-forward');
+                    resetHideTimer();
+                  }}
+                  onBlur={() => setFocusedPlayerBtn(null)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <MaterialIcons name="forward-10" size={28} color="#FFFFFF" />
@@ -3177,9 +3287,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 windowSize={5}
                 renderItem={({ item }) => {
                   const isActive = item.id === activeContentId;
+                  const isFocused = focusedDrawerChannelId === item.id;
                   return (
                     <DrawerItem
                       isActive={isActive}
+                      isFocused={isFocused}
+                      focusable={true}
+                      onFocus={() => setFocusedDrawerChannelId(item.id)}
+                      onBlur={() => setFocusedDrawerChannelId(null)}
                       onPress={() => handleSwitchChannel(item)}
                       accessibilityRole="button"
                       accessibilityLabel={`Canal ${item.name}`}

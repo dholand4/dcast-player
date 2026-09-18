@@ -186,12 +186,14 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     };
   }, [allData, debouncedQuery]);
 
-  // Responsividade do Grid (2 a 6 colunas dependendo da largura da tela)
+  // Responsividade do Grid (3 a 8 colunas dependendo da largura da tela)
   const numColumns = useMemo(() => {
-    if (width > 1200) return 6;
-    if (width > 900) return 5;
-    if (width > 600) return 4;
-    return 3;
+    if (width < 500) return 3;
+    if (width < 750) return 4;
+    if (width < 1050) return 5;
+    if (width < 1400) return 6;
+    if (width < 1800) return 7;
+    return 8;
   }, [width]);
 
   const handleItemPress = (item: UnifiedSearchResult) => {

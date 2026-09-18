@@ -1,18 +1,21 @@
 import styled from 'styled-components/native';
 
-export const Container = styled.View`
+export const Container = styled.View<{ isRow?: boolean }>`
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
   gap: ${({ theme }) => theme.spacing.md}px;
+  ${({ isRow }) => (isRow ? 'flex-direction: row;' : '')}
 `;
 
-export const BigCard = styled.TouchableOpacity`
+export const BigCard = styled.TouchableOpacity<{ isFocused?: boolean; isRow?: boolean }>`
   flex-direction: row;
   align-items: center;
-  background-color: ${({ theme }) => theme.colors.surface};
+  background-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.surfaceCard : theme.colors.surface)};
   border-radius: ${({ theme }) => theme.radii.lg}px;
   padding: ${({ theme }) => theme.spacing.lg}px;
-  border-width: 1px;
-  border-color: ${({ theme }) => theme.colors.border};
+  border-width: ${({ isFocused }) => (isFocused ? 2 : 1)}px;
+  border-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.primary : theme.colors.border)};
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.03);' : '')}
+  ${({ isRow }) => (isRow ? 'flex: 1;' : '')}
 `;
 
 export const IconBox = styled.View<{ accentColor?: string }>`

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Platform, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IMainNavCardsGlobalProps } from './types';
 import {
@@ -17,11 +18,20 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
   onSelectSeries,
   testID,
 }) => {
+  const { width } = useWindowDimensions();
+  const isRow = Platform.isTV || width >= 700;
+  const [focusedCard, setFocusedCard] = useState<string | null>(null);
+
   return (
-    <Container testID={testID}>
+    <Container testID={testID} isRow={isRow}>
       <BigCard
         onPress={onSelectLive}
         activeOpacity={0.8}
+        isRow={isRow}
+        isFocused={focusedCard === 'live'}
+        focusable={true}
+        onFocus={() => setFocusedCard('live')}
+        onBlur={() => setFocusedCard(null)}
         accessibilityRole="button"
         accessibilityLabel="Canais Ao Vivo"
       >
@@ -38,6 +48,11 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
       <BigCard
         onPress={onSelectMovies}
         activeOpacity={0.8}
+        isRow={isRow}
+        isFocused={focusedCard === 'movies'}
+        focusable={true}
+        onFocus={() => setFocusedCard('movies')}
+        onBlur={() => setFocusedCard(null)}
         accessibilityRole="button"
         accessibilityLabel="Filmes"
       >
@@ -54,6 +69,11 @@ export const MainNavCardsGlobal: React.FC<IMainNavCardsGlobalProps> = ({
       <BigCard
         onPress={onSelectSeries}
         activeOpacity={0.8}
+        isRow={isRow}
+        isFocused={focusedCard === 'series'}
+        focusable={true}
+        onFocus={() => setFocusedCard('series')}
+        onBlur={() => setFocusedCard(null)}
         accessibilityRole="button"
         accessibilityLabel="Séries"
       >

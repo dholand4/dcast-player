@@ -1,5 +1,6 @@
 import React from 'react';
 import { IChannelCardGlobalProps } from './types';
+import { useTVFocus } from '../../hooks/useTVFocus';
 import {
   Container,
   ContentPressable,
@@ -24,11 +25,16 @@ export const ChannelCardGlobal: React.FC<IChannelCardGlobalProps> = React.memo(
     onPlay,
     testID,
   }) => {
+    const { isFocused, focusable, onFocus, onBlur } = useTVFocus();
+
     return (
-      <Container testID={testID}>
+      <Container testID={testID} isFocused={isFocused}>
         <ContentPressable
           onPress={onPlay}
           activeOpacity={0.7}
+          focusable={focusable}
+          onFocus={onFocus}
+          onBlur={onBlur}
           accessibilityRole="button"
           accessibilityLabel={`Canal ${name}`}
         >

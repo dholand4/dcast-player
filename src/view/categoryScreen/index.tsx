@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View, FlatList } from 'react-native';
+import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View, FlatList, BackHandler } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
@@ -53,13 +53,12 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
   const { width: windowWidth } = useWindowDimensions();
 
   const numColumns = useMemo(() => {
-    if (Platform.OS === 'web') {
-      if (windowWidth < 600) return 3;
-      if (windowWidth < 900) return 5;
-      if (windowWidth < 1200) return 6;
-      return 8;
-    }
-    return 3;
+    if (windowWidth < 500) return 3;
+    if (windowWidth < 750) return 4;
+    if (windowWidth < 1050) return 5;
+    if (windowWidth < 1400) return 6;
+    if (windowWidth < 1800) return 7;
+    return 8;
   }, [windowWidth]);
 
   const posterWidth = useMemo(() => {
@@ -103,6 +102,31 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
 
     return () => clearTimeout(timer);
   }, [searchQuery, debouncedQuery]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (itemToRemove) {
+        setItemToRemove(null);
+        return true;
+      }
+      if (isClearHistoryModalVisible) {
+        setIsClearHistoryModalVisible(false);
+        return true;
+      }
+      if (isCategoryManagerVisible) {
+        setIsCategoryManagerVisible(false);
+        return true;
+      }
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        return true;
+      }
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [itemToRemove, isClearHistoryModalVisible, isCategoryManagerVisible, isDrawerOpen]);
 
   const typeFavoritesCount = useMemo(() => {
     return favorites.filter((f) => (type === 'live' ? f.type === 'live' : f.type === type)).length;

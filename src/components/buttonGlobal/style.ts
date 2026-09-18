@@ -5,6 +5,7 @@ interface IContainerProps {
   variant: ButtonVariant;
   size: ButtonSize;
   disabled?: boolean;
+  isFocused?: boolean;
 }
 
 interface ILabelProps {
@@ -70,8 +71,10 @@ export const ButtonContainer = styled.TouchableOpacity<IContainerProps>`
   padding-horizontal: ${({ size, theme }) => getPadding(size, theme).h}px;
   border-radius: ${({ theme }) => theme.radii.md}px;
   opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
-  border-width: ${({ variant }) => (variant === 'ghost' ? 1 : 0)}px;
-  border-color: ${({ variant, theme }) => (variant === 'ghost' ? theme.colors.border : theme.colors.transparent)};
+  border-width: ${({ isFocused, variant }) => (isFocused ? 2 : variant === 'ghost' ? 1 : 0)}px;
+  border-color: ${({ isFocused, variant, theme }) =>
+    isFocused ? '#FFFFFF' : variant === 'ghost' ? theme.colors.border : theme.colors.transparent};
+  ${({ isFocused }) => (isFocused ? 'transform: scale(1.04);' : '')}
 `;
 
 export const ButtonLabel = styled.Text.attrs({
