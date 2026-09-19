@@ -39,6 +39,7 @@ export interface ICastContextData {
   stopCast: () => void;
   showExpandedControls: () => void;
   currentMedia: ICastMediaParams | null;
+  mediaStatus?: any;
 }
 
 export const CastContext = createContext<ICastContextData>({} as ICastContextData);
@@ -71,6 +72,16 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsStoppingCast(false);
     }
   }, [castSession, castState]);
+
+  // Safety timeout: reset isStoppingCast after 2.5s to avoid permanently locking the player
+  useEffect(() => {
+    if (isStoppingCast) {
+      const timer = setTimeout(() => {
+        setIsStoppingCast(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isStoppingCast]);
 
   // Active client: hookClient or session client or fallback client
   const client = hookClient || (castSession as any)?.client || fallbackClientRef.current;
@@ -122,6 +133,10 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (status) setMediaStatus(status);
     });
 
+    const endedSub = client.onMediaPlaybackEnded?.((status: any) => {
+      if (status) setMediaStatus(status);
+    });
+
     const progressSub = client.onMediaProgressUpdated?.((pos: number, dur: number) => {
       if (typeof pos === 'number' && !isNaN(pos)) setLivePosition(pos);
       if (typeof dur === 'number' && !isNaN(dur)) setLiveDuration(dur);
@@ -129,6 +144,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       statusSub?.remove?.();
+      endedSub?.remove?.();
       progressSub?.remove?.();
     };
   }, [client, isCasting]);
@@ -140,6 +156,14 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isCasting) return;
     const info = activeMediaStatus?.mediaInfo;
     if (!info) return;
+
+    // Do NOT restore or overwrite if the media has finished
+    if (
+      activeMediaStatus?.playerState === 'idle' &&
+      (activeMediaStatus?.idleReason === 'finished' || activeMediaStatus?.idleReason === 1)
+    ) {
+      return;
+    }
 
     setCurrentMedia((prev) => {
       const custom = info.customData || {};
@@ -204,9 +228,17 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const castMedia = useCallback(
     async (params: ICastMediaParams) => {
-      if (!client || isStoppingCast) {
+      if (!client) {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
+
+      setIsStoppingCast(false);
+      // Reset position, duration and status immediately so stale data never triggers auto-advance loops
+      setLivePosition(0);
+      setLiveDuration(0);
+      setMediaStatus(null);
+      setCurrentMedia(params);
+      storageService.saveActiveCastMedia(params);
 
       // 1. URL formatting: Chromecast does not support bare .ts live streams over HTTP.
       // Live IPTV streams must be passed as .m3u8 (HLS) to Chromecast receiver.
@@ -216,13 +248,15 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // 2. MIME type selection
+      // Note: Google Cast Default Media Receiver (CC1AD845) rejects video/x-matroska with MEDIA_ERROR.
+      // MKV IPTV streams must be treated as video/mp4 so the HTML5/MSE receiver processes the stream.
       let contentType = 'video/mp4';
       if (params.type === 'live' || contentUrl.includes('.m3u8')) {
         contentType = 'application/x-mpegURL';
-      } else if (contentUrl.includes('.mkv')) {
-        contentType = 'video/x-matroska';
       } else if (contentUrl.includes('.webm')) {
         contentType = 'video/webm';
+      } else if (contentUrl.includes('.mkv')) {
+        contentType = 'video/mp4';
       }
 
       // 3. Stream type selection
@@ -336,6 +370,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         stopCast,
         showExpandedControls,
         currentMedia,
+        mediaStatus: activeMediaStatus,
       }}
     >
       {children}

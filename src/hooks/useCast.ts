@@ -53,6 +53,15 @@ function useLocalCastFallback(): ICastContextData {
     }
   }, [castSession, castState]);
 
+  useEffect(() => {
+    if (isStoppingCast) {
+      const timer = setTimeout(() => {
+        setIsStoppingCast(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isStoppingCast]);
+
   const client = hookClient || (castSession as any)?.client || fallbackClientRef.current;
   const isCasting =
     (Boolean(castSession) || castState === CastState.CONNECTED) && !isStoppingCast;
@@ -85,6 +94,10 @@ function useLocalCastFallback(): ICastContextData {
       if (status) setMediaStatus(status);
     });
 
+    const endedSub = client.onMediaPlaybackEnded?.((status: any) => {
+      if (status) setMediaStatus(status);
+    });
+
     const progressSub = client.onMediaProgressUpdated?.((pos: number, dur: number) => {
       if (typeof pos === 'number' && !isNaN(pos)) setLivePosition(pos);
       if (typeof dur === 'number' && !isNaN(dur)) setLiveDuration(dur);
@@ -92,6 +105,7 @@ function useLocalCastFallback(): ICastContextData {
 
     return () => {
       statusSub?.remove?.();
+      endedSub?.remove?.();
       progressSub?.remove?.();
     };
   }, [client, isCasting]);
@@ -134,9 +148,15 @@ function useLocalCastFallback(): ICastContextData {
 
   const castMedia = useCallback(
     async (params: ICastMediaParams) => {
-      if (!client || isStoppingCast) {
+      if (!client) {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
+
+      setIsStoppingCast(false);
+      setLivePosition(0);
+      setLiveDuration(0);
+      setMediaStatus(null);
+      setCurrentMedia(params);
 
       let contentUrl = params.streamUrl;
       if (params.type === 'live') {
@@ -146,10 +166,10 @@ function useLocalCastFallback(): ICastContextData {
       let contentType = 'video/mp4';
       if (params.type === 'live' || contentUrl.includes('.m3u8')) {
         contentType = 'application/x-mpegURL';
-      } else if (contentUrl.includes('.mkv')) {
-        contentType = 'video/x-matroska';
       } else if (contentUrl.includes('.webm')) {
         contentType = 'video/webm';
+      } else if (contentUrl.includes('.mkv')) {
+        contentType = 'video/mp4';
       }
 
       const streamType = (params.type === 'live' ? 'live' : 'buffered') as MediaStreamType;
@@ -253,5 +273,6 @@ function useLocalCastFallback(): ICastContextData {
     stopCast,
     showExpandedControls,
     currentMedia,
+    mediaStatus: activeMediaStatus,
   };
 }

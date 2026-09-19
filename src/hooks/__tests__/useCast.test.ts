@@ -112,4 +112,25 @@ describe('useCast hook', () => {
     });
     expect(mockStop).toHaveBeenCalledTimes(1);
   });
+
+  it('uses video/mp4 for .mkv series streams to prevent Chromecast receiver rejection', async () => {
+    const { result } = renderHook(() => useCast());
+
+    await act(async () => {
+      await result.current.castMedia({
+        streamUrl: 'http://server.com/series/user/pass/101.mkv',
+        title: 'Breaking Bad - S01E01',
+        type: 'series',
+        contentId: '101',
+        initialTime: 0,
+      });
+    });
+
+    expect(mockLoadMedia).toHaveBeenCalledTimes(1);
+    const mediaLoadArg = mockLoadMedia.mock.calls[0][0];
+
+    // Assert that the MIME type is video/mp4 (supported by Google Default Media Receiver)
+    expect(mediaLoadArg.mediaInfo.contentType).toBe('video/mp4');
+    expect(result.current.streamPosition).toBe(0);
+  });
 });

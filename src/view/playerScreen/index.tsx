@@ -132,6 +132,25 @@ import {
   TimelinePreviewBadge,
 } from './style';
 
+async function safeReplacePlayerSource(playerInstance: any, source: any): Promise<void> {
+  if (!playerInstance) return;
+  if (typeof playerInstance.replaceAsync === 'function') {
+    try {
+      await playerInstance.replaceAsync(source);
+      return;
+    } catch (err) {
+      console.warn('[Player] replaceAsync error, falling back to replace:', err);
+    }
+  }
+  if (typeof playerInstance.replace === 'function') {
+    playerInstance.replace(source);
+  }
+}
+
+// Module-level guards to prevent auto-advance loops across rapid screen remounts
+let globalLastAdvanceTimestamp = 0;
+let globalLastAdvancedId = '';
+
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   route,
   navigation,
@@ -244,10 +263,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     time: number;
     lastChangeTimestamp: number;
     recoveryAttempts: number;
+    mountTimestamp: number;
   }>({
     time: initialTime,
     lastChangeTimestamp: Date.now(),
     recoveryAttempts: 0,
+    mountTimestamp: Date.now(),
   });
 
   const initialStreamUrl = useMemo(() => {
@@ -304,24 +325,25 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const [selectedSubtitle, setSelectedSubtitle] = useState<any>(null);
 
   const videoSource = useMemo(() => {
-    const isHls = currentStreamUrl.includes('.m3u8');
+    const isHls = currentStreamUrl.includes('.m3u8') || (type === 'live' && !currentStreamUrl.includes('.mp4'));
     return {
       uri: currentStreamUrl,
       contentType: (isHls ? 'hls' : 'auto') as any,
-      useCaching: Platform.OS !== 'web',
+      useCaching: false,
       headers: {
         'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
         Accept: '*/*',
         Connection: 'keep-alive',
       },
     };
-  }, [currentStreamUrl]);
+  }, [currentStreamUrl, type]);
 
   const { saveProgress, getProgress } = useWatchHistory();
   const {
     isCasting,
     isPlaying: isCastPlaying,
     isPaused: isCastPaused,
+    isBuffering: isCastBuffering,
     streamPosition,
     streamDuration,
     castMedia,
@@ -330,8 +352,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     seek: castSeek,
     stopCast,
     currentMedia: activeCastMedia,
+    mediaStatus: castMediaStatus,
   } = useCast();
 
+  const [castError, setCastError] = useState<string | null>(null);
   const isCastingRef = useRef(isCasting);
   isCastingRef.current = isCasting;
   const prevIsCastingRef = useRef(isCasting);
@@ -372,7 +396,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       toleranceBefore: 2.0,
       toleranceAfter: 2.0,
     };
-    if (initialTime > 0) {
+    if (initialTime > 2) {
       p.currentTime = initialTime;
     }
     // Autoplay localmente apenas se NÃO estiver transmitindo para a TV
@@ -827,16 +851,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         } catch {}
       } else {
         try {
-          if (typeof (player as any).replace === 'function') {
-            player.replace({
-              uri: newUrl,
-              contentType: (newUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
-              headers: {
-                'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-                Accept: '*/*',
-              },
-            });
-          }
+          safeReplacePlayerSource(player, {
+            uri: newUrl,
+            contentType: (newUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
+            headers: {
+              'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+              Accept: '*/*',
+            },
+          });
           player.play();
         } catch (err) {
           console.warn('[Player] Erro ao trocar de canal:', err);
@@ -1075,7 +1097,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       videoEl.style.backfaceVisibility = 'hidden';
       (videoEl.style as any).webkitBackfaceVisibility = 'hidden';
 
-      if (initialTime > 0 && !applied && !hasAppliedInitialTimeRef.current) {
+      if (initialTime > 2 && !applied && !hasAppliedInitialTimeRef.current) {
         const doSeek = () => {
           if (applied || hasAppliedInitialTimeRef.current) return;
           applied = true;
@@ -1116,7 +1138,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
-    const isLiveOrHls = type === 'live' || currentStreamUrl.includes('.m3u8');
+    const isLiveOrHls = (type === 'live' || currentStreamUrl.includes('.m3u8')) && !currentStreamUrl.includes('.mp4');
     if (!isLiveOrHls) return;
 
     let hlsInstance: any = null;
@@ -1306,11 +1328,28 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, []);
 
+  // Reseta timestamps do watchdog sempre que a URL do stream mudar
+  useEffect(() => {
+    lastPlaybackCheckRef.current.mountTimestamp = Date.now();
+    lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+    lastPlaybackCheckRef.current.recoveryAttempts = 0;
+  }, [currentStreamUrl]);
+
   // Playback Stall Watchdog & Auto-Recovery Engine (Web & Mobile)
   useEffect(() => {
     const watchdogInterval = setInterval(() => {
       // Se estiver transmitindo para a TV (Cast), pausado pelo usuário, tela bloqueada, ou erro crítico: reseta contadores e NUNCA tenta auto-recuperar no celular!
       if (isCasting || !isPlaying || isScreenLocked || playbackError) {
+        lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+        lastPlaybackCheckRef.current.recoveryAttempts = 0;
+        return;
+      }
+
+      // Período de carência inicial: Durante os primeiros 8s após início ou troca de stream,
+      // o player está negociando conexão, TLS, headers, buffers iniciais e busca de trilhas.
+      // Nunca dispara recuperação de estagnação nesta janela inicial.
+      const timeSinceMount = Date.now() - (lastPlaybackCheckRef.current.mountTimestamp || 0);
+      if (timeSinceMount < 8000) {
         lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
         lastPlaybackCheckRef.current.recoveryAttempts = 0;
         return;
@@ -1332,13 +1371,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       // Se não avançou, quanto tempo está estagnado?
       const stuckDurationMs = Date.now() - lastPlaybackCheckRef.current.lastChangeTimestamp;
 
-      // Após 2s sem progresso, exibe o indicador visual de buffering
-      if (stuckDurationMs >= 2000 && !isBuffering) {
+      // Após 2.5s sem progresso, exibe o indicador visual de buffering
+      if (stuckDurationMs >= 2500 && !isBuffering) {
         setIsBuffering(true);
       }
 
-      // Após 3.5s estagnado: dispara auto-recuperação transparente!
-      if (stuckDurationMs >= 3500) {
+      // Limiar dinâmico para auto-recuperação:
+      // Se estiver em buffer ativo / carregamento de rede (player.status === 'loading' ou isBuffering),
+      // concede até 12s para não abortar downloads de chunks em andamento.
+      // Se o player afirma estar pronto (status 'readyToPlay' e não-buffering) mas travou na imagem,
+      // dispara após 7s.
+      const isPlayerBuffering = isBuffering || player.status === 'loading';
+      const recoveryThresholdMs = isPlayerBuffering ? 12000 : 7000;
+
+      if (stuckDurationMs >= recoveryThresholdMs) {
         lastPlaybackCheckRef.current.recoveryAttempts += 1;
         const attempt = lastPlaybackCheckRef.current.recoveryAttempts;
         lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
@@ -1363,7 +1409,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             }
             if (videoEl) {
               try {
-                videoEl.currentTime += 0.15;
+                videoEl.currentTime += 0.2;
                 videoEl.play().catch(() => {});
               } catch {}
             }
@@ -1372,7 +1418,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             if (videoEl) {
               try {
                 if (attempt === 1) {
-                  videoEl.currentTime = curPos;
+                  videoEl.currentTime = curPos + 0.1;
                   videoEl.play().catch(() => {});
                 } else {
                   console.warn(`[Watchdog VOD] Reconectando stream em ${curPos.toFixed(1)}s sem recarregar a página`);
@@ -1392,8 +1438,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         } else {
           // Mobile (Expo Video)
           try {
-            if (attempt >= 2) {
-              player.currentTime = curPos;
+            if (attempt === 1) {
+              player.play();
+            } else {
+              // Nudge de +0.2s para saltar frame corrompido / timestamp PTS travado
+              player.currentTime = curPos + 0.2;
               player.play();
             }
           } catch {}
@@ -1464,9 +1513,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         type: 'series',
         seasonNumber,
         episodeNumber,
-        currentTime: initialTime || existing?.currentTime || 1,
+        currentTime: initialTime > 2 ? initialTime : 0,
         duration: existing?.duration || 0,
-        percentage: existing?.percentage && existing.percentage < 95 ? existing.percentage : 1,
+        percentage: initialTime > 2 && existing?.percentage && existing.percentage < 95 ? existing.percentage : 1,
         updatedAt: Date.now(),
         streamUrl: extractDirectUrl(streamUrl),
       });
@@ -1592,6 +1641,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     showNextEpisodePromptRef.current = false;
     setNextEpisodeDismissed(false);
     nextEpisodeDismissedRef.current = false;
+    isNavigatingEpisodeRef.current = false;
+    hasCastAutoAdvancedRef.current = false;
+    hasCastRef.current = false;
+    setCastError(null);
   }, [contentId]);
 
   const handleGoToPrevEpisode = useCallback(() => {
@@ -1670,14 +1723,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
 
       if (typeof event.currentTime === 'number' && Number.isFinite(event.currentTime)) {
-        if (initialTime > 0 && !hasAppliedInitialTimeRef.current) {
-          if (event.currentTime < 1) {
-            try {
-              player.currentTime = initialTime;
-            } catch {}
-            return;
-          }
+        if (initialTime > 2 && !hasAppliedInitialTimeRef.current) {
           hasAppliedInitialTimeRef.current = true;
+          try {
+            player.currentTime = initialTime;
+          } catch {}
         }
 
         currentTimeRef.current = event.currentTime;
@@ -1742,18 +1792,21 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     });
     const subStatus = player.addListener('statusChange', (event) => {
-      setIsBuffering(event.status === 'loading' && !player.playing);
+      setIsBuffering(event.status === 'loading');
       if (event.status === 'error') {
         if (Platform.OS === 'web' && type === 'live') {
           return;
         }
         if (type === 'live' && !attemptedAlternativeRef.current) {
           const altUrl = xtreamService.getAlternativeLiveStreamUrl(currentStreamUrl);
-          if (altUrl) {
+          const isNotSupportedOnIos = Platform.OS === 'ios' && !!altUrl?.includes('.ts');
+          if (altUrl && !isNotSupportedOnIos) {
             attemptedAlternativeRef.current = true;
             setCurrentStreamUrl(altUrl);
-            player.replace({
+            safeReplacePlayerSource(player, {
               uri: altUrl,
+              contentType: (altUrl.includes('.m3u8') ? 'hls' : 'auto') as any,
+              useCaching: false,
               headers: {
                 'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
                 Accept: '*/*',
@@ -1788,11 +1841,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             .catch(() => {});
         }
       } else if (event.status === 'readyToPlay') {
+        setIsBuffering(false);
+        lastPlaybackCheckRef.current.lastChangeTimestamp = Date.now();
+        lastPlaybackCheckRef.current.recoveryAttempts = 0;
         setPlaybackError(null);
         if (player.duration > 0 && Number.isFinite(player.duration)) {
           setDuration(player.duration);
         }
-        if (initialTime > 0 && !hasAppliedInitialTimeRef.current) {
+        if (initialTime > 2 && !hasAppliedInitialTimeRef.current) {
           hasAppliedInitialTimeRef.current = true;
           try {
             player.currentTime = initialTime;
@@ -1880,7 +1936,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     setCurrentStreamUrl(streamUrl);
     try {
-      player.replace({
+      safeReplacePlayerSource(player, {
         uri: streamUrl,
         headers: {
           'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
@@ -1910,18 +1966,45 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const hasCastAutoAdvancedRef = useRef(false);
 
   useEffect(() => {
-    if (
-      isCasting &&
-      type === 'series' &&
-      nextEpisode &&
-      streamDuration > 15 &&
-      streamPosition >= streamDuration - 3 &&
-      !hasCastAutoAdvancedRef.current
-    ) {
+    if (!isCasting || type !== 'series' || !nextEpisode || hasCastAutoAdvancedRef.current) {
+      return;
+    }
+
+    // Auto-advance if:
+    // 1. Position is near end (must have played past 15s to prevent 0-second stale triggers)
+    const isNearEnd =
+      streamDuration > 30 &&
+      streamPosition > 15 &&
+      streamPosition >= streamDuration - 3;
+
+    // 2. OR Chromecast receiver finished playback (idleReason finished, after playing past 15s)
+    const isFinished =
+      (castMediaStatus?.idleReason === 'finished' ||
+        castMediaStatus?.idleReason === 1 ||
+        (castMediaStatus?.playerState === 'idle' && (streamPosition > 15 || duration > 15))) &&
+      (streamPosition > 15 || duration > 15);
+
+    if (isNearEnd || isFinished) {
+      const now = Date.now();
+      if (now - globalLastAdvanceTimestamp < 8000 && globalLastAdvancedId === nextEpisode.id) {
+        return;
+      }
+      globalLastAdvanceTimestamp = now;
+      globalLastAdvancedId = nextEpisode.id;
+
       hasCastAutoAdvancedRef.current = true;
       handleGoToNextEpisode();
     }
-  }, [isCasting, type, nextEpisode, streamDuration, streamPosition, handleGoToNextEpisode]);
+  }, [
+    isCasting,
+    type,
+    nextEpisode,
+    streamDuration,
+    streamPosition,
+    duration,
+    castMediaStatus,
+    handleGoToNextEpisode,
+  ]);
 
   // Gerenciar transição de desconexão da TV para retomar no celular
   useEffect(() => {
@@ -1981,16 +2064,23 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (!hasCastRef.current) {
         hasCastRef.current = true;
 
-        // Se a mídia já estiver ativa e rodando no Chromecast (ex: reabrindo pelo MiniPlayer),
-        // NÃO recarrega o filme nem reinicia o buffer na TV!
-        const isAlreadyPlayingOnCast =
+        // Se a mídia já estiver ativa E DE FATO reproduzindo/carregando no Chromecast
+        // (ex: reabrindo pelo MiniPlayer enquanto a TV está tocando), não reinicia o buffer!
+        // Mas se a TV estiver ociosa (idle), pausada no início ou sem reprodução ativa,
+        // DEVEMOS carregar a mídia no Chromecast!
+        const isActuallyActiveOnCast =
+          (isCastPlaying || isCastBuffering || (isCastPaused && streamPosition > 2)) &&
+          castMediaStatus?.playerState !== 'idle' &&
+          castMediaStatus?.idleReason !== 'finished';
+
+        const isSameMedia =
           activeCastMedia &&
           (activeCastMedia.contentId === contentId ||
             activeCastMedia.streamUrl === streamUrl ||
             extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl) ||
             (activeCastMedia.title === title && activeCastMedia.type === type));
 
-        if (isAlreadyPlayingOnCast) {
+        if (isActuallyActiveOnCast && isSameMedia) {
           return;
         }
 
@@ -2005,22 +2095,32 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           episodeNumber,
           initialTime: currentTimeRef.current,
         }).catch((err) => {
-          console.warn('Erro ao carregar mídia no Chromecast:', err);
-          if (!isCastingRef.current || isDisconnectingCastRef.current) {
-            return;
-          }
-          Alert.alert(
-            'Erro na Transmissão',
-            'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-          );
-        });
+            console.warn('Erro ao carregar mídia no Chromecast:', err);
+            hasCastRef.current = false;
+            setCastError(
+              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+            );
+            if (!isCastingRef.current || isDisconnectingCastRef.current) {
+              return;
+            }
+            Alert.alert(
+              'Erro na Transmissão',
+              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+            );
+          });
       }
     } else if (!isCasting) {
       hasCastRef.current = false;
+      setCastError(null);
     }
   }, [
     isCasting,
     activeCastMedia,
+    castMediaStatus,
+    isCastPlaying,
+    isCastBuffering,
+    isCastPaused,
+    streamPosition,
     streamUrl,
     title,
     posterUrl,
@@ -2583,11 +2683,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             accessibilityRole="button"
             accessibilityLabel={isCastPlaying ? 'Pausar' : 'Reproduzir'}
           >
-            <MaterialIcons
-              name={isCastPlaying ? 'pause' : 'play-arrow'}
-              size={38}
-              color="#FFFFFF"
-            />
+            {isCastBuffering ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialIcons
+                name={isCastPlaying ? 'pause' : 'play-arrow'}
+                size={38}
+                color="#FFFFFF"
+              />
+            )}
           </BigPlayButton>
 
           {type !== 'live' && (
@@ -2611,6 +2715,52 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             </SeekButton>
           )}
         </CenterControls>
+
+        {castError && (
+          <View
+            style={{
+              marginHorizontal: 24,
+              marginBottom: 16,
+              padding: 12,
+              backgroundColor: 'rgba(229, 9, 20, 0.2)',
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: '#E50914',
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontWeight: 'bold',
+                fontSize: 13,
+                marginBottom: 4,
+                textAlign: 'center',
+              }}
+            >
+              Erro na Transmissão na TV
+            </Text>
+            <Text
+              style={{
+                color: '#CCCCCC',
+                fontSize: 12,
+                textAlign: 'center',
+                marginBottom: 10,
+              }}
+            >
+              {castError}
+            </Text>
+            <ButtonGlobal
+              label="Tentar Novamente na TV"
+              size="sm"
+              variant="primary"
+              onPress={() => {
+                setCastError(null);
+                hasCastRef.current = false;
+              }}
+            />
+          </View>
+        )}
 
         <ButtonGlobal
           label="Assistir no Celular"
