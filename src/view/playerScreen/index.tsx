@@ -355,6 +355,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     mediaStatus: castMediaStatus,
   } = useCast();
 
+  // Se o initialTime for no fim do vídeo (>= 95% do progresso salvo ou nos últimos 15 segundos), reinicia do começo
+  const effectiveInitialTime = useMemo(() => {
+    if (!initialTime || initialTime <= 2) return 0;
+    const progress = getProgress(contentId);
+    if (progress) {
+      if (progress.percentage >= 95) return 0;
+      if (progress.duration > 30 && progress.currentTime >= progress.duration - 15) return 0;
+    }
+    return initialTime;
+  }, [initialTime, contentId, getProgress]);
+
   const [castError, setCastError] = useState<string | null>(null);
   const isCastingRef = useRef(isCasting);
   isCastingRef.current = isCasting;
@@ -362,6 +373,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const hasCastRef = useRef(false);
   const lastCastPositionRef = useRef(0);
   const isDisconnectingCastRef = useRef(false);
+  const hasCastAutoAdvancedRef = useRef(false);
+  const hasCastStartedPlayingRef = useRef(false);
+  const maxCastPositionObservedRef = useRef(
+    typeof effectiveInitialTime === 'number' && effectiveInitialTime > 0 ? effectiveInitialTime : 0
+  );
 
   useEffect(() => {
     if (isCasting && streamPosition > 0) {
@@ -396,8 +412,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       toleranceBefore: 2.0,
       toleranceAfter: 2.0,
     };
-    if (initialTime > 2) {
-      p.currentTime = initialTime;
+    if (effectiveInitialTime > 2) {
+      p.currentTime = effectiveInitialTime;
     }
     // Autoplay localmente apenas se NÃO estiver transmitindo para a TV
     if (!isCastingRef.current) {
@@ -417,7 +433,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Local player states
   const [isPlaying, setIsPlaying] = useState(true);
-  const [currentTime, setCurrentTime] = useState(initialTime);
+  const [currentTime, setCurrentTime] = useState(effectiveInitialTime);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [contentFitMode, setContentFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
@@ -447,7 +463,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const currentTimeRef = useRef(initialTime);
+  const currentTimeRef = useRef(effectiveInitialTime);
   const durationRef = useRef(0);
   const showControlsRef = useRef(showControls);
   showControlsRef.current = showControls;
@@ -1643,9 +1659,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     nextEpisodeDismissedRef.current = false;
     isNavigatingEpisodeRef.current = false;
     hasCastAutoAdvancedRef.current = false;
+    hasCastStartedPlayingRef.current = false;
+    maxCastPositionObservedRef.current =
+      typeof effectiveInitialTime === 'number' && effectiveInitialTime > 0 ? effectiveInitialTime : 0;
+    currentTimeRef.current = effectiveInitialTime;
+    setCurrentTime(effectiveInitialTime);
     hasCastRef.current = false;
     setCastError(null);
-  }, [contentId]);
+  }, [contentId, effectiveInitialTime]);
 
   const handleGoToPrevEpisode = useCallback(() => {
     if (!prevEpisode || isNavigatingEpisodeRef.current) return;
@@ -1792,6 +1813,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     });
     const subStatus = player.addListener('statusChange', (event) => {
+      // Ignorar eventos do player local enquanto estiver transmitindo na TV
+      if (isCastingRef.current) {
+        return;
+      }
       setIsBuffering(event.status === 'loading');
       if (event.status === 'error') {
         if (Platform.OS === 'web' && type === 'live') {
@@ -1880,6 +1905,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     });
     const subEnd = (player as any).addListener?.('playToEnd', () => {
+      // Ignorar eventos do player local enquanto estiver transmitindo na TV
+      if (isCastingRef.current) {
+        return;
+      }
       if (sleepTimerRef.current === 'end') {
         try {
           player.pause();
@@ -1963,30 +1992,68 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [duration, persistCurrentProgress]);
 
-  const hasCastAutoAdvancedRef = useRef(false);
+  // Monitorar reprodução real do episódio atual no Chromecast
+  useEffect(() => {
+    if (!isCasting || type !== 'series') return;
 
+    // Verificar se a mídia no Chromecast é de fato a deste episódio
+    const isCurrentEpisodeActive =
+      !activeCastMedia ||
+      activeCastMedia.contentId === contentId ||
+      extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl);
+
+    if (isCurrentEpisodeActive) {
+      if (streamPosition > 0) {
+        maxCastPositionObservedRef.current = Math.max(
+          maxCastPositionObservedRef.current,
+          streamPosition
+        );
+      }
+      if (streamPosition > 10 && streamDuration > 30 && (isCastPlaying || streamPosition > 20)) {
+        hasCastStartedPlayingRef.current = true;
+      }
+    }
+  }, [
+    isCasting,
+    type,
+    contentId,
+    streamUrl,
+    activeCastMedia,
+    streamPosition,
+    streamDuration,
+    isCastPlaying,
+  ]);
+
+  // Avanço automático estrito somente ao término real do episódio no Chromecast
   useEffect(() => {
     if (!isCasting || type !== 'series' || !nextEpisode || hasCastAutoAdvancedRef.current) {
       return;
     }
 
-    // Auto-advance if:
-    // 1. Position is near end (must have played past 15s to prevent 0-second stale triggers)
-    const isNearEnd =
-      streamDuration > 30 &&
-      streamPosition > 15 &&
-      streamPosition >= streamDuration - 3;
+    // 1. Duração mínima válida: episódio de série real na TV deve ter mais de 60 segundos
+    if (!streamDuration || streamDuration < 60) {
+      return;
+    }
 
-    // 2. OR Chromecast receiver finished playback (idleReason finished, after playing past 15s)
-    const isFinished =
-      (castMediaStatus?.idleReason === 'finished' ||
-        castMediaStatus?.idleReason === 1 ||
-        (castMediaStatus?.playerState === 'idle' && (streamPosition > 15 || duration > 15))) &&
-      (streamPosition > 15 || duration > 15);
+    // 2. Só permite avançar se o episódio DE FATO começou e progrediu na TV durante esta sessão
+    if (!hasCastStartedPlayingRef.current) {
+      return;
+    }
 
-    if (isNearEnd || isFinished) {
+    // 3. Critérios estritos de finalização:
+    // a) Posição nos últimos 4 segundos do vídeo
+    const isNearEnd = streamPosition >= streamDuration - 4;
+
+    // b) OU receptor Chromecast reportou término explícito (idleReason 'finished' ou 1)
+    // E confirmamos que o usuário assistiu pelo menos 85% do episódio (evita falsos positivos em erros/cancelamentos)
+    const isFinishedOnCast =
+      (castMediaStatus?.idleReason === 'finished' || castMediaStatus?.idleReason === 1) &&
+      maxCastPositionObservedRef.current >= streamDuration * 0.85;
+
+    if (isNearEnd || isFinishedOnCast) {
       const now = Date.now();
-      if (now - globalLastAdvanceTimestamp < 8000 && globalLastAdvancedId === nextEpisode.id) {
+      // Cooldown global estrito de 15 segundos entre quaisquer trocas automáticas de episódio
+      if (now - globalLastAdvanceTimestamp < 15000) {
         return;
       }
       globalLastAdvanceTimestamp = now;
@@ -2001,7 +2068,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     nextEpisode,
     streamDuration,
     streamPosition,
-    duration,
     castMediaStatus,
     handleGoToNextEpisode,
   ]);
@@ -2015,6 +2081,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         player.muted = false;
         player.volume = 1.0;
       } catch {}
+      if (player.status === 'error') {
+        safeReplacePlayerSource(player, videoSource);
+      }
       const resumePos = lastCastPositionRef.current || streamPosition;
       if (resumePos > 0) {
         try {
@@ -2033,7 +2102,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       isDisconnectingCastRef.current = false;
     }
     prevIsCastingRef.current = isCasting;
-  }, [isCasting, streamPosition, player]);
+  }, [isCasting, streamPosition, player, videoSource]);
 
   // Transmitir mídia para a TV quando o Cast estiver conectado e garantir silenciamento local total
   useEffect(() => {
@@ -2093,7 +2162,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           seriesId,
           seasonNumber,
           episodeNumber,
-          initialTime: currentTimeRef.current,
+          initialTime: effectiveInitialTime,
         }).catch((err) => {
             console.warn('Erro ao carregar mídia no Chromecast:', err);
             hasCastRef.current = false;
@@ -2487,14 +2556,57 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [castSeek, streamDuration]
   );
 
+  const handleCastPlayOrReload = useCallback(() => {
+    if (isCastPlaying) {
+      castPause();
+      return;
+    }
+    const isTvActivelyPlaying =
+      (isCastPlaying || isCastBuffering || (isCastPaused && streamPosition > 2)) &&
+      castMediaStatus?.playerState !== 'idle' &&
+      castMediaStatus?.idleReason !== 'finished';
+
+    if (!isTvActivelyPlaying) {
+      castMedia({
+        streamUrl: extractDirectUrl(streamUrl),
+        title,
+        posterUrl,
+        type,
+        contentId,
+        seriesId,
+        seasonNumber,
+        episodeNumber,
+        initialTime: streamPosition > 2 ? streamPosition : effectiveInitialTime,
+      }).catch((err) => {
+        console.warn('[Player] Erro ao recarregar mídia no Chromecast via Play:', err);
+      });
+    } else {
+      castPlay();
+    }
+  }, [
+    isCastPlaying,
+    castPause,
+    isCastBuffering,
+    isCastPaused,
+    streamPosition,
+    castMediaStatus,
+    castMedia,
+    streamUrl,
+    title,
+    posterUrl,
+    type,
+    contentId,
+    seriesId,
+    seasonNumber,
+    episodeNumber,
+    effectiveInitialTime,
+    castPlay,
+  ]);
+
   const handleTogglePlay = useCallback(() => {
     resetHideTimer();
     if (isCasting) {
-      if (isCastPlaying) {
-        castPause();
-      } else {
-        castPlay();
-      }
+      handleCastPlayOrReload();
       return;
     }
     if (player.playing) {
@@ -2502,7 +2614,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     } else {
       player.play();
     }
-  }, [player, resetHideTimer, isCasting, isCastPlaying, castPause, castPlay]);
+  }, [player, resetHideTimer, isCasting, handleCastPlayOrReload]);
 
   // Controles de teclado no computador (Web): Espaço = Play/Pause, Setas = Avançar/Voltar 10s, M = Mudo, F = Tela Cheia, N = Próximo EP, P = EP Anterior
   useEffect(() => {
@@ -2679,7 +2791,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           )}
 
           <BigPlayButton
-            onPress={isCastPlaying ? castPause : castPlay}
+            onPress={handleCastPlayOrReload}
             accessibilityRole="button"
             accessibilityLabel={isCastPlaying ? 'Pausar' : 'Reproduzir'}
           >

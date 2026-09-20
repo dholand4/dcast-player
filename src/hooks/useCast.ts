@@ -37,6 +37,7 @@ function useLocalCastFallback(): ICastContextData {
   const castState = isNativeCastModulePresent ? useCastState() : null;
 
   const [isStoppingCast, setIsStoppingCast] = useState(false);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
 
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
   if (isNativeCastModulePresent && !fallbackClientRef.current) {
@@ -83,19 +84,29 @@ function useLocalCastFallback(): ICastContextData {
       setLivePosition(0);
       setLiveDuration(0);
       setCurrentMedia(null);
+      setIsMediaLoading(false);
       return;
     }
 
     client.getMediaStatus?.()?.then((status: any) => {
-      if (status) setMediaStatus(status);
+      if (status) {
+        setMediaStatus(status);
+        setIsMediaLoading(false);
+      }
     })?.catch(() => {});
 
     const statusSub = client.onMediaStatusUpdated?.((status: any) => {
-      if (status) setMediaStatus(status);
+      if (status) {
+        setMediaStatus(status);
+        setIsMediaLoading(false);
+      }
     });
 
     const endedSub = client.onMediaPlaybackEnded?.((status: any) => {
-      if (status) setMediaStatus(status);
+      if (status) {
+        setMediaStatus(status);
+        setIsMediaLoading(false);
+      }
     });
 
     const progressSub = client.onMediaProgressUpdated?.((pos: number, dur: number) => {
@@ -110,12 +121,34 @@ function useLocalCastFallback(): ICastContextData {
     };
   }, [client, isCasting]);
 
-  const activeMediaStatus = mediaStatus || hookMediaStatus;
-  const isPlaying = activeMediaStatus?.playerState === 'playing';
-  const isPaused = activeMediaStatus?.playerState === 'paused';
-  const isBuffering = activeMediaStatus?.playerState === 'buffering';
-  const streamPosition = livePosition > 0 ? livePosition : (activeMediaStatus?.streamPosition ?? 0);
-  const streamDuration = liveDuration > 0 ? liveDuration : (activeMediaStatus?.mediaInfo?.streamDuration ?? 0);
+  // Ignorar status de mídia da sessão anterior que não pertença à mídia atual
+  const isHookStatusMatchingMedia =
+    !currentMedia ||
+    !hookMediaStatus?.mediaInfo ||
+    hookMediaStatus?.mediaInfo?.contentId === currentMedia.streamUrl ||
+    hookMediaStatus?.mediaInfo?.contentUrl === currentMedia.streamUrl ||
+    hookMediaStatus?.mediaInfo?.contentId?.replace(/\.m3u8$/, '.ts') === currentMedia.streamUrl ||
+    hookMediaStatus?.mediaInfo?.contentUrl?.replace(/\.m3u8$/, '.ts') === currentMedia.streamUrl ||
+    hookMediaStatus?.mediaInfo?.contentId?.replace(/\.mp4$/, '.mkv') === currentMedia.streamUrl ||
+    hookMediaStatus?.mediaInfo?.contentUrl?.replace(/\.mp4$/, '.mkv') === currentMedia.streamUrl ||
+    (hookMediaStatus?.mediaInfo?.customData as any)?.id === currentMedia.contentId;
+
+  const validHookStatus = isHookStatusMatchingMedia ? hookMediaStatus : null;
+  const activeMediaStatus = isMediaLoading ? null : (mediaStatus || validHookStatus);
+
+  const isPlaying = !isMediaLoading && activeMediaStatus?.playerState === 'playing';
+  const isPaused = !isMediaLoading && activeMediaStatus?.playerState === 'paused';
+  const isBuffering = isMediaLoading || activeMediaStatus?.playerState === 'buffering';
+  const streamPosition = isMediaLoading
+    ? 0
+    : livePosition > 0
+    ? livePosition
+    : (activeMediaStatus?.streamPosition ?? 0);
+  const streamDuration = isMediaLoading
+    ? 0
+    : liveDuration > 0
+    ? liveDuration
+    : (activeMediaStatus?.mediaInfo?.streamDuration ?? 0);
 
   // Persist progress while casting VOD
   useEffect(() => {
@@ -148,11 +181,30 @@ function useLocalCastFallback(): ICastContextData {
 
   const castMedia = useCallback(
     async (params: ICastMediaParams) => {
-      if (!client) {
+      let activeClient = client;
+
+      if (isNativeCastModulePresent) {
+        for (let i = 0; i < 6; i++) {
+          try {
+            const curSession = await GoogleCast.getSessionManager()?.getCurrentCastSession();
+            if (curSession?.client) {
+              activeClient = curSession.client;
+              break;
+            }
+          } catch {
+            // ignore
+          }
+          if (activeClient) break;
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+
+      if (!activeClient) {
         throw new Error('Nenhum dispositivo Cast conectado.');
       }
 
       setIsStoppingCast(false);
+      setIsMediaLoading(true);
       setLivePosition(0);
       setLiveDuration(0);
       setMediaStatus(null);
@@ -161,6 +213,8 @@ function useLocalCastFallback(): ICastContextData {
       let contentUrl = params.streamUrl;
       if (params.type === 'live') {
         contentUrl = contentUrl.replace(/\.ts(\?|$)/i, '.m3u8$1');
+      } else if (params.type === 'movie' || params.type === 'series') {
+        contentUrl = contentUrl.replace(/\.mkv(\?|$)/i, '.mp4$1');
       }
 
       let contentType = 'video/mp4';
@@ -168,11 +222,28 @@ function useLocalCastFallback(): ICastContextData {
         contentType = 'application/x-mpegURL';
       } else if (contentUrl.includes('.webm')) {
         contentType = 'video/webm';
-      } else if (contentUrl.includes('.mkv')) {
+      } else {
         contentType = 'video/mp4';
       }
 
       const streamType = (params.type === 'live' ? 'live' : 'buffered') as MediaStreamType;
+
+      const isValidHttpUrl = (url?: string): boolean => {
+        if (!url || typeof url !== 'string') return false;
+        const trimmed = url.trim();
+        return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+      };
+
+      const cleanCustomData: Record<string, any> = {
+        id: String(params.contentId || ''),
+        title: params.title || '',
+        type: params.type,
+        streamUrl: params.streamUrl,
+      };
+      if (params.seriesId) cleanCustomData.seriesId = String(params.seriesId);
+      if (params.posterUrl) cleanCustomData.posterUrl = params.posterUrl;
+      if (typeof params.seasonNumber === 'number') cleanCustomData.seasonNumber = params.seasonNumber;
+      if (typeof params.episodeNumber === 'number') cleanCustomData.episodeNumber = params.episodeNumber;
 
       const mediaInfo: any = {
         contentId: contentUrl,
@@ -180,23 +251,11 @@ function useLocalCastFallback(): ICastContextData {
         contentType,
         streamType,
         metadata: {
-          type:
-            params.type === 'movie' || params.type === 'series'
-              ? 'movie'
-              : 'generic',
-          title: params.title,
-          images: params.posterUrl ? [{ url: params.posterUrl }] : [],
+          type: 'generic',
+          title: params.title || 'Transmitindo na TV',
+          images: isValidHttpUrl(params.posterUrl) ? [{ url: params.posterUrl!.trim() }] : [],
         },
-        customData: {
-          id: params.contentId,
-          seriesId: params.seriesId,
-          title: params.title,
-          posterUrl: params.posterUrl,
-          type: params.type,
-          seasonNumber: params.seasonNumber,
-          episodeNumber: params.episodeNumber,
-          streamUrl: params.streamUrl,
-        },
+        customData: cleanCustomData,
       };
 
       const loadRequest: any = {
@@ -204,16 +263,43 @@ function useLocalCastFallback(): ICastContextData {
         autoplay: true,
       };
 
-      if (params.type !== 'live' && params.initialTime && params.initialTime > 0) {
-        loadRequest.startTime = params.initialTime;
+      if (params.type !== 'live' && typeof params.initialTime === 'number' && Number.isFinite(params.initialTime) && params.initialTime > 2) {
+        loadRequest.startTime = Math.floor(params.initialTime);
       }
 
-      await client.loadMedia(loadRequest);
-      setCurrentMedia(params);
       try {
-        client.play?.();
-      } catch {
-        // ignore
+        await activeClient.loadMedia(loadRequest);
+        setCurrentMedia(params);
+        try {
+          activeClient.play?.();
+        } catch {
+          // ignore
+        }
+      } catch (loadErr) {
+        // Fallback: Se o carregamento inicial falhar com startTime (ex: servidor rejeita offset 416),
+        // tenta novamente do início sem startTime para garantir que o vídeo rode na TV.
+        if (loadRequest.startTime) {
+          console.warn('[Cast] loadMedia falhou com startTime, tentando novamente do início:', loadErr);
+          delete loadRequest.startTime;
+          try {
+            await activeClient.loadMedia(loadRequest);
+            setCurrentMedia(params);
+            try {
+              activeClient.play?.();
+            } catch {
+              // ignore
+            }
+            return;
+          } catch (retryErr) {
+            console.error('[Cast] Falha ao recarregar mídia no Chromecast:', retryErr);
+            throw retryErr;
+          }
+        }
+        throw loadErr;
+      } finally {
+        setTimeout(() => {
+          setIsMediaLoading(false);
+        }, 500);
       }
     },
     [client]

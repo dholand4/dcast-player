@@ -195,13 +195,21 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const handlePlayMovie = () => {
     if (!account) return;
     const streamUrl = xtreamService.buildVodStreamUrl(account, id, containerExtension || 'mp4');
+    const isFinished =
+      (watchProgress?.percentage ?? 0) >= 95 ||
+      Boolean(
+        watchProgress?.currentTime &&
+          watchProgress?.duration &&
+          watchProgress.duration > 30 &&
+          watchProgress.currentTime >= watchProgress.duration - 15
+      );
     navigation.navigate('PlayerScreen', {
       streamUrl,
       title,
       posterUrl,
       type: 'movie',
       contentId: id,
-      initialTime: watchProgress?.currentTime || 0,
+      initialTime: isFinished ? 0 : watchProgress?.currentTime || 0,
     });
   };
 
@@ -223,6 +231,16 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         ? latestSeriesProgress
         : null);
 
+    const isFinished =
+      (epProgress?.percentage ?? 0) >= 95 ||
+      Boolean(
+        epProgress?.currentTime &&
+          epProgress?.duration &&
+          epProgress.duration > 30 &&
+          epProgress.currentTime >= epProgress.duration - 15
+      );
+    const initialTime = isFinished ? 0 : epProgress?.currentTime || 0;
+
     // Salvar progresso imediatamente para marcar o episódio como aberto/assistido
     saveProgress({
       id: String(episode.id),
@@ -232,9 +250,9 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       type: 'series',
       seasonNumber: Number(season),
       episodeNumber: Number(episode.episode_num),
-      currentTime: epProgress?.currentTime || 1,
+      currentTime: initialTime > 0 ? initialTime : 1,
       duration: epProgress?.duration || 0,
-      percentage: epProgress?.percentage || 1,
+      percentage: isFinished ? 1 : epProgress?.percentage || 1,
       updatedAt: Date.now(),
       streamUrl,
     });
@@ -248,7 +266,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       seriesId: id,
       seasonNumber: Number(season),
       episodeNumber: Number(episode.episode_num),
-      initialTime: epProgress?.currentTime || 0,
+      initialTime,
       seriesEpisodes: allSeriesEpisodes,
     });
   };
@@ -280,6 +298,16 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
           latestSeriesProgress.episodeNumber
         );
 
+      const isFinished =
+        (latestSeriesProgress.percentage ?? 0) >= 95 ||
+        Boolean(
+          latestSeriesProgress.currentTime &&
+            latestSeriesProgress.duration &&
+            latestSeriesProgress.duration > 30 &&
+            latestSeriesProgress.currentTime >= latestSeriesProgress.duration - 15
+        );
+      const resumeInitialTime = isFinished ? 0 : latestSeriesProgress.currentTime || 0;
+
       navigation.navigate('PlayerScreen', {
         streamUrl,
         title: resumeTitle,
@@ -289,7 +317,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         seriesId: id,
         seasonNumber: latestSeriesProgress.seasonNumber || 1,
         episodeNumber: latestSeriesProgress.episodeNumber || 1,
-        initialTime: latestSeriesProgress.currentTime || 0,
+        initialTime: resumeInitialTime,
         seriesEpisodes: allSeriesEpisodes,
       });
       return;

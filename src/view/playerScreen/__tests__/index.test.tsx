@@ -205,6 +205,58 @@ describe('PlayerScreen', () => {
     }));
   });
 
+  it('does NOT auto-advance when Chromecast is in initial idle state even with total duration > 15', () => {
+    const episodes = [
+      { id: '101', title: 'Breaking Bad - T1E1', streamUrl: 'http://server.com/101.mp4', seasonNumber: 1, episodeNumber: 1 },
+      { id: '102', title: 'Breaking Bad - T1E2', streamUrl: 'http://server.com/102.mp4', seasonNumber: 1, episodeNumber: 2 },
+    ];
+
+    const castSeriesRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/101.mp4',
+        title: 'Breaking Bad - T1E1',
+        type: 'series',
+        contentId: '101',
+        seriesId: '999',
+        seasonNumber: 1,
+        episodeNumber: 1,
+        seriesEpisodes: episodes,
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const mockCastValue = {
+      isCasting: true,
+      isPlaying: false,
+      isPaused: false,
+      isBuffering: false,
+      streamPosition: 0,
+      streamDuration: 2700,
+      castMedia: jest.fn().mockResolvedValue(undefined),
+      play: jest.fn(),
+      pause: jest.fn(),
+      seek: jest.fn(),
+      stopCast: jest.fn(),
+      showExpandedControls: jest.fn(),
+      currentMedia: null,
+      mediaStatus: { playerState: 'idle' },
+    };
+
+    render(
+      <NavigationContainer>
+        <ThemeProvider theme={theme}>
+          <CastContext.Provider value={mockCastValue}>
+            <PlayerScreen navigation={mockNavigation} route={castSeriesRoute} />
+          </CastContext.Provider>
+        </ThemeProvider>
+      </NavigationContainer>
+    );
+
+    // Assert that auto-advance was NOT triggered
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+  });
+
   it('handles disconnect and play locally button without throwing TV errors', () => {
     const castSeriesRoute = {
       key: 'PlayerScreen',

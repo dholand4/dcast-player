@@ -113,7 +113,7 @@ describe('useCast hook', () => {
     expect(mockStop).toHaveBeenCalledTimes(1);
   });
 
-  it('uses video/mp4 for .mkv series streams to prevent Chromecast receiver rejection', async () => {
+  it('normalizes .mkv series streams to .mp4 and uses video/mp4 contentType for Chromecast compatibility', async () => {
     const { result } = renderHook(() => useCast());
 
     await act(async () => {
@@ -129,8 +129,29 @@ describe('useCast hook', () => {
     expect(mockLoadMedia).toHaveBeenCalledTimes(1);
     const mediaLoadArg = mockLoadMedia.mock.calls[0][0];
 
-    // Assert that the MIME type is video/mp4 (supported by Google Default Media Receiver)
+    // Assert that the URL is normalized to .mp4 and MIME type is video/mp4
+    expect(mediaLoadArg.mediaInfo.contentUrl).toBe(
+      'http://server.com/series/user/pass/101.mp4'
+    );
     expect(mediaLoadArg.mediaInfo.contentType).toBe('video/mp4');
+    expect(mediaLoadArg.mediaInfo.metadata.type).toBe('generic');
     expect(result.current.streamPosition).toBe(0);
+  });
+
+  it('resets stream position and suppresses stale media data when loading new media', async () => {
+    const { result } = renderHook(() => useCast());
+
+    await act(async () => {
+      await result.current.castMedia({
+        streamUrl: 'http://server.com/series/user/pass/102.mp4',
+        title: 'Breaking Bad - S01E02',
+        type: 'series',
+        contentId: '102',
+        initialTime: 0,
+      });
+    });
+
+    expect(result.current.streamPosition).toBe(0);
+    expect(result.current.currentMedia?.contentId).toBe('102');
   });
 });
