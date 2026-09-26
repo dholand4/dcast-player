@@ -4,13 +4,22 @@ import { IWatchProgress } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { xtreamService } from '../services/xtreamService';
 import { cleanSeriesTitle } from '../utils/formatters';
-import { findNewEpisode, ISeriesEpisodeRef } from '../utils/newEpisodes';
+import {
+  ISeriesEpisodeRef,
+  ISeriesTracking,
+  pickNewEpisodes,
+  updateSeriesTracking,
+} from '../utils/newEpisodes';
 
 export interface INewEpisodeItem {
   seriesId: string;
   seriesTitle: string;
   posterUrl: string;
+  /** Primeiro episódio novo ainda não assistido */
   episode: ISeriesEpisodeRef;
+  /** Quantos episódios novos a série tem */
+  newCount: number;
+  detectedAt: number;
 }
 
 interface ISeriesSummary {
@@ -19,16 +28,25 @@ interface ISeriesSummary {
   episodes: ISeriesEpisodeRef[];
 }
 
-// Consultas ao servidor IPTV: poucas séries e cache de 6h para não pesar
-const SUMMARY_TTL_MS = 6 * 60 * 60 * 1000;
-const MAX_SERIES_CHECKED = 8;
+interface IFollowedSeries {
+  seriesId: string;
+  fallbackTitle: string;
+  fallbackPoster: string;
+  progress: IWatchProgress[];
+}
 
-async function getSeriesSummary(
+// Consultas ao servidor IPTV só ao abrir a Home, com cache por série para não pesar
+export const SUMMARY_TTL_MS = 3 * 60 * 60 * 1000;
+const MAX_SERIES_CHECKED = 30;
+
+async function loadSeriesSummary(
   account: IAccountCredentials,
   seriesId: string
-): Promise<ISeriesSummary | null> {
+): Promise<{ summary: ISeriesSummary | null; isFresh: boolean }> {
   const cached = storageService.getCachedSeriesSummary<ISeriesSummary>(seriesId);
-  if (cached && Date.now() - cached.fetchedAt < SUMMARY_TTL_MS) return cached.data;
+  if (cached && Date.now() - cached.fetchedAt < SUMMARY_TTL_MS) {
+    return { summary: cached.data, isFresh: false };
+  }
 
   try {
     const info = await xtreamService.getSeriesInfo(account, seriesId);
@@ -47,26 +65,49 @@ async function getSeriesSummary(
       episodes,
     };
     storageService.saveCachedSeriesSummary(seriesId, summary);
-    return summary;
+    return { summary, isFresh: true };
   } catch {
-    return cached?.data ?? null;
+    return { summary: cached?.data ?? null, isFresh: false };
   }
 }
 
-function groupRecentSeries(history: IWatchProgress[]): Map<string, IWatchProgress[]> {
-  const bySeries = new Map<string, IWatchProgress[]>();
-  for (const item of history) {
-    if (item.type !== 'series' || !item.seriesId) continue;
-    const list = bySeries.get(item.seriesId) ?? [];
-    list.push(item);
-    bySeries.set(item.seriesId, list);
-  }
+/** Séries favoritas do perfil primeiro, depois as assistidas recentemente */
+function getFollowedSeries(): IFollowedSeries[] {
+  const progressBySeries = new Map<string, IWatchProgress[]>();
   // getAllWatchProgress já vem do mais recente para o mais antigo
-  return new Map(Array.from(bySeries.entries()).slice(0, MAX_SERIES_CHECKED));
+  for (const item of storageService.getAllWatchProgress()) {
+    if (item.type !== 'series' || !item.seriesId) continue;
+    const list = progressBySeries.get(item.seriesId) ?? [];
+    list.push(item);
+    progressBySeries.set(item.seriesId, list);
+  }
+
+  const followed = new Map<string, IFollowedSeries>();
+  for (const favorite of storageService.getFavorites()) {
+    if (favorite.type !== 'series') continue;
+    const seriesId = String(favorite.id);
+    followed.set(seriesId, {
+      seriesId,
+      fallbackTitle: favorite.name,
+      fallbackPoster: favorite.posterUrl,
+      progress: progressBySeries.get(seriesId) ?? [],
+    });
+  }
+  for (const [seriesId, progress] of progressBySeries) {
+    if (followed.has(seriesId)) continue;
+    followed.set(seriesId, {
+      seriesId,
+      fallbackTitle: cleanSeriesTitle(progress[0].title),
+      fallbackPoster: progress[0].posterUrl,
+      progress,
+    });
+  }
+  return Array.from(followed.values()).slice(0, MAX_SERIES_CHECKED);
 }
 
 /**
- * Séries que você acompanha e ganharam episódio novo depois da última vez que assistiu.
+ * Séries acompanhadas (favoritas ou assistidas) que ganharam episódio desde a consulta
+ * anterior. O episódio fica em destaque até o perfil assistir.
  * refreshKey: valor que muda quando o histórico muda (ex.: continueWatching).
  */
 export function useNewEpisodes(account: IAccountCredentials | null, refreshKey: unknown) {
@@ -81,20 +122,35 @@ export function useNewEpisodes(account: IAccountCredentials | null, refreshKey: 
 
     (async () => {
       const found: INewEpisodeItem[] = [];
-      for (const [seriesId, progress] of groupRecentSeries(storageService.getAllWatchProgress())) {
-        const summary = await getSeriesSummary(account, seriesId);
+      for (const series of getFollowedSeries()) {
+        const { summary, isFresh } = await loadSeriesSummary(account, series.seriesId);
         if (!isActive) return;
-        const episode = summary ? findNewEpisode(summary.episodes, progress) : null;
-        if (summary && episode) {
-          found.push({
-            seriesId,
-            seriesTitle: summary.name || cleanSeriesTitle(progress[0].title),
-            posterUrl: summary.cover || progress[0].posterUrl,
-            episode,
-          });
+        if (!summary) continue;
+
+        const now = Date.now();
+        let tracking = storageService.getSeriesTracking<ISeriesTracking>(series.seriesId);
+        // Só uma consulta nova ao servidor pode revelar episódio que chegou
+        if (!tracking || isFresh) {
+          tracking = updateSeriesTracking(tracking, summary.episodes, series.progress, now);
+          storageService.saveSeriesTracking(series.seriesId, tracking);
         }
+
+        const pending = pickNewEpisodes(summary.episodes, tracking, series.progress, now);
+        if (pending.length === 0) continue;
+        const pendingIds = new Set(pending.map((episode) => episode.id));
+        found.push({
+          seriesId: series.seriesId,
+          seriesTitle: summary.name || series.fallbackTitle,
+          posterUrl: summary.cover || series.fallbackPoster,
+          episode: pending[0],
+          newCount: pending.length,
+          detectedAt: Math.max(
+            ...tracking.pending.filter((item) => pendingIds.has(item.id)).map((item) => item.detectedAt)
+          ),
+        });
       }
-      if (isActive) setNewEpisodes(found);
+      // O que chegou por último aparece primeiro
+      if (isActive) setNewEpisodes(found.sort((a, b) => b.detectedAt - a.detectedAt));
     })();
 
     return () => {

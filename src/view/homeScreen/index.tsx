@@ -378,7 +378,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               testID="home-new-episodes"
               renderItem={(item) => (
                 <PosterCardGlobal
-                  title={`${item.seriesTitle} • T${item.episode.season}E${item.episode.episode}`}
+                  title={`${item.seriesTitle} • T${item.episode.season}E${item.episode.episode}${
+                    item.newCount > 1 ? ` +${item.newCount - 1}` : ''
+                  }`}
                   posterUrl={item.posterUrl}
                   width={130}
                   onPress={() =>

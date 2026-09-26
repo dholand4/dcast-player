@@ -28,6 +28,7 @@ const KEYS = {
   ACTIVE_CAST_MEDIA: 'active_cast_media',
   PROFILES: 'profiles',
   SERIES_EPISODES_PREFIX: 'series_episodes_',
+  SERIES_TRACKING_PREFIX: 'series_tracking_',
   SCOPE_MIGRATED: 'storage_scope_v1_migrated',
 };
 
@@ -398,6 +399,24 @@ export function createStorageService(storage: IStorageLike) {
         accountKey(`${KEYS.SERIES_EPISODES_PREFIX}${seriesId}`),
         JSON.stringify({ fetchedAt: Date.now(), data })
       );
+    } catch {
+      // ignore
+    }
+  },
+
+  // --- Acompanhamento de episódios novos por série (não expira) ---
+  getSeriesTracking<T>(seriesId: string): T | null {
+    try {
+      const raw = storage.getString(accountKey(`${KEYS.SERIES_TRACKING_PREFIX}${seriesId}`));
+      return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveSeriesTracking<T>(seriesId: string, tracking: T): void {
+    try {
+      storage.set(accountKey(`${KEYS.SERIES_TRACKING_PREFIX}${seriesId}`), JSON.stringify(tracking));
     } catch {
       // ignore
     }
