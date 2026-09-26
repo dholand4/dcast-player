@@ -11,6 +11,7 @@ import {
   PosterImage,
   PlaceholderContainer,
   BadgeWrapper,
+  FavoriteBadge,
   ProgressWrapper,
   TitleText,
 } from './style';
@@ -24,6 +25,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
     onRemove,
     rating,
     percentage,
+    isFavorite,
     width,
     testID,
   }) => {
@@ -56,6 +58,11 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
               cachePolicy="memory-disk"
               transition={150}
             />
+          ) : null}
+          {isFavorite ? (
+            <FavoriteBadge testID={testID ? `${testID}-favorite` : undefined}>
+              <MaterialIcons name="favorite" size={14} color="#E50914" />
+            </FavoriteBadge>
           ) : null}
           {rating ? (
             <BadgeWrapper>
@@ -104,6 +111,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
     prev.posterUrl === next.posterUrl &&
     prev.rating === next.rating &&
     prev.percentage === next.percentage &&
+    prev.isFavorite === next.isFavorite &&
     prev.width === next.width &&
     prev.testID === next.testID
 );

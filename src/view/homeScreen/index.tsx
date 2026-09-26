@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useProfiles } from '../../hooks/useProfiles';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { useNewEpisodes } from '../../hooks/useNewEpisodes';
+import { useFavorites } from '../../hooks/useFavorites';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
 import { xtreamService, extractDirectUrl } from '../../services/xtreamService';
@@ -21,6 +22,7 @@ import {
   cleanSeriesTitle,
   cleanEpisodeDisplayTitle,
 } from '../../utils/formatters';
+import { showToast } from '../../utils/toast';
 import {
   Container,
   ScrollArea,
@@ -37,12 +39,24 @@ import {
   QuickActionText,
 } from './style';
 
+// Mesmo espaço entre os cards de Filmes/Séries/TV e a primeira fileira e entre as fileiras.
+// O pôster já tem 16px de margem embaixo; o carrossel completa com 4px.
+const ROW_GAP = 20;
+const CAROUSEL_STYLE = { marginBottom: ROW_GAP - 16 };
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { account, userInfo, accountWarning } = useAuth();
   const { activeProfile, switchProfile } = useProfiles();
   const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
     useWatchHistory();
   const newEpisodes = useNewEpisodes(account, continueWatching);
+  const { favorites, toggleFavorite } = useFavorites();
+
+  // Filmes e séries juntos, do favoritado mais recente para o mais antigo
+  const favoriteTitles = useMemo(
+    () => favorites.filter((item) => item.type === 'movie' || item.type === 'series'),
+    [favorites]
+  );
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExitProfileModalVisible, setIsExitProfileModalVisible] = useState(false);
@@ -226,9 +240,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
 
         {collapsedContinueWatching.length > 0 && (
-          <View style={{ marginTop: 20, marginBottom: 16 }}>
+          <View style={{ marginTop: ROW_GAP }}>
             <SectionCarouselGlobal
               title="Continuar Assistindo"
+              style={CAROUSEL_STYLE}
               data={collapsedContinueWatching}
               keyExtractor={(item) => `home-cw-${item.id}`}
               rightAction={
@@ -315,10 +330,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         )}
 
+        {favoriteTitles.length > 0 && (
+          <View style={{ marginTop: collapsedContinueWatching.length > 0 ? 0 : ROW_GAP }}>
+            <SectionCarouselGlobal
+              title="Meus Favoritos"
+              style={CAROUSEL_STYLE}
+              data={favoriteTitles}
+              keyExtractor={(item) => `home-fav-${item.type}-${item.id}`}
+              testID="home-favorites"
+              renderItem={(item) => (
+                <PosterCardGlobal
+                  title={item.name}
+                  posterUrl={item.posterUrl}
+                  rating={item.rating}
+                  width={130}
+                  testID={`home-fav-${item.id}`}
+                  onPress={() =>
+                    navigation.navigate('DetailsScreen', {
+                      id: String(item.id),
+                      type: item.type as 'movie' | 'series',
+                      title: item.name,
+                      posterUrl: item.posterUrl,
+                    })
+                  }
+                  onLongPress={() => {
+                    toggleFavorite(item);
+                    showToast('Removido dos favoritos');
+                  }}
+                />
+              )}
+            />
+          </View>
+        )}
+
         {newEpisodes.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
+          <View
+            style={{
+              marginTop:
+                collapsedContinueWatching.length > 0 || favoriteTitles.length > 0 ? 0 : ROW_GAP,
+            }}
+          >
             <SectionCarouselGlobal
               title="Novos Episódios"
+              style={CAROUSEL_STYLE}
               data={newEpisodes}
               keyExtractor={(item) => `home-new-${item.seriesId}`}
               testID="home-new-episodes"

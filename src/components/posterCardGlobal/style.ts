@@ -46,6 +46,18 @@ export const BadgeWrapper = styled.View`
   right: ${({ theme }) => theme.spacing.xs}px;
 `;
 
+export const FavoriteBadge = styled.View`
+  position: absolute;
+  top: ${({ theme }) => theme.spacing.xs}px;
+  left: ${({ theme }) => theme.spacing.xs}px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.7);
+  align-items: center;
+  justify-content: center;
+`;
+
 export const ProgressWrapper = styled.View`
   position: absolute;
   bottom: 0;

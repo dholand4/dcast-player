@@ -25,4 +25,22 @@ describe('PosterCardGlobal', () => {
     fireEvent.press(getByText('Interestelar'));
     expect(onPressMock).toHaveBeenCalledTimes(1);
   });
+
+  it('shows the heart only for favorites and favorites on long press', () => {
+    const onLongPress = jest.fn();
+    const { getByText, queryByTestId, rerender } = wrap(
+      <PosterCardGlobal title="Duna" onPress={jest.fn()} onLongPress={onLongPress} testID="poster-1" />
+    );
+
+    expect(queryByTestId('poster-1-favorite')).toBeNull();
+    fireEvent(getByText('Duna'), 'longPress');
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <PosterCardGlobal title="Duna" onPress={jest.fn()} isFavorite testID="poster-1" />
+      </ThemeProvider>
+    );
+    expect(queryByTestId('poster-1-favorite')).toBeTruthy();
+  });
 });

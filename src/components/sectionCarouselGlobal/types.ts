@@ -1,4 +1,5 @@
 import { ReactElement } from 'react';
+import { StyleProp, ViewStyle } from 'react-native';
 
 export interface ISectionCarouselGlobalProps<T> {
   title: string;
@@ -8,4 +9,5 @@ export interface ISectionCarouselGlobalProps<T> {
   emptyMessage?: string;
   testID?: string;
   rightAction?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 }

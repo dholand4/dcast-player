@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
@@ -95,6 +95,27 @@ describe('DetailsScreen', () => {
     expect(await findByText('Ver Trailer')).toBeTruthy();
     expect(await findByText('Sinopse incrível do Matrix')).toBeTruthy();
     expect(await findByText(/Lana Wachowski/)).toBeTruthy();
+  });
+
+  it('uses the file extension informed by the server when opened from favorites', async () => {
+    const { xtreamService } = require('../../../services/xtreamService');
+    jest.spyOn(xtreamService, 'getVodInfo').mockResolvedValueOnce({
+      info: { plot: 'Sinopse' },
+      movie_data: { container_extension: 'mkv' },
+    });
+
+    const { findByText, getByText } = wrap(
+      <DetailsScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await findByText('Sinopse');
+
+    fireEvent.press(getByText('Assistir'));
+    await waitFor(() => {
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        'PlayerScreen',
+        expect.objectContaining({ streamUrl: expect.stringMatching(/123\.mkv$/) })
+      );
+    });
   });
 });
 

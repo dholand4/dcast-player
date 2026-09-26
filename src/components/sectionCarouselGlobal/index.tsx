@@ -18,11 +18,12 @@ export function SectionCarouselGlobal<T>({
   emptyMessage,
   testID,
   rightAction,
+  style,
 }: ISectionCarouselGlobalProps<T>) {
   if (!data || data.length === 0) {
     if (!emptyMessage) return null;
     return (
-      <Container testID={testID}>
+      <Container testID={testID} style={style}>
         <HeaderRow>
           <Title>{title}</Title>
           {rightAction}
@@ -35,7 +36,7 @@ export function SectionCarouselGlobal<T>({
   }
 
   return (
-    <Container testID={testID}>
+    <Container testID={testID} style={style}>
       <HeaderRow>
         <Title>{title}</Title>
         {rightAction}

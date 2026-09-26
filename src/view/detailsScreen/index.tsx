@@ -87,6 +87,9 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     cast?: string;
     duration_secs?: number;
   } | null>(null);
+  // Vindo dos favoritos ou do histórico a extensão não é conhecida; o servidor informa
+  const [serverExtension, setServerExtension] = useState<string | undefined>();
+  const movieExtension = containerExtension || serverExtension || 'mp4';
 
   useEffect(() => {
     if (type === 'series') {
@@ -98,6 +101,9 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         .then((data) => {
           if (isMounted && data?.info) {
             setMovieInfo(data.info);
+          }
+          if (isMounted && data?.movie_data?.container_extension) {
+            setServerExtension(String(data.movie_data.container_extension));
           }
         })
         .catch(() => {});
@@ -112,7 +118,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   useEffect(() => {
     if (!account) return;
     if (type === 'movie') {
-      const url = xtreamService.buildVodStreamUrl(account, id, containerExtension || 'mp4');
+      const url = xtreamService.buildVodStreamUrl(account, id, movieExtension);
       prefetchService.prefetchVod(url);
     } else if (type === 'series' && seriesInfo?.episodes) {
       const eps = seriesInfo.episodes[selectedSeason];
@@ -126,7 +132,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
         prefetchService.prefetchVod(epUrl);
       }
     }
-  }, [type, account, id, containerExtension, seriesInfo, selectedSeason]);
+  }, [type, account, id, movieExtension, seriesInfo, selectedSeason]);
 
   const rawTrailer =
     type === 'series'
@@ -239,7 +245,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
 
   const handlePlayMovie = () => {
     if (!account) return;
-    const streamUrl = xtreamService.buildVodStreamUrl(account, id, containerExtension || 'mp4');
+    const streamUrl = xtreamService.buildVodStreamUrl(account, id, movieExtension);
     const isFinished =
       (watchProgress?.percentage ?? 0) >= 95 ||
       Boolean(

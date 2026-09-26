@@ -425,7 +425,10 @@ export const xtreamService = {
   async getVodInfo(
     creds: IAccountCredentials,
     vodId: string | number
-  ): Promise<{ info?: { youtube_trailer?: string; plot?: string; duration_secs?: number; rating?: string; releasedate?: string; genre?: string; director?: string; cast?: string } }> {
+  ): Promise<{
+    info?: { youtube_trailer?: string; plot?: string; duration_secs?: number; rating?: string; releasedate?: string; genre?: string; director?: string; cast?: string };
+    movie_data?: { container_extension?: string };
+  }> {
     try {
       const { serverUrl, username, password } = creds;
       const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(

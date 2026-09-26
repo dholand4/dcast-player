@@ -21,6 +21,7 @@ import { CategoryManagerModalGlobal } from '../../components/categoryManagerModa
 import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
 import { cleanSeriesTitle, cleanEpisodeDisplayTitle } from '../../utils/formatters';
+import { showToast } from '../../utils/toast';
 import {
   Container,
   SearchRow,
@@ -632,14 +633,31 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         }
       };
 
+      const handleToggleFavorite = () => {
+        const isNowFavorite = toggleFavorite({
+          id: contentId,
+          name: item.name,
+          posterUrl: posterUrl || '',
+          type: 'stream_id' in item ? 'movie' : 'series',
+          categoryId: String(item.category_id || ''),
+          rating: item.rating,
+          addedAt: Date.now(),
+        });
+        showToast(isNowFavorite ? 'Adicionado aos favoritos' : 'Removido dos favoritos');
+      };
+
       return (
         <PosterCardGlobal
           title={item.name}
           posterUrl={posterUrl}
           rating={item.rating}
           percentage={cwItem?.percentage}
+          isFavorite={isFavorite(contentId)}
           width={posterWidth}
+          testID={`poster-${contentId}`}
           onPress={handlePress}
+          // No "Continuar Assistindo", segurar o dedo continua servindo para remover
+          onLongPress={isContinueWatching ? undefined : handleToggleFavorite}
           onRemove={
             isContinueWatching
               ? () =>
@@ -663,6 +681,8 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
       selectedCategory,
       typeContinueWatchingList,
       handleConfirmRemoveItem,
+      isFavorite,
+      toggleFavorite,
     ]
   );
 

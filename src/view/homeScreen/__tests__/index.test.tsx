@@ -153,5 +153,30 @@ describe('HomeScreen', () => {
       initialTime: 3600,
     }));
   });
+
+  it('shows movies and series favorites together in one row and opens details', () => {
+    storageService.saveFavorites([
+      { id: 'm1', name: 'Duna', posterUrl: '', type: 'movie', categoryId: '1', addedAt: 3 },
+      { id: 's1', name: 'Dark', posterUrl: '', type: 'series', categoryId: '2', addedAt: 2 },
+      { id: 'c1', name: 'Canal Ao Vivo', posterUrl: '', type: 'live', categoryId: '3', addedAt: 1 },
+    ]);
+
+    const { getByTestId, getByText, queryByText } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(getByTestId('home-favorites')).toBeTruthy();
+    expect(getByText('Duna')).toBeTruthy();
+    expect(getByText('Dark')).toBeTruthy();
+    expect(queryByText('Canal Ao Vivo')).toBeNull();
+
+    fireEvent.press(getByText('Dark'));
+    expect(mockNavigation.navigate).toHaveBeenCalledWith(
+      'DetailsScreen',
+      expect.objectContaining({ id: 's1', type: 'series', title: 'Dark' })
+    );
+
+    storageService.saveFavorites([]);
+  });
 });
 
