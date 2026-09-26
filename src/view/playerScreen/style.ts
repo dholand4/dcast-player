@@ -448,7 +448,7 @@ export const DrawerItemText = styled.Text<{ isActive?: boolean }>`
 `;
 
 /* --- MODAL DE ÁUDIO / LEGENDAS / VELOCIDADE --- */
-export const SettingsModalBackdrop = styled.View`
+export const SettingsModalBackdrop = styled.View<{ compact?: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
@@ -458,14 +458,16 @@ export const SettingsModalBackdrop = styled.View`
   justify-content: center;
   align-items: center;
   z-index: 25;
-  padding: ${({ theme }) => theme.spacing.md}px;
+  padding: ${({ compact, theme }) => (compact ? theme.spacing.sm : theme.spacing.md)}px;
 `;
 
-export const SettingsModalContent = styled.View`
+// No celular deitado a altura é pequena: o painel precisa caber na tela e rolar por dentro
+export const SettingsModalContent = styled.View<{ compact?: boolean; maxHeight: number }>`
   background-color: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.radii.lg}px;
-  padding: ${({ theme }) => theme.spacing.lg}px;
-  max-width: 420px;
+  padding: ${({ compact, theme }) => (compact ? theme.spacing.md : theme.spacing.lg)}px;
+  max-width: ${({ compact }) => (compact ? 560 : 420)}px;
+  max-height: ${({ maxHeight }) => maxHeight}px;
   width: 100%;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};

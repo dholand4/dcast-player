@@ -15,7 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { useVideoPlayer } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { PlayerScreenProps, LiveChannelItem } from '../../routes/types';
 import { IEpgListing } from '../../@types/xtream';
@@ -167,10 +167,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     initialTime = 0,
     seriesEpisodes,
     liveChannels,
+    isCatchup = false,
   } = route.params;
 
   const { account } = useAuth();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isCompactHeight = screenHeight < 500;
   const [episodesList, setEpisodesList] = useState(seriesEpisodes || []);
 
   useEffect(() => {
@@ -318,6 +320,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Modal de Ajustes (Velocidade, Áudio e Legendas)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Picture-in-Picture do sistema no Android (celular/tablet; TVs não suportam)
+  const videoViewRef = useRef<VideoView>(null);
+  const canUseSystemPip = Platform.OS === 'android' && !Platform.isTV;
+  const [isInPip, setIsInPip] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [availableAudioTracks, setAvailableAudioTracks] = useState<any[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<any>(null);
@@ -505,6 +512,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         setShowNextEpisodePrompt(false);
         return true;
       }
+      // Voltar com o vídeo tocando vira janelinha flutuante (a seta da tela sai do player)
+      if (canUseSystemPip && isPlaying && !isCastingRef.current && !isInPip && videoViewRef.current) {
+        // Se o PiP estiver desativado para o app nas configurações do Android, sai do player
+        videoViewRef.current.startPictureInPicture().catch(() => navigation.goBack());
+        return true;
+      }
       if (showControls) {
         setShowControls(false);
         return true;
@@ -514,7 +527,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSubscription.remove();
-  }, [showSettingsModal, showChannelDrawer, showEpgModal, showNextEpisodePrompt, showControls]);
+  }, [
+    showSettingsModal,
+    showChannelDrawer,
+    showEpgModal,
+    showNextEpisodePrompt,
+    showControls,
+    canUseSystemPip,
+    isPlaying,
+    isInPip,
+    navigation,
+  ]);
 
   const handleSetVolume = useCallback(
     (newVol: number) => {
@@ -966,23 +989,36 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     }
     try {
-      if (typeof (player as any).startPictureInPicture === 'function') {
-        (player as any).startPictureInPicture();
-      } else {
-        Alert.alert(
-          'Picture-in-Picture',
-          'No celular, o modo PiP é ativado automaticamente ao minimizar o app durante a reprodução.'
-        );
-      }
+      if (!videoViewRef.current) throw new Error('VideoView indisponível');
+      await videoViewRef.current.startPictureInPicture();
     } catch {
-      Alert.alert(
-        'Picture-in-Picture',
-        'No celular, o modo PiP é ativado automaticamente ao minimizar o app durante a reprodução.'
-      );
+      Alert.alert('Picture-in-Picture', 'Este aparelho não permite o modo Picture-in-Picture.');
     }
-  }, [resetHideTimer, player]);
+  }, [resetHideTimer]);
 
   usePlayerSystemUI({ isCasting, showControls, navigation });
+
+  // Replay (TV Archive): abre o programa que já passou no lugar do canal ao vivo
+  const handlePlayArchive = useCallback(
+    (program: IEpgListing) => {
+      if (!account || !activeContentId) return;
+      const catchupUrl = xtreamService.buildCatchupStreamUrl(account, activeContentId, program);
+      if (!catchupUrl) {
+        Alert.alert('Replay', 'O servidor não informou o horário deste programa.');
+        return;
+      }
+      setShowEpgModal(false);
+      navigation.replace('PlayerScreen', {
+        streamUrl: catchupUrl,
+        title: `${activeTitle || title} • ${program.title}`,
+        posterUrl: activePoster,
+        type: 'movie',
+        contentId: `catchup_${activeContentId}_${program.start_timestamp}`,
+        isCatchup: true,
+      });
+    },
+    [account, activeContentId, activeTitle, title, activePoster, navigation]
+  );
 
   // Configura pré-carregamento suave de buffer e restauração de initialTime no elemento <video> do navegador (Web)
   useEffect(() => {
@@ -1414,7 +1450,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   // Persist progress periodically or on unmount
   const persistCurrentProgress = useCallback(
     (time: number, totalDur: number) => {
-      if (type === 'live') return;
+      if (type === 'live' || isCatchup) return;
       const pct = calculatePercentage(time, totalDur);
       const titleToSave = type === 'series' ? cleanEpisodeDisplayTitle(title) : title;
       saveProgress({
@@ -1432,7 +1468,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         streamUrl: extractDirectUrl(streamUrl),
       });
     },
-    [contentId, seriesId, title, posterUrl, type, seasonNumber, episodeNumber, streamUrl, saveProgress]
+    [contentId, seriesId, title, posterUrl, type, seasonNumber, episodeNumber, streamUrl, saveProgress, isCatchup]
   );
 
   // Garante que o episódio atualmente aberto na tela seja o exibido no Continuar Assistindo
@@ -2819,10 +2855,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         } as any)}
       >
         <StyledVideo
+          ref={videoViewRef}
           player={player}
           contentFit={contentFitMode}
           nativeControls={false}
           allowsPictureInPicture
+          startsPictureInPictureAutomatically={canUseSystemPip && !isCasting}
+          onPictureInPictureStart={() => {
+            setIsInPip(true);
+            setShowControls(false);
+            setShowSettingsModal(false);
+          }}
+          onPictureInPictureStop={() => setIsInPip(false)}
           style={{
             position: 'absolute',
             top: 0,
@@ -3507,14 +3551,18 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
         {/* Modal de Ajustes: Velocidade, Áudio e Legendas */}
         {showSettingsModal && (
-          <SettingsModalBackdrop testID="settings-modal-backdrop">
+          <SettingsModalBackdrop compact={isCompactHeight} testID="settings-modal-backdrop">
             <TouchableOpacity
               style={StyleSheet.absoluteFill}
               activeOpacity={1}
               onPress={() => setShowSettingsModal(false)}
             />
-            <SettingsModalContent>
-              <DrawerHeader style={{ marginBottom: 16 }}>
+            <SettingsModalContent
+              compact={isCompactHeight}
+              maxHeight={screenHeight - (isCompactHeight ? 16 : 32)}
+              testID="settings-modal-content"
+            >
+              <DrawerHeader style={{ marginBottom: isCompactHeight ? 8 : 16 }}>
                 <DrawerTitle>Ajustes de Reprodução</DrawerTitle>
                 <ControlButton
                   onPress={() => setShowSettingsModal(false)}
@@ -3526,7 +3574,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 </ControlButton>
               </DrawerHeader>
 
-              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={{ flexGrow: 0, flexShrink: 1 }}
+                showsVerticalScrollIndicator={isCompactHeight}
+              >
                 {/* Seção Velocidade */}
                 <SettingsSection>
                   <SettingsSectionTitle>Velocidade de Reprodução</SettingsSectionTitle>
@@ -3693,6 +3744,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             }
             streamId={String(activeContentId || '')}
             initialEpgList={epgList}
+            onPlayArchive={handlePlayArchive}
           />
         )}
 

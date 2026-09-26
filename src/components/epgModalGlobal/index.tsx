@@ -63,6 +63,7 @@ export const EpgModalGlobal: React.FC<IEpgModalGlobalProps> = ({
   channelNumber,
   streamId,
   initialEpgList,
+  onPlayArchive,
 }) => {
   const theme = useTheme();
   const { account } = useAuth();
@@ -154,16 +155,20 @@ export const EpgModalGlobal: React.FC<IEpgModalGlobalProps> = ({
 
       const isExpanded = expandedProgramId === item.id;
       const hasDescription = Boolean(item.description && item.description.trim().length > 0);
+      const canReplay = isPast && item.has_archive === 1 && Boolean(onPlayArchive);
+      const toggleDescription = () => {
+        if (hasDescription) {
+          setExpandedProgramId(isExpanded ? null : item.id);
+        }
+      };
 
       return (
         <ProgramItemContainer
           isCurrent={isCurrent}
-          activeOpacity={hasDescription ? 0.7 : 1}
-          onPress={() => {
-            if (hasDescription) {
-              setExpandedProgramId(isExpanded ? null : item.id);
-            }
-          }}
+          activeOpacity={hasDescription || canReplay ? 0.7 : 1}
+          onPress={canReplay ? () => onPlayArchive?.(item) : toggleDescription}
+          onLongPress={canReplay ? toggleDescription : undefined}
+          accessibilityHint={canReplay ? 'Assistir este programa que já passou' : undefined}
           testID={`epg-item-${index}`}
         >
           <ProgramTopRow>
@@ -178,6 +183,10 @@ export const EpgModalGlobal: React.FC<IEpgModalGlobalProps> = ({
             ) : isNext ? (
               <ProgramBadge variant="next">
                 <ProgramBadgeText variant="next">A Seguir</ProgramBadgeText>
+              </ProgramBadge>
+            ) : canReplay ? (
+              <ProgramBadge variant="archive" testID={`epg-replay-${index}`}>
+                <ProgramBadgeText variant="archive">▶ Assistir</ProgramBadgeText>
               </ProgramBadge>
             ) : isPast ? (
               <ProgramBadge variant="past">
@@ -204,7 +213,7 @@ export const EpgModalGlobal: React.FC<IEpgModalGlobalProps> = ({
         </ProgramItemContainer>
       );
     },
-    [currentIndex, nowSec, expandedProgramId]
+    [currentIndex, nowSec, expandedProgramId, onPlayArchive]
   );
 
   return (

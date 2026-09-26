@@ -8,6 +8,7 @@ import { IWatchProgress } from '../../@types/storage';
 jest.mock('../../services/storageService', () => ({
   storageService: {
     getAccount: jest.fn(() => null),
+    getActiveProfileId: jest.fn(() => 'default'),
     getContinueWatching: jest.fn(() => []),
     getWatchProgress: jest.fn(() => null),
     getAllWatchProgress: jest.fn(() => []),
@@ -19,7 +20,7 @@ jest.mock('../../services/storageService', () => ({
 
 jest.mock('../../services/supabaseService', () => ({
   supabaseService: {
-    getUserKey: jest.fn(() => 'guest'),
+    getProfileKey: jest.fn(() => 'guest'),
     fetchWatchProgressList: jest.fn(async () => []),
     upsertWatchProgressBatch: jest.fn(async () => {}),
   },
@@ -29,7 +30,7 @@ describe('useWatchHistory hook', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetSessionSyncs();
-    (supabaseService.getUserKey as jest.Mock).mockReturnValue('guest');
+    (supabaseService.getProfileKey as jest.Mock).mockReturnValue('guest');
   });
 
   const mockProgress: IWatchProgress = {
@@ -81,7 +82,7 @@ describe('useWatchHistory hook', () => {
   it('hides an item from continue watching without deleting its progress', () => {
     const hidden = { ...mockProgress, hiddenFromContinue: true };
     (storageService.hideFromContinueWatching as jest.Mock).mockReturnValueOnce([hidden]);
-    (supabaseService.getUserKey as jest.Mock).mockReturnValue('key');
+    (supabaseService.getProfileKey as jest.Mock).mockReturnValue('key');
     const { result } = renderHook(() => useWatchHistory());
 
     act(() => {
@@ -105,7 +106,7 @@ describe('useWatchHistory hook', () => {
   it('syncs with the cloud once per session and uploads local-only items', async () => {
     const cloudItem = { ...mockProgress, id: 'cloud-1', hiddenFromContinue: true };
     const localOnly = { ...mockProgress, id: 'local-1' };
-    (supabaseService.getUserKey as jest.Mock).mockReturnValue('key');
+    (supabaseService.getProfileKey as jest.Mock).mockReturnValue('key');
     (supabaseService.fetchWatchProgressList as jest.Mock).mockResolvedValueOnce([cloudItem]);
     (storageService.getAllWatchProgress as jest.Mock).mockReturnValue([localOnly]);
 
@@ -126,7 +127,7 @@ describe('useWatchHistory hook', () => {
   it('applies a cloud hide made on another device to the same local progress', async () => {
     const local = { ...mockProgress };
     const cloud = { ...mockProgress, hiddenFromContinue: true };
-    (supabaseService.getUserKey as jest.Mock).mockReturnValue('key');
+    (supabaseService.getProfileKey as jest.Mock).mockReturnValue('key');
     (supabaseService.fetchWatchProgressList as jest.Mock).mockResolvedValueOnce([cloud]);
     (storageService.getWatchProgress as jest.Mock).mockReturnValueOnce(local);
 

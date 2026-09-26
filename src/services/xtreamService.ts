@@ -279,6 +279,26 @@ export const xtreamService = {
   },
 
   // 5. Playback Engine URLs
+  /**
+   * URL do replay (TV Archive) de um programa que já passou. O início vai no horário
+   * local do servidor, que é o formato do campo "start" da grade (EPG).
+   */
+  buildCatchupStreamUrl(
+    creds: IAccountCredentials,
+    streamId: string | number,
+    program: Pick<IEpgListing, 'start' | 'start_timestamp' | 'stop_timestamp'>
+  ): string | null {
+    const match = program.start?.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/);
+    const seconds = program.stop_timestamp - program.start_timestamp;
+    if (!match || !(seconds > 0)) return null;
+    const { serverUrl, username, password } = creds;
+    const minutes = Math.ceil(seconds / 60);
+    const start = `${match[1]}:${match[2]}-${match[3]}`;
+    return resolveUrlForPlatform(
+      `${serverUrl}/timeshift/${username}/${password}/${minutes}/${start}/${streamId}.ts`
+    );
+  },
+
   buildLiveStreamUrl(
     creds: IAccountCredentials,
     streamId: string | number,

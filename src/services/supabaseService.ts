@@ -1,6 +1,13 @@
 import { sha256 } from 'js-sha256';
+import { normalizeHost } from '../utils/accountIdentity';
 import { IAccountCredentials } from '../@types/xtream';
-import { IWatchProgress, IFavoriteItem, ContentType, ICustomCategoryFolder } from '../@types/storage';
+import {
+  IWatchProgress,
+  IFavoriteItem,
+  ContentType,
+  ICustomCategoryFolder,
+  IProfile,
+} from '../@types/storage';
 
 const DEFAULT_SUPABASE_URL = 'https://xfxvjnxjqlqapqebrvye.supabase.co';
 const DEFAULT_ANON_KEY = 'sb_publishable_M5cWmFHIiEjYHtOYbCgKzA_zShRUHRd';
@@ -26,16 +33,6 @@ function getHeaders(userKey: string, prefer?: string): Record<string, string> {
   return headers;
 }
 
-function normalizeHost(serverUrl?: string): string {
-  if (!serverUrl) return 'default';
-  return serverUrl
-    .trim()
-    .replace(/^https?:\/\//i, '')
-    .split('/')[0]
-    .split(':')[0]
-    .toLowerCase();
-}
-
 /**
  * Chave secreta que identifica a conta na nuvem. É derivada da senha do IPTV,
  * então só quem tem as credenciais consegue ler ou alterar os dados da conta,
@@ -45,6 +42,18 @@ export function getUserKey(account?: IAccountCredentials | null): string {
   if (!account || !account.username || !account.password) return 'guest';
   const username = account.username.trim().toLowerCase();
   return sha256(`${USER_KEY_NAMESPACE}|${normalizeHost(account.serverUrl)}|${username}|${account.password}`);
+}
+
+const DEFAULT_PROFILE_ID = 'default';
+
+/**
+ * Chave do histórico e dos favoritos de um perfil. O perfil principal usa a chave da
+ * conta (compatível com os dados já existentes); os demais derivam dela.
+ */
+export function getProfileKey(account: IAccountCredentials | null | undefined, profileId: string): string {
+  const accountKey = getUserKey(account);
+  if (accountKey === 'guest' || !profileId || profileId === DEFAULT_PROFILE_ID) return accountKey;
+  return sha256(`${accountKey}|profile|${profileId}`);
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
@@ -261,6 +270,68 @@ export async function fetchFavoritesList(userKey: string): Promise<IFavoriteItem
   }
 }
 
+export async function clearFavorites(userKey: string): Promise<void> {
+  if (!userKey || userKey === 'guest') return;
+  try {
+    await fetchWithTimeout(
+      `${SUPABASE_URL}/rest/v1/dcast_favorites?user_key=eq.${encodeURIComponent(userKey)}`,
+      { method: 'DELETE', headers: getHeaders(userKey) }
+    );
+  } catch {
+    // ignore
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profiles (Perfis) — ficam na chave da conta
+// ---------------------------------------------------------------------------
+
+export async function upsertProfiles(userKey: string, profiles: IProfile[]): Promise<void> {
+  if (!userKey || userKey === 'guest' || profiles.length === 0) return;
+  try {
+    const rows = profiles.map((profile) => ({
+      id: `${userKey}_${profile.id}`,
+      user_key: userKey,
+      profile_id: profile.id,
+      name: profile.name,
+      color: profile.color,
+      created_at: profile.createdAt,
+      updated_at: profile.updatedAt,
+      deleted: Boolean(profile.deleted),
+    }));
+    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_profiles`, {
+      method: 'POST',
+      headers: getHeaders(userKey, 'resolution=merge-duplicates'),
+      body: JSON.stringify(rows),
+    });
+  } catch {
+    // ignore
+  }
+}
+
+export async function fetchProfiles(userKey: string): Promise<IProfile[] | null> {
+  if (!userKey || userKey === 'guest') return null;
+  try {
+    const res = await fetchWithTimeout(
+      `${SUPABASE_URL}/rest/v1/dcast_profiles?user_key=eq.${encodeURIComponent(userKey)}`,
+      { method: 'GET', headers: getHeaders(userKey) }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return null;
+    return rows.map((row) => ({
+      id: String(row.profile_id),
+      name: String(row.name || ''),
+      color: String(row.color || ''),
+      createdAt: Number(row.created_at || 0),
+      updatedAt: Number(row.updated_at || 0),
+      deleted: Boolean(row.deleted),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Custom Folders (Pastas Personalizadas)
 // ---------------------------------------------------------------------------
@@ -400,6 +471,10 @@ export async function fetchHiddenItems(
 
 export const supabaseService = {
   getUserKey,
+  getProfileKey,
+  upsertProfiles,
+  fetchProfiles,
+  clearFavorites,
   upsertWatchProgress,
   upsertWatchProgressBatch,
   fetchWatchProgressList,

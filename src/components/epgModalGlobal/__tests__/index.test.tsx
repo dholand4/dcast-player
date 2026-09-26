@@ -99,4 +99,36 @@ describe('EpgModalGlobal', () => {
     fireEvent.press(programItem);
     expect(getByText('Principais notícias do dia e do trânsito.')).toBeTruthy();
   });
+
+  it('offers replay for past programs the server archived', () => {
+    const onPlayArchive = jest.fn();
+    const archived: IEpgListing = { ...mockEpgList[0], id: '9', title: 'Jogo de ontem', has_archive: 1 };
+    const { getByTestId, getByText } = wrap(
+      <EpgModalGlobal
+        visible={true}
+        onClose={jest.fn()}
+        channelName="Globo SP"
+        initialEpgList={[archived]}
+        onPlayArchive={onPlayArchive}
+      />
+    );
+
+    expect(getByText('▶ Assistir')).toBeTruthy();
+    fireEvent.press(getByTestId('epg-item-0'));
+    expect(onPlayArchive).toHaveBeenCalledWith(archived);
+  });
+
+  it('does not offer replay when the program has no archive', () => {
+    const { queryByText } = wrap(
+      <EpgModalGlobal
+        visible={true}
+        onClose={jest.fn()}
+        channelName="Globo SP"
+        initialEpgList={[mockEpgList[0]]}
+        onPlayArchive={jest.fn()}
+      />
+    );
+
+    expect(queryByText('▶ Assistir')).toBeNull();
+  });
 });

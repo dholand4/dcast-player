@@ -7,6 +7,7 @@ jest.mock('../../services/storageService', () => ({
   storageService: {
     getFavorites: jest.fn(() => []),
     getAccount: jest.fn(() => null),
+    getActiveProfileId: jest.fn(() => 'default'),
     isFavorite: jest.fn(() => false),
     toggleFavorite: jest.fn(() => true),
     removeFavorite: jest.fn(),

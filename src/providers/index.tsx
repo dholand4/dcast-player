@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { ThemeProvider } from './ThemeProvider';
 import { AuthProvider } from './AuthProvider';
+import { ProfileProvider } from './ProfileProvider';
 import { CastProvider } from './CastProvider';
 
 interface IAppProvidersProps {
@@ -13,7 +14,9 @@ export const AppProviders: React.FC<IAppProvidersProps> = ({ children }) => {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
         <AuthProvider>
-          <CastProvider>{children}</CastProvider>
+          <ProfileProvider>
+            <CastProvider>{children}</CastProvider>
+          </ProfileProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

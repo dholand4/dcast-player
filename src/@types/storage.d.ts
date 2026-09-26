@@ -35,3 +35,13 @@ export interface ICustomCategoryFolder {
   createdAt: number;
 }
 
+export interface IProfile {
+  id: string;
+  name: string;
+  /** Cor do avatar (hex) */
+  color: string;
+  createdAt: number;
+  updatedAt: number;
+  /** Perfil removido; mantido para a remoção sincronizar entre aparelhos */
+  deleted?: boolean;
+}

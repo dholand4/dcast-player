@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { IFavoriteItem } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
+import { getActiveProfileCloudKey } from '../services/profileService';
 import { claimSessionSync, releaseSessionSync } from '../utils/sessionSync';
 
 type FavoriteListener = () => void;
@@ -75,7 +76,7 @@ export function useFavorites() {
 
   // Sincroniza com a nuvem uma vez por sessão (várias telas usam este hook)
   useEffect(() => {
-    const userKey = supabaseService.getUserKey(storageService.getAccount());
+    const userKey = getActiveProfileCloudKey();
     if (!userKey || userKey === 'guest') return;
     const syncKey = `favorites:${userKey}`;
     if (!claimSessionSync(syncKey)) return;
@@ -89,8 +90,7 @@ export function useFavorites() {
       notifyFavoriteListeners();
 
       try {
-        const account = storageService.getAccount();
-        const userKey = supabaseService.getUserKey(account);
+        const userKey = getActiveProfileCloudKey();
         if (userKey && userKey !== 'guest') {
           if (isFav) {
             supabaseService.upsertFavorite(userKey, item);
@@ -119,8 +119,7 @@ export function useFavorites() {
       notifyFavoriteListeners();
 
       try {
-        const account = storageService.getAccount();
-        const userKey = supabaseService.getUserKey(account);
+        const userKey = getActiveProfileCloudKey();
         if (userKey && userKey !== 'guest') {
           supabaseService.removeFavorite(userKey, id);
         }

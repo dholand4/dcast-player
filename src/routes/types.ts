@@ -21,6 +21,7 @@ export type LiveChannelItem = {
 
 export type RootStackParamList = {
   SetupScreen: undefined;
+  ProfileScreen: undefined;
   HomeScreen: undefined;
   CategoryScreen: {
     type: ContentType;
@@ -45,6 +46,8 @@ export type RootStackParamList = {
     initialTime?: number;
     seriesEpisodes?: SeriesEpisodeItem[];
     liveChannels?: LiveChannelItem[];
+    /** Replay de programa que já passou: tem barra de tempo, mas não entra no histórico */
+    isCatchup?: boolean;
   };
   SearchScreen: undefined;
 };

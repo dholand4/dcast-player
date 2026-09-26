@@ -3,8 +3,10 @@ import { View, Platform, Alert, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
+import { useProfiles } from '../../hooks/useProfiles';
 import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
+import { useNewEpisodes } from '../../hooks/useNewEpisodes';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
 import { xtreamService, extractDirectUrl } from '../../services/xtreamService';
@@ -37,9 +39,11 @@ import {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { account, userInfo, accountWarning, logout } = useAuth();
+  const { activeProfile, switchProfile } = useProfiles();
   const { isCasting, stopCast } = useCast();
   const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
     useWatchHistory();
+  const newEpisodes = useNewEpisodes(account, continueWatching);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
@@ -174,6 +178,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         )}
 
         <QuickActionsRow testID="quick-actions-row">
+          {activeProfile && (
+            <QuickActionButton
+              onPress={switchProfile}
+              accessibilityRole="button"
+              accessibilityLabel={`Perfil ${activeProfile.name}. Trocar perfil`}
+              testID="home-switch-profile-button"
+            >
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  backgroundColor: activeProfile.color,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
+                  {activeProfile.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <QuickActionText numberOfLines={1} adjustsFontSizeToFit>
+                {activeProfile.name}
+              </QuickActionText>
+            </QuickActionButton>
+          )}
+
           <QuickActionButton
             onPress={handleConfirmLogout}
             accessibilityRole="button"
@@ -327,6 +358,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     }
                   }}
                   onRemove={() => handleConfirmRemoveItem(item)}
+                />
+              )}
+            />
+          </View>
+        )}
+
+        {newEpisodes.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <SectionCarouselGlobal
+              title="Novos Episódios"
+              data={newEpisodes}
+              keyExtractor={(item) => `home-new-${item.seriesId}`}
+              testID="home-new-episodes"
+              renderItem={(item) => (
+                <PosterCardGlobal
+                  title={`${item.seriesTitle} • T${item.episode.season}E${item.episode.episode}`}
+                  posterUrl={item.posterUrl}
+                  width={130}
+                  onPress={() =>
+                    navigation.navigate('DetailsScreen', {
+                      id: item.seriesId,
+                      type: 'series',
+                      title: item.seriesTitle,
+                      posterUrl: item.posterUrl,
+                    })
+                  }
                 />
               )}
             />

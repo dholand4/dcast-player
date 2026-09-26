@@ -122,21 +122,23 @@ export const ProgramTimeText = styled.Text<{ isCurrent: boolean; isPast: boolean
     isCurrent ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
-export const ProgramBadge = styled.View<{ variant: 'now' | 'next' | 'past' }>`
+export const ProgramBadge = styled.View<{ variant: 'now' | 'next' | 'past' | 'archive' }>`
   padding-horizontal: 8px;
   padding-vertical: 2px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ variant, theme }) =>
     variant === 'now'
       ? theme.colors.success
+      : variant === 'archive'
+      ? theme.colors.primary
       : variant === 'next'
       ? 'rgba(255, 255, 255, 0.15)'
       : 'rgba(255, 255, 255, 0.06)'};
 `;
 
-export const ProgramBadgeText = styled.Text<{ variant: 'now' | 'next' | 'past' }>`
+export const ProgramBadgeText = styled.Text<{ variant: 'now' | 'next' | 'past' | 'archive' }>`
   color: ${({ variant, theme }) =>
-    variant === 'now' ? '#000000' : theme.colors.textSecondary};
+    variant === 'now' ? '#000000' : variant === 'archive' ? '#FFFFFF' : theme.colors.textSecondary};
   font-size: 10px;
   font-weight: ${({ theme }) => theme.typography.weights.bold};
   text-transform: uppercase;

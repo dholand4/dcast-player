@@ -1,6 +1,7 @@
 import {
   supabaseService,
   getUserKey,
+  getProfileKey,
   upsertWatchProgress,
   fetchWatchProgressList,
   removeWatchProgress,
@@ -47,6 +48,21 @@ describe('supabaseService', () => {
       // Mesmo resultado em outro aparelho com a mesma conta (porta e caixa não importam)
       expect(getUserKey({ ...acc, username: 'user.name#1', serverUrl: 'HTTP://IPTV-SERVER.NET' })).toBe(key);
       expect(getUserKey({ ...acc, password: 'other' })).not.toBe(key);
+    });
+  });
+
+  describe('getProfileKey', () => {
+    const acc: IAccountCredentials = { username: 'u', password: 'p', serverUrl: 'http://s.tv', label: '' };
+
+    it('uses the account key for the default profile (keeps existing cloud data)', () => {
+      expect(getProfileKey(acc, 'default')).toBe(getUserKey(acc));
+    });
+
+    it('derives a different secret key for other profiles', () => {
+      const key = getProfileKey(acc, 'kids');
+      expect(key).toMatch(/^[0-9a-f]{64}$/);
+      expect(key).not.toBe(getUserKey(acc));
+      expect(getProfileKey(null, 'kids')).toBe('guest');
     });
   });
 

@@ -59,6 +59,21 @@ describe('xtreamService', () => {
     expect(cleanHtmlEntities('Rock&#039;n&#x27;Roll &quot;Live&quot;')).toBe("Rock'n'Roll \"Live\"");
   });
 
+  it('builds the catch-up (TV Archive) URL using the server local start time', () => {
+    const url = xtreamService.buildCatchupStreamUrl(creds, 55, {
+      start: '2026-09-26 20:30:00',
+      start_timestamp: 1790465400,
+      stop_timestamp: 1790469000,
+    });
+    expect(url).toBe('http://my-iptv.com:8080/timeshift/user1/pass1/60/2026-09-26:20-30/55.ts');
+  });
+
+  it('returns null for catch-up without a start time', () => {
+    expect(
+      xtreamService.buildCatchupStreamUrl(creds, 55, { start: '', start_timestamp: 1, stop_timestamp: 2 })
+    ).toBeNull();
+  });
+
   describe('authenticate', () => {
     const mockAuthResponse = (userInfo: object) =>
       jest.spyOn(global, 'fetch').mockResolvedValueOnce({

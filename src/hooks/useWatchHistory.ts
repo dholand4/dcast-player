@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { IWatchProgress, ContentType } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
+import { getActiveProfileCloudKey } from '../services/profileService';
 import { claimSessionSync, releaseSessionSync } from '../utils/sessionSync';
 
 type HistoryListener = () => void;
@@ -22,7 +23,7 @@ const CLOUD_HISTORY_LIMIT = 100;
 function uploadToCloud(items: IWatchProgress[]) {
   if (items.length === 0) return;
   try {
-    const userKey = supabaseService.getUserKey(storageService.getAccount());
+    const userKey = getActiveProfileCloudKey();
     if (userKey && userKey !== 'guest') {
       supabaseService.upsertWatchProgressBatch(userKey, items);
     }
@@ -93,8 +94,7 @@ export function useWatchHistory() {
 
   // Sincroniza com a nuvem uma vez por sessão (várias telas usam este hook)
   useEffect(() => {
-    const account = storageService.getAccount();
-    const userKey = supabaseService.getUserKey(account);
+    const userKey = getActiveProfileCloudKey();
     if (!userKey || userKey === 'guest') return;
     const syncKey = `history:${userKey}`;
     if (!claimSessionSync(syncKey)) return;
@@ -144,8 +144,48 @@ export function useWatchHistory() {
     [reload]
   );
 
+  /** Marca como assistidos; o último da lista fica como o mais recente da série */
+  const markAsWatched = useCallback(
+    (items: IWatchProgress[]) => {
+      const now = Date.now();
+      const saved = items.map((item, index) => ({
+        ...item,
+        currentTime: item.duration > 0 ? item.duration : 1,
+        percentage: 100,
+        hiddenFromContinue: false,
+        updatedAt: now - (items.length - 1 - index),
+      }));
+      saved.forEach((item) => storageService.saveWatchProgress(item));
+      reload();
+      notifyHistoryListeners();
+      uploadToCloud(saved);
+    },
+    [reload]
+  );
+
+  // Zera o progresso sem apagar o registro, para a mudança sincronizar entre aparelhos
+  const markAsUnwatched = useCallback(
+    (items: IWatchProgress[]) => {
+      const now = Date.now();
+      const saved = items.map((item) => ({
+        ...item,
+        currentTime: 0,
+        percentage: 0,
+        hiddenFromContinue: true,
+        updatedAt: now,
+      }));
+      saved.forEach((item) => storageService.saveWatchProgress(item));
+      reload();
+      notifyHistoryListeners();
+      uploadToCloud(saved);
+    },
+    [reload]
+  );
+
   return {
     continueWatching,
+    markAsWatched,
+    markAsUnwatched,
     saveProgress,
     getProgress,
     getAllWatchProgress,

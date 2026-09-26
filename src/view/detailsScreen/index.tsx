@@ -15,6 +15,7 @@ import { CastButtonGlobal } from '../../components/castButtonGlobal';
 import { ProgressBarGlobal } from '../../components/progressBarGlobal';
 import { LoadingGlobal } from '../../components/loadingGlobal';
 import { IXtreamEpisode } from '../../@types/xtream';
+import { IWatchProgress } from '../../@types/storage';
 import {
   cleanSeriesTitle,
   cleanEpisodeDisplayTitle,
@@ -45,7 +46,19 @@ import {
   EpisodeInfo,
   EpisodeTitle,
   EpisodeSub,
+  WatchedToggle,
+  SeasonActionButton,
+  SeasonActionText,
 } from './style';
+
+// Registro zerado por "marcar como não assistido" não conta como visto
+function hasRealProgress(progress: IWatchProgress): boolean {
+  return progress.currentTime > 0 || progress.percentage > 0;
+}
+
+function isEpisodeCompleted(progress?: IWatchProgress | null): boolean {
+  return Boolean(progress && progress.percentage >= 95);
+}
 
 export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   route,
@@ -55,7 +68,14 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const { account } = useAuth();
   const { seriesInfo, isLoading, fetchSeriesInfo } = useXtream(account);
   const { isFavorite, toggleFavorite } = useFavorites();
-  const { getProgress, getAllWatchProgress, saveProgress } = useWatchHistory();
+  const {
+    continueWatching,
+    getProgress,
+    getAllWatchProgress,
+    saveProgress,
+    markAsWatched,
+    markAsUnwatched,
+  } = useWatchHistory();
 
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
   const [movieInfo, setMovieInfo] = useState<{
@@ -161,11 +181,36 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     return seriesInfo.episodes[selectedSeason] || [];
   }, [seriesInfo, selectedSeason]);
 
+  // continueWatching muda a cada alteração no histórico e força o recálculo
   const latestSeriesProgress = useMemo(() => {
     if (type !== 'series') return null;
     const all = getAllWatchProgress();
-    return all.find((item) => item.seriesId === id || item.id === id) || null;
-  }, [type, id, getAllWatchProgress]);
+    return (
+      all.find((item) => (item.seriesId === id || item.id === id) && hasRealProgress(item)) || null
+    );
+  }, [type, id, getAllWatchProgress, continueWatching]);
+
+  // Episódios em ordem de temporada/episódio, para achar o próximo
+  const orderedEpisodes = useMemo(() => {
+    if (!seriesInfo?.episodes) return [];
+    return availableSeasons.flatMap((season) =>
+      [...(seriesInfo.episodes?.[season] || [])]
+        .sort((a, b) => Number(a.episode_num) - Number(b.episode_num))
+        .map((episode) => ({ season, episode }))
+    );
+  }, [seriesInfo, availableSeasons]);
+
+  // Se o último episódio visto já terminou, "Continuar" vai para o seguinte
+  const nextAfterLatest = useMemo(() => {
+    if (!latestSeriesProgress || !isEpisodeCompleted(latestSeriesProgress)) return null;
+    const index = orderedEpisodes.findIndex(
+      ({ season, episode }) =>
+        String(episode.id) === String(latestSeriesProgress.id) ||
+        (Number(season) === Number(latestSeriesProgress.seasonNumber) &&
+          Number(episode.episode_num) === Number(latestSeriesProgress.episodeNumber))
+    );
+    return index >= 0 ? orderedEpisodes[index + 1] ?? null : null;
+  }, [latestSeriesProgress, orderedEpisodes]);
 
   const baseSeriesTitle = useMemo(() => {
     if (type !== 'series') return title;
@@ -271,8 +316,55 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     });
   };
 
+  const buildEpisodeProgress = (episode: IXtreamEpisode, season: string): IWatchProgress => {
+    const existing = getProgress(String(episode.id));
+    return {
+      id: String(episode.id),
+      seriesId: id,
+      title: formatEpisodeTitle(baseSeriesTitle, season, episode.episode_num, episode.title),
+      posterUrl: episode.info?.movie_image || posterUrl || '',
+      type: 'series',
+      seasonNumber: Number(season),
+      episodeNumber: Number(episode.episode_num),
+      currentTime: existing?.currentTime || 0,
+      duration: existing?.duration || episode.info?.duration_secs || 0,
+      percentage: existing?.percentage || 0,
+      updatedAt: existing?.updatedAt || 0,
+      streamUrl: existing?.streamUrl,
+    };
+  };
+
+  const handleToggleEpisodeWatched = (episode: IXtreamEpisode) => {
+    const item = buildEpisodeProgress(episode, selectedSeason);
+    if (isEpisodeCompleted(getProgress(String(episode.id)))) {
+      markAsUnwatched([item]);
+    } else {
+      markAsWatched([item]);
+    }
+  };
+
+  const isSeasonCompleted =
+    currentEpisodes.length > 0 &&
+    currentEpisodes.every((episode) => isEpisodeCompleted(getProgress(String(episode.id))));
+
+  const handleToggleSeasonWatched = () => {
+    const items = [...currentEpisodes]
+      .sort((a, b) => Number(a.episode_num) - Number(b.episode_num))
+      .map((episode) => buildEpisodeProgress(episode, selectedSeason));
+    if (isSeasonCompleted) {
+      markAsUnwatched(items);
+    } else {
+      markAsWatched(items);
+    }
+  };
+
   const handlePlaySeriesResumeOrStart = () => {
     if (!account) return;
+
+    if (nextAfterLatest) {
+      handlePlayEpisode(nextAfterLatest.episode, nextAfterLatest.season);
+      return;
+    }
 
     if (latestSeriesProgress) {
       const seasonKey = String(latestSeriesProgress.seasonNumber || '1');
@@ -414,9 +506,11 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
             <ButtonFlex style={{ minWidth: 160, flex: 2 }}>
               <ButtonGlobal
                 label={
-                  latestSeriesProgress
-                    ? `Continuar T${latestSeriesProgress.seasonNumber || 1}E${latestSeriesProgress.episodeNumber || 1}`
-                    : 'Começar a Assistir'
+                  nextAfterLatest
+                    ? `Assistir T${nextAfterLatest.season}E${nextAfterLatest.episode.episode_num}`
+                    : latestSeriesProgress
+                      ? `Continuar T${latestSeriesProgress.seasonNumber || 1}E${latestSeriesProgress.episodeNumber || 1}`
+                      : 'Começar a Assistir'
                 }
                 onPress={handlePlaySeriesResumeOrStart}
                 size="lg"
@@ -489,14 +583,29 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                   ))}
                 </SeasonScroll>
 
+                {currentEpisodes.length > 0 && (
+                  <SeasonActionButton
+                    onPress={handleToggleSeasonWatched}
+                    accessibilityRole="button"
+                    testID="season-watched-toggle"
+                  >
+                    <MaterialIcons
+                      name={isSeasonCompleted ? 'remove-done' : 'done-all'}
+                      size={18}
+                      color="#AAAAAA"
+                    />
+                    <SeasonActionText>
+                      {isSeasonCompleted
+                        ? 'Desmarcar temporada'
+                        : 'Marcar temporada como assistida'}
+                    </SeasonActionText>
+                  </SeasonActionButton>
+                )}
+
                 {currentEpisodes.map((ep) => {
                   const epProgress = getProgress(String(ep.id));
-                  const isWatched = Boolean(
-                    epProgress &&
-                    (epProgress.currentTime > 0 ||
-                      epProgress.percentage > 0 ||
-                      epProgress.updatedAt > 0)
-                  );
+                  const isWatched = Boolean(epProgress && hasRealProgress(epProgress));
+                  const isCompleted = isEpisodeCompleted(epProgress);
                   return (
                     <EpisodeItem
                       key={`ep-${ep.id}`}
@@ -525,6 +634,21 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                           {ep.info?.duration || 'Duração padrão'}
                         </EpisodeSub>
                       </EpisodeInfo>
+                      <WatchedToggle
+                        onPress={() => handleToggleEpisodeWatched(ep)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          isCompleted ? 'Marcar como não assistido' : 'Marcar como assistido'
+                        }
+                        testID={`episode-watched-toggle-${ep.id}`}
+                      >
+                        <MaterialIcons
+                          name={isCompleted ? 'check-circle' : 'radio-button-unchecked'}
+                          size={24}
+                          color={isCompleted ? '#46D369' : '#666666'}
+                        />
+                      </WatchedToggle>
                     </EpisodeItem>
                   );
                 })}

@@ -181,3 +181,22 @@ export const EpisodeSub = styled.Text`
   font-size: ${({ theme }) => theme.typography.sizes.xs}px;
   margin-top: 2px;
 `;
+
+export const WatchedToggle = styled.TouchableOpacity`
+  padding: ${({ theme }) => theme.spacing.sm}px;
+  margin-left: ${({ theme }) => theme.spacing.xs}px;
+`;
+
+export const SeasonActionButton = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  gap: ${({ theme }) => theme.spacing.xs}px;
+  padding: ${({ theme }) => theme.spacing.xs}px 0;
+  margin-bottom: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const SeasonActionText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+`;

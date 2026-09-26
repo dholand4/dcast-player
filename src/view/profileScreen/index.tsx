@@ -1,0 +1,215 @@
+import React, { useState } from 'react';
+import { Modal } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { IProfile } from '../../@types/storage';
+import { useProfiles } from '../../hooks/useProfiles';
+import { useAppInsets } from '../../hooks/useAppInsets';
+import { DEFAULT_PROFILE_ID } from '../../services/storageService';
+import { PROFILE_COLORS, MAX_PROFILES, PROFILE_NAME_MAX_LENGTH } from '../../services/profileService';
+import { InputGlobal } from '../../components/inputGlobal';
+import { ButtonGlobal } from '../../components/buttonGlobal';
+import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
+import {
+  Container,
+  Title,
+  ProfilesGrid,
+  ProfileTile,
+  Avatar,
+  AddAvatar,
+  AvatarInitial,
+  EditBadge,
+  ProfileName,
+  ManageButtonWrapper,
+  ModalBackdrop,
+  ModalCard,
+  ModalTitle,
+  ColorRow,
+  ColorSwatch,
+  ModalActions,
+} from './style';
+
+type EditorState = { mode: 'create' } | { mode: 'edit'; profile: IProfile } | null;
+
+export const ProfileScreen: React.FC = () => {
+  const insets = useAppInsets();
+  const { profiles, selectProfile, createProfile, updateProfile, deleteProfile } = useProfiles();
+  const [isManaging, setIsManaging] = useState(false);
+  const [editor, setEditor] = useState<EditorState>(null);
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(PROFILE_COLORS[0]);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+
+  const canAddProfile = profiles.length < MAX_PROFILES;
+
+  const openCreate = () => {
+    setName('');
+    setColor(PROFILE_COLORS[profiles.length % PROFILE_COLORS.length]);
+    setEditor({ mode: 'create' });
+  };
+
+  const openEdit = (profile: IProfile) => {
+    setName(profile.name);
+    setColor(profile.color || PROFILE_COLORS[0]);
+    setEditor({ mode: 'edit', profile });
+  };
+
+  const handleProfilePress = (profile: IProfile) => {
+    if (isManaging) {
+      openEdit(profile);
+    } else {
+      selectProfile(profile.id);
+    }
+  };
+
+  const handleSave = () => {
+    if (!editor || !name.trim()) return;
+    if (editor.mode === 'create') {
+      createProfile(name, color);
+    } else {
+      updateProfile(editor.profile.id, { name, color });
+    }
+    setEditor(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editor?.mode === 'edit') {
+      deleteProfile(editor.profile.id);
+    }
+    setIsDeleteConfirmVisible(false);
+    setEditor(null);
+  };
+
+  const editingProfile = editor?.mode === 'edit' ? editor.profile : null;
+
+  return (
+    <Container insetTop={insets.top} testID="profile-screen">
+      <Title>{isManaging ? 'Gerenciar perfis' : 'Quem está assistindo?'}</Title>
+
+      <ProfilesGrid>
+        {profiles.map((profile, index) => (
+          <ProfileTile
+            key={profile.id}
+            onPress={() => handleProfilePress(profile)}
+            onFocus={() => setFocusedId(profile.id)}
+            onBlur={() => setFocusedId(null)}
+            isFocused={focusedId === profile.id}
+            hasTVPreferredFocus={index === 0}
+            accessibilityRole="button"
+            accessibilityLabel={isManaging ? `Editar perfil ${profile.name}` : `Entrar como ${profile.name}`}
+            testID={`profile-tile-${profile.id}`}
+          >
+            <Avatar color={profile.color || PROFILE_COLORS[0]}>
+              <AvatarInitial>{profile.name.charAt(0).toUpperCase()}</AvatarInitial>
+              {isManaging && (
+                <EditBadge>
+                  <MaterialIcons name="edit" size={32} color="#FFFFFF" />
+                </EditBadge>
+              )}
+            </Avatar>
+            <ProfileName>{profile.name}</ProfileName>
+          </ProfileTile>
+        ))}
+
+        {canAddProfile && (
+          <ProfileTile
+            onPress={openCreate}
+            onFocus={() => setFocusedId('add')}
+            onBlur={() => setFocusedId(null)}
+            isFocused={focusedId === 'add'}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar perfil"
+            testID="profile-add"
+          >
+            <AddAvatar>
+              <MaterialIcons name="add" size={40} color="#AAAAAA" />
+            </AddAvatar>
+            <ProfileName>Adicionar</ProfileName>
+          </ProfileTile>
+        )}
+      </ProfilesGrid>
+
+      <ManageButtonWrapper>
+        <ButtonGlobal
+          label={isManaging ? 'Concluído' : 'Gerenciar perfis'}
+          variant={isManaging ? 'primary' : 'ghost'}
+          icon={
+            <MaterialIcons name={isManaging ? 'check' : 'edit'} size={18} color="#FFFFFF" />
+          }
+          onPress={() => setIsManaging((prev) => !prev)}
+          testID="profile-manage-toggle"
+        />
+      </ManageButtonWrapper>
+
+      <Modal
+        visible={Boolean(editor) && !isDeleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditor(null)}
+      >
+        <ModalBackdrop>
+          <ModalCard keyboardShouldPersistTaps="handled">
+            <ModalTitle>{editingProfile ? 'Editar perfil' : 'Novo perfil'}</ModalTitle>
+
+            <InputGlobal
+              label="Nome"
+              value={name}
+              onChangeText={setName}
+              maxLength={PROFILE_NAME_MAX_LENGTH}
+              placeholder="Ex.: Maria"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
+              testID="profile-name-input"
+            />
+
+            <ColorRow>
+              {PROFILE_COLORS.map((swatch) => (
+                <ColorSwatch
+                  key={swatch}
+                  color={swatch}
+                  isSelected={swatch === color}
+                  onPress={() => setColor(swatch)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cor ${swatch}`}
+                  testID={`profile-color-${swatch}`}
+                />
+              ))}
+            </ColorRow>
+
+            <ModalActions>
+              <ButtonGlobal
+                label="Salvar"
+                onPress={handleSave}
+                disabled={!name.trim()}
+                testID="profile-save"
+              />
+              {editingProfile && editingProfile.id !== DEFAULT_PROFILE_ID && (
+                <ButtonGlobal
+                  label="Excluir perfil"
+                  variant="danger"
+                  onPress={() => setIsDeleteConfirmVisible(true)}
+                  testID="profile-delete"
+                />
+              )}
+              <ButtonGlobal label="Cancelar" variant="ghost" onPress={() => setEditor(null)} />
+            </ModalActions>
+          </ModalCard>
+        </ModalBackdrop>
+      </Modal>
+
+      <ConfirmModalGlobal
+        visible={isDeleteConfirmVisible}
+        title="Excluir perfil"
+        description={`O histórico e os favoritos de "${editingProfile?.name ?? ''}" serão apagados. Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+        iconName="delete-outline"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setIsDeleteConfirmVisible(false)}
+        testID="profile-delete-confirm"
+      />
+    </Container>
+  );
+};
