@@ -5,8 +5,17 @@ import { theme } from '../../../constants/theme';
 import { ProfileScreen } from '../index';
 import { useProfiles } from '../../../hooks/useProfiles';
 
+const mockLogout = jest.fn();
+
 jest.mock('../../../hooks/useProfiles', () => ({
   useProfiles: jest.fn(),
+}));
+
+jest.mock('../../../hooks/useAuth', () => ({
+  useAuth: () => ({
+    account: { serverUrl: 'http://a.tv', username: 'daniel', password: 'p', label: 'Minha Lista' },
+    logout: mockLogout,
+  }),
 }));
 
 const wrap = (ui: React.ReactElement) => render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
@@ -96,5 +105,15 @@ describe('ProfileScreen', () => {
 
     expect(selectProfile).not.toHaveBeenCalled();
     expect(deleteProfile).toHaveBeenCalledWith('kids');
+  });
+
+  it('switches IPTV list from the profile screen after confirming', () => {
+    const { getByTestId, getByText } = wrap(<ProfileScreen />);
+
+    expect(getByText('Minha Lista • @daniel')).toBeTruthy();
+    fireEvent.press(getByTestId('profile-switch-list'));
+    fireEvent.press(getByText('Trocar'));
+
+    expect(mockLogout).toHaveBeenCalled();
   });
 });

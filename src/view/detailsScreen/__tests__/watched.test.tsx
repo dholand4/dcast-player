@@ -11,11 +11,11 @@ const mockMarkAsWatched = jest.fn();
 const mockMarkAsUnwatched = jest.fn();
 let mockProgress: Record<string, IWatchProgress> = {};
 
-jest.mock('../../../hooks/useAuth', () => ({
-  useAuth: () => ({
-    account: { serverUrl: 'http://test.com', username: 'user', password: 'pass', label: 'Test' },
-  }),
-}));
+const mockAuth = {
+  account: { serverUrl: 'http://test.com', username: 'user', password: 'pass', label: 'Test' },
+};
+
+jest.mock('../../../hooks/useAuth', () => ({ useAuth: () => mockAuth }));
 
 jest.mock('../../../hooks/useXtream', () => ({
   useXtream: () => ({

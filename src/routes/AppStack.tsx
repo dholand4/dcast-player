@@ -6,7 +6,6 @@ import { HomeScreen } from '../view/homeScreen';
 import { CategoryScreen } from '../view/categoryScreen';
 import { DetailsScreen } from '../view/detailsScreen';
 import { PlayerScreen } from '../view/playerScreen';
-import { SetupScreen } from '../view/setupScreen';
 import { SearchScreen } from '../view/searchScreen';
 import { MiniPlayerGlobal } from '../components/miniPlayerGlobal';
 
@@ -36,7 +35,6 @@ export const AppStack: React.FC = () => {
             statusBarAnimation: 'fade',
           }}
         />
-        <Stack.Screen name="SetupScreen" component={SetupScreen} />
       </Stack.Navigator>
       <MiniPlayerGlobal />
     </View>

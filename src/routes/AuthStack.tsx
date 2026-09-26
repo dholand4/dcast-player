@@ -2,13 +2,10 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { SetupScreen } from '../view/setupScreen';
-import { HomeScreen } from '../view/homeScreen';
-import { CategoryScreen } from '../view/categoryScreen';
-import { DetailsScreen } from '../view/detailsScreen';
-import { PlayerScreen } from '../view/playerScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Só a tela de conexão: telas repetidas aqui fariam o app continuar nelas ao sair da lista
 export const AuthStack: React.FC = () => {
   return (
     <Stack.Navigator
@@ -20,18 +17,6 @@ export const AuthStack: React.FC = () => {
       }}
     >
       <Stack.Screen name="SetupScreen" component={SetupScreen} />
-      <Stack.Screen name="HomeScreen" component={HomeScreen} />
-      <Stack.Screen name="CategoryScreen" component={CategoryScreen} />
-      <Stack.Screen name="DetailsScreen" component={DetailsScreen} />
-      <Stack.Screen
-        name="PlayerScreen"
-        component={PlayerScreen}
-        options={{
-          animation: 'fade',
-          statusBarHidden: true,
-          statusBarAnimation: 'fade',
-        }}
-      />
     </Stack.Navigator>
   );
 };

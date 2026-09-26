@@ -4,7 +4,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfiles } from '../../hooks/useProfiles';
-import { useCast } from '../../hooks/useCast';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
 import { useNewEpisodes } from '../../hooks/useNewEpisodes';
 import { clearXtreamCache } from '../../hooks/useXtream';
@@ -27,6 +26,7 @@ import {
   ScrollArea,
   AccountWarningCard,
   AccountWarningText,
+  ProfileAvatar,
   SubscriptionCard,
   SubscriptionInfo,
   SubscriptionText,
@@ -38,15 +38,14 @@ import {
 } from './style';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { account, userInfo, accountWarning, logout } = useAuth();
+  const { account, userInfo, accountWarning } = useAuth();
   const { activeProfile, switchProfile } = useProfiles();
-  const { isCasting, stopCast } = useCast();
   const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
     useWatchHistory();
   const newEpisodes = useNewEpisodes(account, continueWatching);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [isExitProfileModalVisible, setIsExitProfileModalVisible] = useState(false);
   const [isClearHistoryModalVisible, setIsClearHistoryModalVisible] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ id: string; seriesId?: string; title: string } | null>(null);
   const [syncModal, setSyncModal] = useState<{
@@ -61,19 +60,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     description: '',
   });
   const formattedExpDate = formatExpirationDate(userInfo?.exp_date);
-
-  const handleExecuteLogout = useCallback(() => {
-    if (isCasting) {
-      stopCast();
-    }
-    clearXtreamCache();
-    storageService.clearCatalogCache();
-    logout();
-  }, [isCasting, stopCast, logout]);
-
-  const handleConfirmLogout = useCallback(() => {
-    setIsLogoutModalVisible(true);
-  }, []);
 
   const collapsedContinueWatching = useMemo(() => {
     const map = new Map<string, typeof continueWatching[0]>();
@@ -149,10 +135,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     <Container testID="home-screen">
       <HeaderGlobal
-        title={account?.label || 'DCast Player'}
-        subtitle={account?.username ? `@${account.username}` : undefined}
-        extraInfo={formattedExpDate}
+        title={activeProfile?.name || 'DCast Player'}
         onSearchPress={() => navigation.navigate('SearchScreen')}
+        leftAccessory={
+          activeProfile ? (
+            <ProfileAvatar color={activeProfile.color}>
+              <MaterialIcons name="person" size={22} color="#FFFFFF" />
+            </ProfileAvatar>
+          ) : undefined
+        }
+        onTitlePress={activeProfile ? () => setIsExitProfileModalVisible(true) : undefined}
+        titleAccessibilityLabel={
+          activeProfile ? `Perfil ${activeProfile.name}. Opções do perfil` : undefined
+        }
       />
 
       <ScrollArea>
@@ -178,50 +173,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         )}
 
         <QuickActionsRow testID="quick-actions-row">
-          {activeProfile && (
-            <QuickActionButton
-              onPress={switchProfile}
-              accessibilityRole="button"
-              accessibilityLabel={`Perfil ${activeProfile.name}. Trocar perfil`}
-              testID="home-switch-profile-button"
-            >
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
-                  backgroundColor: activeProfile.color,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
-                  {activeProfile.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <QuickActionText numberOfLines={1} adjustsFontSizeToFit>
-                {activeProfile.name}
-              </QuickActionText>
-            </QuickActionButton>
-          )}
-
-          <QuickActionButton
-            onPress={handleConfirmLogout}
-            accessibilityRole="button"
-            accessibilityLabel="Sair ou trocar de lista IPTV"
-            testID="home-logout-button"
-            style={{ borderColor: 'rgba(229, 9, 20, 0.4)' }}
-          >
-            <MaterialIcons name="logout" size={20} color="#E50914" />
-            <QuickActionText
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={{ color: '#E50914' }}
-            >
-              Trocar Lista
-            </QuickActionText>
-          </QuickActionButton>
-
           <QuickActionButton
             onPress={handleSyncCatalog}
             disabled={isSyncing}
@@ -398,19 +349,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       />
 
       <ConfirmModalGlobal
-        visible={isLogoutModalVisible}
-        title="Sair da Lista"
-        description={`Deseja sair de "${account?.label || account?.username || 'esta lista'}"? Suas listas continuarão salvas para alternar com facilidade.`}
-        confirmText="Sair e Trocar"
+        visible={isExitProfileModalVisible}
+        title="Sair do perfil"
+        description={`Sair do perfil "${activeProfile?.name ?? ''}"? Você volta para a escolha de perfil, onde também pode trocar de lista.`}
+        confirmText="Sair"
         cancelText="Cancelar"
-        variant="danger"
+        variant="warning"
         iconName="logout"
         onConfirm={() => {
-          setIsLogoutModalVisible(false);
-          handleExecuteLogout();
+          setIsExitProfileModalVisible(false);
+          switchProfile();
         }}
-        onCancel={() => setIsLogoutModalVisible(false)}
-        testID="home-logout-modal"
+        onCancel={() => setIsExitProfileModalVisible(false)}
+        testID="home-exit-profile-modal"
       />
 
       <ConfirmModalGlobal

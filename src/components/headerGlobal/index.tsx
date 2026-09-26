@@ -9,6 +9,7 @@ import {
   LeftSection,
   BackButton,
   BackIconText,
+  TitleButton,
   TitleContainer,
   TitleText,
   SubtitleText,
@@ -24,10 +25,21 @@ export const HeaderGlobal: React.FC<IHeaderGlobalProps> = ({
   onBack,
   onSearchPress,
   showCast = true,
+  leftAccessory,
+  onTitlePress,
+  titleAccessibilityLabel,
   testID,
 }) => {
   const insets = useAppInsets();
   const theme = useTheme();
+
+  const titleContent = (
+    <TitleContainer>
+      <TitleText>{title}</TitleText>
+      {subtitle ? <SubtitleText>{subtitle}</SubtitleText> : null}
+      {extraInfo ? <ExtraInfoText>{extraInfo}</ExtraInfoText> : null}
+    </TitleContainer>
+  );
 
   return (
     <Container insetTop={insets.top} testID={testID}>
@@ -42,11 +54,22 @@ export const HeaderGlobal: React.FC<IHeaderGlobalProps> = ({
             <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
           </BackButton>
         )}
-        <TitleContainer>
-          <TitleText>{title}</TitleText>
-          {subtitle ? <SubtitleText>{subtitle}</SubtitleText> : null}
-          {extraInfo ? <ExtraInfoText>{extraInfo}</ExtraInfoText> : null}
-        </TitleContainer>
+        {onTitlePress ? (
+          <TitleButton
+            onPress={onTitlePress}
+            accessibilityRole="button"
+            accessibilityLabel={titleAccessibilityLabel ?? title}
+            testID="header-title-button"
+          >
+            {leftAccessory}
+            {titleContent}
+          </TitleButton>
+        ) : (
+          <>
+            {leftAccessory}
+            {titleContent}
+          </>
+        )}
       </LeftSection>
       <RightSection>
         {onSearchPress && (

@@ -1,6 +1,9 @@
 import styled from 'styled-components/native';
 
 export const Container = styled.ScrollView.attrs<{ insetTop?: number }>(({ theme, insetTop }) => ({
+  keyboardShouldPersistTaps: 'handled',
+  // iOS: rola o campo focado para cima do teclado
+  automaticallyAdjustKeyboardInsets: true,
   contentContainerStyle: {
     flexGrow: 1,
     justifyContent: 'center',

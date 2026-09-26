@@ -6,6 +6,7 @@ import { ICustomCategoryFolder } from '../../@types/storage';
 import { IXtreamLiveStream, IXtreamVodStream, IXtreamSeries } from '../../@types/xtream';
 import { ICustomFolderEditModalGlobalProps } from './types';
 import { InputGlobal } from '../inputGlobal';
+import { KeyboardAvoidingGlobal } from '../keyboardAvoidingGlobal';
 import { ButtonGlobal } from '../buttonGlobal';
 import {
   ModalBackdrop,
@@ -125,129 +126,131 @@ export const CustomFolderEditModalGlobal: React.FC<ICustomFolderEditModalGlobalP
       onRequestClose={onClose}
       testID="custom-folder-edit-modal"
     >
-      <ModalBackdrop>
-        <ModalContainer>
-          <ModalHeader>
-            <HeaderTitleContainer>
-              <ModalTitle>
-                {folderToEdit ? 'Editar Pasta' : 'Nova Pasta'}
-              </ModalTitle>
-              <ModalSubtitle>
-                {type === 'live'
-                  ? 'Selecione os canais que farão parte desta pasta'
-                  : 'Selecione os conteúdos para esta pasta'}
-              </ModalSubtitle>
-            </HeaderTitleContainer>
-            <CloseButton onPress={onClose} testID="custom-folder-close-btn">
-              <MaterialIcons name="close" size={22} color={theme.colors.text} />
-            </CloseButton>
-          </ModalHeader>
+      <KeyboardAvoidingGlobal>
+        <ModalBackdrop>
+          <ModalContainer>
+            <ModalHeader>
+              <HeaderTitleContainer>
+                <ModalTitle>
+                  {folderToEdit ? 'Editar Pasta' : 'Nova Pasta'}
+                </ModalTitle>
+                <ModalSubtitle>
+                  {type === 'live'
+                    ? 'Selecione os canais que farão parte desta pasta'
+                    : 'Selecione os conteúdos para esta pasta'}
+                </ModalSubtitle>
+              </HeaderTitleContainer>
+              <CloseButton onPress={onClose} testID="custom-folder-close-btn">
+                <MaterialIcons name="close" size={22} color={theme.colors.text} />
+              </CloseButton>
+            </ModalHeader>
 
-          <FormBody>
-            <InputGlobal
-              label="Nome da Pasta"
-              placeholder={type === 'live' ? 'Ex: Canais Abertos, Esportes VIP...' : 'Ex: Meus Filmes...'}
-              value={folderName}
-              onChangeText={(t) => {
-                setFolderName(t);
-                if (nameError) setNameError(null);
+            <FormBody>
+              <InputGlobal
+                label="Nome da Pasta"
+                placeholder={type === 'live' ? 'Ex: Canais Abertos, Esportes VIP...' : 'Ex: Meus Filmes...'}
+                value={folderName}
+                onChangeText={(t) => {
+                  setFolderName(t);
+                  if (nameError) setNameError(null);
+                }}
+                error={nameError}
+                testID="folder-name-input"
+              />
+
+              <SearchWrapper>
+                <InputGlobal
+                  placeholder="Buscar para adicionar à pasta..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  noMargin
+                  testID="folder-stream-search-input"
+                />
+              </SearchWrapper>
+
+              <SelectionCountBar>
+                <SelectionCountText>
+                  {selectedIds.length} {type === 'live' ? 'canal(is) selecionado(s)' : 'item(ns) selecionado(s)'}
+                </SelectionCountText>
+                {selectedIds.length > 0 && (
+                  <ClearSelectionText
+                    onPress={() => setSelectedIds([])}
+                    testID="clear-selection-btn"
+                  >
+                    Limpar todos
+                  </ClearSelectionText>
+                )}
+              </SelectionCountBar>
+            </FormBody>
+
+            <FlatList
+              data={filteredStreams}
+              keyExtractor={(item) => getStreamId(item)}
+              style={{ flex: 1, paddingHorizontal: 16 }}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              renderItem={({ item }) => {
+                const id = getStreamId(item);
+                const isSelected = selectedIds.includes(id);
+                const icon = getStreamIcon(item);
+
+                return (
+                  <StreamItem
+                    isSelected={isSelected}
+                    onPress={() => handleToggleSelect(id)}
+                    testID={`stream-item-${id}`}
+                  >
+                    <StreamIconWrapper>
+                      {icon ? (
+                        <StreamIcon source={{ uri: icon }} contentFit="contain" />
+                      ) : (
+                        <MaterialIcons
+                          name={type === 'live' ? 'live-tv' : 'movie'}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      )}
+                    </StreamIconWrapper>
+                    <StreamName isSelected={isSelected} numberOfLines={1}>
+                      {item.name}
+                    </StreamName>
+                    <CheckboxCircle isSelected={isSelected}>
+                      {isSelected && (
+                        <MaterialIcons name="check" size={14} color="#FFFFFF" />
+                      )}
+                    </CheckboxCircle>
+                  </StreamItem>
+                );
               }}
-              error={nameError}
-              testID="folder-name-input"
+              ListEmptyComponent={
+                <EmptySearchText>
+                  {searchQuery
+                    ? 'Nenhum resultado encontrado para a busca'
+                    : 'Nenhum conteúdo disponível para seleção'}
+                </EmptySearchText>
+              }
             />
 
-            <SearchWrapper>
-              <InputGlobal
-                placeholder="Buscar para adicionar à pasta..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                noMargin
-                testID="folder-stream-search-input"
-              />
-            </SearchWrapper>
-
-            <SelectionCountBar>
-              <SelectionCountText>
-                {selectedIds.length} {type === 'live' ? 'canal(is) selecionado(s)' : 'item(ns) selecionado(s)'}
-              </SelectionCountText>
-              {selectedIds.length > 0 && (
-                <ClearSelectionText
-                  onPress={() => setSelectedIds([])}
-                  testID="clear-selection-btn"
-                >
-                  Limpar todos
-                </ClearSelectionText>
-              )}
-            </SelectionCountBar>
-          </FormBody>
-
-          <FlatList
-            data={filteredStreams}
-            keyExtractor={(item) => getStreamId(item)}
-            style={{ flex: 1, paddingHorizontal: 16 }}
-            contentContainerStyle={{ paddingBottom: 16 }}
-            renderItem={({ item }) => {
-              const id = getStreamId(item);
-              const isSelected = selectedIds.includes(id);
-              const icon = getStreamIcon(item);
-
-              return (
-                <StreamItem
-                  isSelected={isSelected}
-                  onPress={() => handleToggleSelect(id)}
-                  testID={`stream-item-${id}`}
-                >
-                  <StreamIconWrapper>
-                    {icon ? (
-                      <StreamIcon source={{ uri: icon }} contentFit="contain" />
-                    ) : (
-                      <MaterialIcons
-                        name={type === 'live' ? 'live-tv' : 'movie'}
-                        size={20}
-                        color={theme.colors.textSecondary}
-                      />
-                    )}
-                  </StreamIconWrapper>
-                  <StreamName isSelected={isSelected} numberOfLines={1}>
-                    {item.name}
-                  </StreamName>
-                  <CheckboxCircle isSelected={isSelected}>
-                    {isSelected && (
-                      <MaterialIcons name="check" size={14} color="#FFFFFF" />
-                    )}
-                  </CheckboxCircle>
-                </StreamItem>
-              );
-            }}
-            ListEmptyComponent={
-              <EmptySearchText>
-                {searchQuery
-                  ? 'Nenhum resultado encontrado para a busca'
-                  : 'Nenhum conteúdo disponível para seleção'}
-              </EmptySearchText>
-            }
-          />
-
-          <ModalFooter>
-            <View style={{ flex: 1 }}>
-              <ButtonGlobal
-                variant="secondary"
-                label="Cancelar"
-                onPress={onClose}
-                testID="cancel-folder-btn"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ButtonGlobal
-                variant="primary"
-                label="Salvar Pasta"
-                onPress={handleSave}
-                testID="save-folder-btn"
-              />
-            </View>
-          </ModalFooter>
-        </ModalContainer>
-      </ModalBackdrop>
+            <ModalFooter>
+              <View style={{ flex: 1 }}>
+                <ButtonGlobal
+                  variant="secondary"
+                  label="Cancelar"
+                  onPress={onClose}
+                  testID="cancel-folder-btn"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ButtonGlobal
+                  variant="primary"
+                  label="Salvar Pasta"
+                  onPress={handleSave}
+                  testID="save-folder-btn"
+                />
+              </View>
+            </ModalFooter>
+          </ModalContainer>
+        </ModalBackdrop>
+      </KeyboardAvoidingGlobal>
     </Modal>
   );
 };

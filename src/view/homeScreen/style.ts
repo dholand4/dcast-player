@@ -44,6 +44,16 @@ export const AccountWarningText = styled.Text`
   font-size: ${({ theme }) => theme.typography.sizes.sm}px;
 `;
 
+export const ProfileAvatar = styled.View<{ color: string }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  margin-right: ${({ theme }) => theme.spacing.sm}px;
+  background-color: ${({ color }) => color};
+  align-items: center;
+  justify-content: center;
+`;
+
 export const SubscriptionInfo = styled.View`
   flex-direction: row;
   align-items: center;

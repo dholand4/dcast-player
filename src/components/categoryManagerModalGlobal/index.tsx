@@ -10,6 +10,7 @@ import { xtreamService } from '../../services/xtreamService';
 import { useCategoryManager } from '../../hooks/useCategoryManager';
 import { CustomFolderEditModalGlobal } from '../customFolderEditModalGlobal';
 import { InputGlobal } from '../inputGlobal';
+import { KeyboardAvoidingGlobal } from '../keyboardAvoidingGlobal';
 import { ICategoryManagerModalGlobalProps, CategoryManagerTab } from './types';
 import {
   ModalBackdrop,
@@ -215,290 +216,292 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
         onRequestClose={onClose}
         testID="category-manager-modal"
       >
-        <ModalBackdrop>
-          <ModalContainer>
-            <ModalHeader>
-              <HeaderTitleContainer>
-                <ModalTitle>Gerenciador de Pastas</ModalTitle>
-                <ModalSubtitle>
-                  {type === 'live'
-                    ? 'Organize e personalize seus canais de TV'
-                    : type === 'movie'
-                    ? 'Organize e personalize seus filmes'
-                    : 'Organize e personalize suas séries'}
-                </ModalSubtitle>
-              </HeaderTitleContainer>
-              <CloseButton onPress={onClose} testID="category-manager-close-btn">
-                <MaterialIcons name="close" size={22} color={theme.colors.text} />
-              </CloseButton>
-            </ModalHeader>
+        <KeyboardAvoidingGlobal>
+          <ModalBackdrop>
+            <ModalContainer>
+              <ModalHeader>
+                <HeaderTitleContainer>
+                  <ModalTitle>Gerenciador de Pastas</ModalTitle>
+                  <ModalSubtitle>
+                    {type === 'live'
+                      ? 'Organize e personalize seus canais de TV'
+                      : type === 'movie'
+                      ? 'Organize e personalize seus filmes'
+                      : 'Organize e personalize suas séries'}
+                  </ModalSubtitle>
+                </HeaderTitleContainer>
+                <CloseButton onPress={onClose} testID="category-manager-close-btn">
+                  <MaterialIcons name="close" size={22} color={theme.colors.text} />
+                </CloseButton>
+              </ModalHeader>
 
-            <TabBar>
-              <TabButton
-                isActive={activeTab === 'server'}
-                onPress={() => {
-                  setActiveTab('server');
-                  setSearchQuery('');
-                }}
-                testID="tab-server"
-              >
-                <MaterialIcons
-                  name="list"
-                  size={16}
-                  color={activeTab === 'server' ? theme.colors.primary : theme.colors.textSecondary}
-                  style={{ marginRight: 6 }}
-                />
-                <TabButtonText isActive={activeTab === 'server'}>
-                  Pastas da Lista
-                </TabButtonText>
-                <TabBadge isActive={activeTab === 'server'}>
-                  <TabBadgeText isActive={activeTab === 'server'}>
-                    {categories.length}
-                  </TabBadgeText>
-                </TabBadge>
-              </TabButton>
+              <TabBar>
+                <TabButton
+                  isActive={activeTab === 'server'}
+                  onPress={() => {
+                    setActiveTab('server');
+                    setSearchQuery('');
+                  }}
+                  testID="tab-server"
+                >
+                  <MaterialIcons
+                    name="list"
+                    size={16}
+                    color={activeTab === 'server' ? theme.colors.primary : theme.colors.textSecondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <TabButtonText isActive={activeTab === 'server'}>
+                    Pastas da Lista
+                  </TabButtonText>
+                  <TabBadge isActive={activeTab === 'server'}>
+                    <TabBadgeText isActive={activeTab === 'server'}>
+                      {categories.length}
+                    </TabBadgeText>
+                  </TabBadge>
+                </TabButton>
 
-              <TabButton
-                isActive={activeTab === 'custom'}
-                onPress={() => {
-                  setActiveTab('custom');
-                  setSearchQuery('');
-                }}
-                testID="tab-custom"
-              >
-                <MaterialIcons
-                  name="folder-special"
-                  size={16}
-                  color={activeTab === 'custom' ? theme.colors.primary : theme.colors.textSecondary}
-                  style={{ marginRight: 6 }}
-                />
-                <TabButtonText isActive={activeTab === 'custom'}>
-                  Minhas Pastas
-                </TabButtonText>
-                <TabBadge isActive={activeTab === 'custom'}>
-                  <TabBadgeText isActive={activeTab === 'custom'}>
-                    {customFolders.length}
-                  </TabBadgeText>
-                </TabBadge>
-              </TabButton>
+                <TabButton
+                  isActive={activeTab === 'custom'}
+                  onPress={() => {
+                    setActiveTab('custom');
+                    setSearchQuery('');
+                  }}
+                  testID="tab-custom"
+                >
+                  <MaterialIcons
+                    name="folder-special"
+                    size={16}
+                    color={activeTab === 'custom' ? theme.colors.primary : theme.colors.textSecondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <TabButtonText isActive={activeTab === 'custom'}>
+                    Minhas Pastas
+                  </TabButtonText>
+                  <TabBadge isActive={activeTab === 'custom'}>
+                    <TabBadgeText isActive={activeTab === 'custom'}>
+                      {customFolders.length}
+                    </TabBadgeText>
+                  </TabBadge>
+                </TabButton>
 
-              <TabButton
-                isActive={activeTab === 'streams'}
-                onPress={() => {
-                  setActiveTab('streams');
-                  setSearchQuery('');
-                }}
-                testID="tab-streams"
-              >
-                <MaterialIcons
-                  name="visibility-off"
-                  size={16}
-                  color={activeTab === 'streams' ? theme.colors.primary : theme.colors.textSecondary}
-                  style={{ marginRight: 6 }}
-                />
-                <TabButtonText isActive={activeTab === 'streams'}>
-                  {type === 'live' ? 'Canais' : 'Conteúdos'} Ocultos
-                </TabButtonText>
-                <TabBadge isActive={activeTab === 'streams'}>
-                  <TabBadgeText isActive={activeTab === 'streams'}>
-                    {hiddenStreams.length}
-                  </TabBadgeText>
-                </TabBadge>
-              </TabButton>
-            </TabBar>
+                <TabButton
+                  isActive={activeTab === 'streams'}
+                  onPress={() => {
+                    setActiveTab('streams');
+                    setSearchQuery('');
+                  }}
+                  testID="tab-streams"
+                >
+                  <MaterialIcons
+                    name="visibility-off"
+                    size={16}
+                    color={activeTab === 'streams' ? theme.colors.primary : theme.colors.textSecondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <TabButtonText isActive={activeTab === 'streams'}>
+                    {type === 'live' ? 'Canais' : 'Conteúdos'} Ocultos
+                  </TabButtonText>
+                  <TabBadge isActive={activeTab === 'streams'}>
+                    <TabBadgeText isActive={activeTab === 'streams'}>
+                      {hiddenStreams.length}
+                    </TabBadgeText>
+                  </TabBadge>
+                </TabButton>
+              </TabBar>
 
-            <TabContent>
-              {/* Tab 1: Pastas da Lista (Server Categories) */}
-              {activeTab === 'server' && (
-                <>
-                  <SearchWrapper>
-                    <InputGlobal
-                      placeholder="Buscar pasta da lista..."
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      noMargin
-                      testID="manager-category-search-input"
+              <TabContent>
+                {/* Tab 1: Pastas da Lista (Server Categories) */}
+                {activeTab === 'server' && (
+                  <>
+                    <SearchWrapper>
+                      <InputGlobal
+                        placeholder="Buscar pasta da lista..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        noMargin
+                        testID="manager-category-search-input"
+                      />
+                    </SearchWrapper>
+
+                    <FlatList
+                      data={filteredCategories}
+                      keyExtractor={(c) => String(c.category_id)}
+                      showsVerticalScrollIndicator={false}
+                      style={{ flex: 1 }}
+                      contentContainerStyle={{ paddingBottom: 24 }}
+                      renderItem={({ item }) => {
+                        const isHidden = hiddenCategories.includes(String(item.category_id));
+                        return (
+                          <CategoryRow isHidden={isHidden} testID={`category-row-${item.category_id}`}>
+                            <CategoryInfo>
+                              <CategoryName isHidden={isHidden} numberOfLines={1}>
+                                {item.category_name}
+                              </CategoryName>
+                              <StatusBadge isHidden={isHidden}>
+                                <StatusBadgeText isHidden={isHidden}>
+                                  {isHidden ? 'OCULTA NO MENU' : 'VISÍVEL'}
+                                </StatusBadgeText>
+                              </StatusBadge>
+                            </CategoryInfo>
+
+                            <ToggleButton
+                              isHidden={isHidden}
+                              onPress={() => toggleHideCategory(String(item.category_id))}
+                              testID={`toggle-cat-${item.category_id}`}
+                            >
+                              <MaterialIcons
+                                name={isHidden ? 'visibility-off' : 'visibility'}
+                                size={18}
+                                color={isHidden ? theme.colors.textSecondary : theme.colors.primary}
+                              />
+                              <ToggleButtonText isHidden={isHidden}>
+                                {isHidden ? 'Mostrar' : 'Ocultar'}
+                              </ToggleButtonText>
+                            </ToggleButton>
+                          </CategoryRow>
+                        );
+                      }}
+                      ListEmptyComponent={
+                        <EmptyContainer>
+                          <MaterialIcons name="folder-off" size={40} color={theme.colors.textMuted} />
+                          <EmptyText>Nenhuma pasta encontrada</EmptyText>
+                        </EmptyContainer>
+                      }
                     />
-                  </SearchWrapper>
+                  </>
+                )}
 
-                  <FlatList
-                    data={filteredCategories}
-                    keyExtractor={(c) => String(c.category_id)}
-                    showsVerticalScrollIndicator={false}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 24 }}
-                    renderItem={({ item }) => {
-                      const isHidden = hiddenCategories.includes(String(item.category_id));
-                      return (
-                        <CategoryRow isHidden={isHidden} testID={`category-row-${item.category_id}`}>
-                          <CategoryInfo>
-                            <CategoryName isHidden={isHidden} numberOfLines={1}>
-                              {item.category_name}
-                            </CategoryName>
-                            <StatusBadge isHidden={isHidden}>
-                              <StatusBadgeText isHidden={isHidden}>
-                                {isHidden ? 'OCULTA NO MENU' : 'VISÍVEL'}
-                              </StatusBadgeText>
-                            </StatusBadge>
-                          </CategoryInfo>
+                {/* Tab 2: Minhas Pastas (Custom User Folders) */}
+                {activeTab === 'custom' && (
+                  <>
+                    <CreateFolderBanner
+                      onPress={handleOpenNewFolder}
+                      testID="create-custom-folder-btn"
+                    >
+                      <MaterialIcons name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <CreateFolderBannerTitle>+ Nova Pasta Personalizada</CreateFolderBannerTitle>
+                    </CreateFolderBanner>
 
-                          <ToggleButton
-                            isHidden={isHidden}
-                            onPress={() => toggleHideCategory(String(item.category_id))}
-                            testID={`toggle-cat-${item.category_id}`}
-                          >
-                            <MaterialIcons
-                              name={isHidden ? 'visibility-off' : 'visibility'}
-                              size={18}
-                              color={isHidden ? theme.colors.textSecondary : theme.colors.primary}
-                            />
-                            <ToggleButtonText isHidden={isHidden}>
-                              {isHidden ? 'Mostrar' : 'Ocultar'}
-                            </ToggleButtonText>
-                          </ToggleButton>
-                        </CategoryRow>
-                      );
-                    }}
-                    ListEmptyComponent={
-                      <EmptyContainer>
-                        <MaterialIcons name="folder-off" size={40} color={theme.colors.textMuted} />
-                        <EmptyText>Nenhuma pasta encontrada</EmptyText>
-                      </EmptyContainer>
-                    }
-                  />
-                </>
-              )}
+                    <FlatList
+                      data={customFolders}
+                      keyExtractor={(f) => f.id}
+                      showsVerticalScrollIndicator={false}
+                      style={{ flex: 1 }}
+                      contentContainerStyle={{ paddingBottom: 24 }}
+                      renderItem={({ item }) => (
+                        <CustomFolderRow testID={`custom-folder-row-${item.id}`}>
+                          <FolderInfoContainer>
+                            <FolderIconBox>
+                              <MaterialIcons name="folder" size={22} color="#4CAF50" />
+                            </FolderIconBox>
+                            <FolderTextsContainer>
+                              <CategoryName isHidden={false} numberOfLines={1}>
+                                📁 {item.name}
+                              </CategoryName>
+                              <FolderMetaText>
+                                {item.streamIds.length}{' '}
+                                {type === 'live' ? 'canal(is) adicionado(s)' : 'item(ns) adicionado(s)'}
+                              </FolderMetaText>
+                            </FolderTextsContainer>
+                          </FolderInfoContainer>
 
-              {/* Tab 2: Minhas Pastas (Custom User Folders) */}
-              {activeTab === 'custom' && (
-                <>
-                  <CreateFolderBanner
-                    onPress={handleOpenNewFolder}
-                    testID="create-custom-folder-btn"
-                  >
-                    <MaterialIcons name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <CreateFolderBannerTitle>+ Nova Pasta Personalizada</CreateFolderBannerTitle>
-                  </CreateFolderBanner>
-
-                  <FlatList
-                    data={customFolders}
-                    keyExtractor={(f) => f.id}
-                    showsVerticalScrollIndicator={false}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 24 }}
-                    renderItem={({ item }) => (
-                      <CustomFolderRow testID={`custom-folder-row-${item.id}`}>
-                        <FolderInfoContainer>
-                          <FolderIconBox>
-                            <MaterialIcons name="folder" size={22} color="#4CAF50" />
-                          </FolderIconBox>
-                          <FolderTextsContainer>
-                            <CategoryName isHidden={false} numberOfLines={1}>
-                              📁 {item.name}
-                            </CategoryName>
-                            <FolderMetaText>
-                              {item.streamIds.length}{' '}
-                              {type === 'live' ? 'canal(is) adicionado(s)' : 'item(ns) adicionado(s)'}
-                            </FolderMetaText>
-                          </FolderTextsContainer>
-                        </FolderInfoContainer>
-
-                        <FolderActions>
-                          <ActionIconButton
-                            onPress={() => handleOpenEditFolder(item)}
-                            testID={`edit-folder-${item.id}`}
-                            accessibilityLabel="Editar pasta"
-                          >
-                            <MaterialIcons name="edit" size={18} color={theme.colors.text} />
-                          </ActionIconButton>
-                          <ActionIconButton
-                            onPress={() => handleDeleteFolder(item)}
-                            testID={`delete-folder-${item.id}`}
-                            accessibilityLabel="Excluir pasta"
-                          >
-                            <MaterialIcons name="delete" size={18} color={theme.colors.error} />
-                          </ActionIconButton>
-                        </FolderActions>
-                      </CustomFolderRow>
-                    )}
-                    ListEmptyComponent={
-                      <EmptyContainer>
-                        <MaterialIcons name="create-new-folder" size={44} color={theme.colors.textMuted} />
-                        <EmptyText>
-                          Você ainda não criou pastas personalizadas.{'\n'}
-                          Toque em "+ Nova Pasta" para criar (ex: "Canais Abertos").
-                        </EmptyText>
-                      </EmptyContainer>
-                    }
-                  />
-                </>
-              )}
-
-              {/* Tab 3: Canais / Itens Ocultos */}
-              {activeTab === 'streams' && (
-                <>
-                  <SearchWrapper>
-                    <InputGlobal
-                      placeholder={type === 'live' ? 'Buscar canal para ocultar...' : 'Buscar conteúdo...'}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      noMargin
-                      testID="manager-stream-search-input"
+                          <FolderActions>
+                            <ActionIconButton
+                              onPress={() => handleOpenEditFolder(item)}
+                              testID={`edit-folder-${item.id}`}
+                              accessibilityLabel="Editar pasta"
+                            >
+                              <MaterialIcons name="edit" size={18} color={theme.colors.text} />
+                            </ActionIconButton>
+                            <ActionIconButton
+                              onPress={() => handleDeleteFolder(item)}
+                              testID={`delete-folder-${item.id}`}
+                              accessibilityLabel="Excluir pasta"
+                            >
+                              <MaterialIcons name="delete" size={18} color={theme.colors.error} />
+                            </ActionIconButton>
+                          </FolderActions>
+                        </CustomFolderRow>
+                      )}
+                      ListEmptyComponent={
+                        <EmptyContainer>
+                          <MaterialIcons name="create-new-folder" size={44} color={theme.colors.textMuted} />
+                          <EmptyText>
+                            Você ainda não criou pastas personalizadas.{'\n'}
+                            Toque em "+ Nova Pasta" para criar (ex: "Canais Abertos").
+                          </EmptyText>
+                        </EmptyContainer>
+                      }
                     />
-                  </SearchWrapper>
+                  </>
+                )}
 
-                  <FlatList
-                    data={filteredStreams}
-                    keyExtractor={(s) => getStreamId(s)}
-                    showsVerticalScrollIndicator={false}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 24 }}
-                    renderItem={({ item }) => {
-                      const id = getStreamId(item);
-                      const isHidden = hiddenStreams.includes(id);
+                {/* Tab 3: Canais / Itens Ocultos */}
+                {activeTab === 'streams' && (
+                  <>
+                    <SearchWrapper>
+                      <InputGlobal
+                        placeholder={type === 'live' ? 'Buscar canal para ocultar...' : 'Buscar conteúdo...'}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        noMargin
+                        testID="manager-stream-search-input"
+                      />
+                    </SearchWrapper>
 
-                      return (
-                        <CategoryRow isHidden={isHidden} testID={`stream-row-${id}`}>
-                          <CategoryInfo>
-                            <CategoryName isHidden={isHidden} numberOfLines={1}>
-                              {item.name}
-                            </CategoryName>
-                            <StatusBadge isHidden={isHidden}>
-                              <StatusBadgeText isHidden={isHidden}>
-                                {isHidden ? 'CANAL OCULTO' : 'VISÍVEL'}
-                              </StatusBadgeText>
-                            </StatusBadge>
-                          </CategoryInfo>
+                    <FlatList
+                      data={filteredStreams}
+                      keyExtractor={(s) => getStreamId(s)}
+                      showsVerticalScrollIndicator={false}
+                      style={{ flex: 1 }}
+                      contentContainerStyle={{ paddingBottom: 24 }}
+                      renderItem={({ item }) => {
+                        const id = getStreamId(item);
+                        const isHidden = hiddenStreams.includes(id);
 
-                          <ToggleButton
-                            isHidden={isHidden}
-                            onPress={() => toggleHideStream(id)}
-                            testID={`toggle-stream-${id}`}
-                          >
-                            <MaterialIcons
-                              name={isHidden ? 'visibility-off' : 'visibility'}
-                              size={18}
-                              color={isHidden ? theme.colors.textSecondary : theme.colors.primary}
-                            />
-                            <ToggleButtonText isHidden={isHidden}>
-                              {isHidden ? 'Mostrar' : 'Ocultar'}
-                            </ToggleButtonText>
-                          </ToggleButton>
-                        </CategoryRow>
-                      );
-                    }}
-                    ListEmptyComponent={
-                      <EmptyContainer>
-                        <MaterialIcons name="search-off" size={40} color={theme.colors.textMuted} />
-                        <EmptyText>Nenhum canal encontrado</EmptyText>
-                      </EmptyContainer>
-                    }
-                  />
-                </>
-              )}
-            </TabContent>
-          </ModalContainer>
-        </ModalBackdrop>
+                        return (
+                          <CategoryRow isHidden={isHidden} testID={`stream-row-${id}`}>
+                            <CategoryInfo>
+                              <CategoryName isHidden={isHidden} numberOfLines={1}>
+                                {item.name}
+                              </CategoryName>
+                              <StatusBadge isHidden={isHidden}>
+                                <StatusBadgeText isHidden={isHidden}>
+                                  {isHidden ? 'CANAL OCULTO' : 'VISÍVEL'}
+                                </StatusBadgeText>
+                              </StatusBadge>
+                            </CategoryInfo>
+
+                            <ToggleButton
+                              isHidden={isHidden}
+                              onPress={() => toggleHideStream(id)}
+                              testID={`toggle-stream-${id}`}
+                            >
+                              <MaterialIcons
+                                name={isHidden ? 'visibility-off' : 'visibility'}
+                                size={18}
+                                color={isHidden ? theme.colors.textSecondary : theme.colors.primary}
+                              />
+                              <ToggleButtonText isHidden={isHidden}>
+                                {isHidden ? 'Mostrar' : 'Ocultar'}
+                              </ToggleButtonText>
+                            </ToggleButton>
+                          </CategoryRow>
+                        );
+                      }}
+                      ListEmptyComponent={
+                        <EmptyContainer>
+                          <MaterialIcons name="search-off" size={40} color={theme.colors.textMuted} />
+                          <EmptyText>Nenhum canal encontrado</EmptyText>
+                        </EmptyContainer>
+                      }
+                    />
+                  </>
+                )}
+              </TabContent>
+            </ModalContainer>
+          </ModalBackdrop>
+        </KeyboardAvoidingGlobal>
       </Modal>
 
       {/* Modal de Criação / Edição de Pasta Customizada */}

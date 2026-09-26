@@ -32,6 +32,13 @@ export const BackIconText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
+// Ocupa o lado esquerdo todo: o TitleContainer usa flex: 1 e sumiria num pai sem largura
+export const TitleButton = styled.TouchableOpacity`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+`;
+
 export const TitleContainer = styled.View`
   flex: 1;
 `;

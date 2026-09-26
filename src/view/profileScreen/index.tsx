@@ -3,12 +3,16 @@ import { Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IProfile } from '../../@types/storage';
 import { useProfiles } from '../../hooks/useProfiles';
+import { useAuth } from '../../hooks/useAuth';
+import { useCast } from '../../hooks/useCast';
+import { clearXtreamCache } from '../../hooks/useXtream';
 import { useAppInsets } from '../../hooks/useAppInsets';
-import { DEFAULT_PROFILE_ID } from '../../services/storageService';
+import { DEFAULT_PROFILE_ID, storageService } from '../../services/storageService';
 import { PROFILE_COLORS, MAX_PROFILES, PROFILE_NAME_MAX_LENGTH } from '../../services/profileService';
 import { InputGlobal } from '../../components/inputGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
+import { KeyboardAvoidingGlobal } from '../../components/keyboardAvoidingGlobal';
 import {
   Screen,
   Container,
@@ -21,6 +25,9 @@ import {
   AddAvatar,
   ProfileName,
   AddLabel,
+  ListFooter,
+  ListInfoText,
+  SwitchListButtonWrapper,
   ModalBackdrop,
   ModalCard,
   ModalHeader,
@@ -35,6 +42,9 @@ type EditorState = { mode: 'create' } | { mode: 'edit'; profile: IProfile } | nu
 export const ProfileScreen: React.FC = () => {
   const insets = useAppInsets();
   const { profiles, selectProfile, createProfile, updateProfile, deleteProfile } = useProfiles();
+  const { account, logout } = useAuth();
+  const { isCasting, stopCast } = useCast();
+  const [isSwitchListConfirmVisible, setIsSwitchListConfirmVisible] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
   const [editor, setEditor] = useState<EditorState>(null);
   const [name, setName] = useState('');
@@ -80,6 +90,17 @@ export const ProfileScreen: React.FC = () => {
     }
     setIsDeleteConfirmVisible(false);
     setEditor(null);
+  };
+
+  // Volta para a tela de conexão; perfis e histórico desta lista continuam salvos no aparelho
+  const handleSwitchList = () => {
+    setIsSwitchListConfirmVisible(false);
+    if (isCasting) {
+      stopCast();
+    }
+    clearXtreamCache();
+    storageService.clearCatalogCache();
+    logout();
   };
 
   const editingProfile = editor?.mode === 'edit' ? editor.profile : null;
@@ -147,6 +168,24 @@ export const ProfileScreen: React.FC = () => {
             </ProfileRow>
           )}
         </ProfileList>
+
+        <ListFooter>
+          {account && (
+            <ListInfoText>
+              {account.label || 'Lista conectada'} • @{account.username}
+            </ListInfoText>
+          )}
+          <SwitchListButtonWrapper>
+            <ButtonGlobal
+              label="Trocar lista"
+              variant="ghost"
+              size="sm"
+              icon={<MaterialIcons name="swap-horiz" size={18} color="#FFFFFF" />}
+              onPress={() => setIsSwitchListConfirmVisible(true)}
+              testID="profile-switch-list"
+            />
+          </SwitchListButtonWrapper>
+        </ListFooter>
       </Container>
 
       <Modal
@@ -155,60 +194,62 @@ export const ProfileScreen: React.FC = () => {
         animationType="fade"
         onRequestClose={() => setEditor(null)}
       >
-        <ModalBackdrop>
-          <ModalCard keyboardShouldPersistTaps="handled">
-            <ModalHeader>
-              <Avatar color={color} size={52}>
-                <MaterialIcons name="person" size={36} color="#FFFFFF" />
-              </Avatar>
-              <ModalTitle>{editingProfile ? 'Editar perfil' : 'Novo perfil'}</ModalTitle>
-            </ModalHeader>
+        <KeyboardAvoidingGlobal>
+          <ModalBackdrop>
+            <ModalCard keyboardShouldPersistTaps="handled">
+              <ModalHeader>
+                <Avatar color={color} size={52}>
+                  <MaterialIcons name="person" size={36} color="#FFFFFF" />
+                </Avatar>
+                <ModalTitle>{editingProfile ? 'Editar perfil' : 'Novo perfil'}</ModalTitle>
+              </ModalHeader>
 
-            <InputGlobal
-              label="Nome"
-              value={name}
-              onChangeText={setName}
-              maxLength={PROFILE_NAME_MAX_LENGTH}
-              placeholder="Ex.: Maria"
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-              testID="profile-name-input"
-            />
-
-            <ColorRow>
-              {PROFILE_COLORS.map((swatch) => (
-                <ColorSwatch
-                  key={swatch}
-                  color={swatch}
-                  isSelected={swatch === color}
-                  onPress={() => setColor(swatch)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Cor ${swatch}`}
-                  testID={`profile-color-${swatch}`}
-                />
-              ))}
-            </ColorRow>
-
-            <ModalActions>
-              <ButtonGlobal
-                label="Salvar"
-                onPress={handleSave}
-                disabled={!name.trim()}
-                testID="profile-save"
+              <InputGlobal
+                label="Nome"
+                value={name}
+                onChangeText={setName}
+                maxLength={PROFILE_NAME_MAX_LENGTH}
+                placeholder="Ex.: Maria"
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+                testID="profile-name-input"
               />
-              {editingProfile && editingProfile.id !== DEFAULT_PROFILE_ID && (
+
+              <ColorRow>
+                {PROFILE_COLORS.map((swatch) => (
+                  <ColorSwatch
+                    key={swatch}
+                    color={swatch}
+                    isSelected={swatch === color}
+                    onPress={() => setColor(swatch)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cor ${swatch}`}
+                    testID={`profile-color-${swatch}`}
+                  />
+                ))}
+              </ColorRow>
+
+              <ModalActions>
                 <ButtonGlobal
-                  label="Excluir perfil"
-                  variant="danger"
-                  onPress={() => setIsDeleteConfirmVisible(true)}
-                  testID="profile-delete"
+                  label="Salvar"
+                  onPress={handleSave}
+                  disabled={!name.trim()}
+                  testID="profile-save"
                 />
-              )}
-              <ButtonGlobal label="Cancelar" variant="ghost" onPress={() => setEditor(null)} />
-            </ModalActions>
-          </ModalCard>
-        </ModalBackdrop>
+                {editingProfile && editingProfile.id !== DEFAULT_PROFILE_ID && (
+                  <ButtonGlobal
+                    label="Excluir perfil"
+                    variant="danger"
+                    onPress={() => setIsDeleteConfirmVisible(true)}
+                    testID="profile-delete"
+                  />
+                )}
+                <ButtonGlobal label="Cancelar" variant="ghost" onPress={() => setEditor(null)} />
+              </ModalActions>
+            </ModalCard>
+          </ModalBackdrop>
+        </KeyboardAvoidingGlobal>
       </Modal>
 
       <ConfirmModalGlobal
@@ -222,6 +263,19 @@ export const ProfileScreen: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setIsDeleteConfirmVisible(false)}
         testID="profile-delete-confirm"
+      />
+
+      <ConfirmModalGlobal
+        visible={isSwitchListConfirmVisible}
+        title="Trocar de lista"
+        description="Você vai voltar para a tela de conexão. Os perfis e o histórico desta lista continuam salvos neste aparelho."
+        confirmText="Trocar"
+        cancelText="Cancelar"
+        variant="warning"
+        iconName="swap-horiz"
+        onConfirm={handleSwitchList}
+        onCancel={() => setIsSwitchListConfirmVisible(false)}
+        testID="profile-switch-list-confirm"
       />
     </Screen>
   );

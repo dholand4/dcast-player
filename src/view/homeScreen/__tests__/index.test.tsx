@@ -57,13 +57,13 @@ describe('HomeScreen', () => {
     expect(mockNavigation.navigate).toHaveBeenCalledWith('SearchScreen');
   });
 
-  it('renders quick actions row with trocar lista, atualizar lista and testar conexao buttons', () => {
-    const { getByTestId, getByText } = wrap(
+  it('renders quick actions row with only atualizar lista and testar conexao', () => {
+    const { getByTestId, getByText, queryByText } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     expect(getByTestId('quick-actions-row')).toBeTruthy();
-    expect(getByText('Trocar Lista')).toBeTruthy();
+    expect(queryByText('Trocar Lista')).toBeNull();
     expect(getByText('Atualizar Lista')).toBeTruthy();
     expect(getByText('Testar Conexão')).toBeTruthy();
   });
@@ -89,30 +89,6 @@ describe('HomeScreen', () => {
     expect(diagBtn).toBeTruthy();
     fireEvent.press(diagBtn);
     expect(getByTestId('network-diagnostic-modal')).toBeTruthy();
-  });
-
-  it('renders logout button in quick actions row and not in header', () => {
-    const { getByTestId, getByText, queryByTestId } = wrap(
-      <HomeScreen navigation={mockNavigation} route={mockRoute} />
-    );
-
-    const headerLogout = queryByTestId('header-logout-button');
-    const quickLogout = getByTestId('home-logout-button');
-
-    expect(headerLogout).toBeNull();
-    expect(quickLogout).toBeTruthy();
-    expect(getByText('Trocar Lista')).toBeTruthy();
-  });
-
-  it('opens custom logout confirmation modal when quick logout button is clicked', () => {
-    const { getByTestId } = wrap(
-      <HomeScreen navigation={mockNavigation} route={mockRoute} />
-    );
-
-    const quickLogout = getByTestId('home-logout-button');
-    fireEvent.press(quickLogout);
-
-    expect(getByTestId('home-logout-modal')).toBeTruthy();
   });
 
   it('navigates directly to PlayerScreen when clicking a series in continue watching', () => {

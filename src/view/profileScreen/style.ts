@@ -90,6 +90,23 @@ export const AddLabel = styled(ProfileName)`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
+export const ListFooter = styled.View`
+  width: 100%;
+  max-width: 400px;
+  margin-top: ${({ theme }) => theme.spacing.xl}px;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const ListInfoText = styled.Text.attrs({ numberOfLines: 1 })`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.typography.sizes.xs}px;
+`;
+
+export const SwitchListButtonWrapper = styled.View`
+  width: 220px;
+`;
+
 export const ModalBackdrop = styled.View`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.overlayDark};
