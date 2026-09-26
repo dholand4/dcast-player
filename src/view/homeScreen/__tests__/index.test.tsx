@@ -57,7 +57,7 @@ describe('HomeScreen', () => {
     expect(mockNavigation.navigate).toHaveBeenCalledWith('SearchScreen');
   });
 
-  it('renders quick actions row with only atualizar lista and testar conexao', () => {
+  it('renders quick actions row with atualizar lista, testar conexao and novidades', () => {
     const { getByTestId, getByText, queryByText } = wrap(
       <HomeScreen navigation={mockNavigation} route={mockRoute} />
     );
@@ -66,6 +66,17 @@ describe('HomeScreen', () => {
     expect(queryByText('Trocar Lista')).toBeNull();
     expect(getByText('Atualizar Lista')).toBeTruthy();
     expect(getByText('Testar Conexão')).toBeTruthy();
+    expect(getByText('Novidades')).toBeTruthy();
+  });
+
+  it('opens the Novidades panel with an empty state when nothing new arrived', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <HomeScreen navigation={mockNavigation} route={mockRoute} />
+    );
+
+    expect(queryByTestId('new-episodes-badge')).toBeNull();
+    fireEvent.press(getByTestId('new-episodes-button'));
+    expect(getByTestId('new-episodes-empty')).toBeTruthy();
   });
 
   it('triggers catalog cache clearing when sync button is clicked', () => {

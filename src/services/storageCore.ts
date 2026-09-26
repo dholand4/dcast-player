@@ -29,6 +29,7 @@ const KEYS = {
   PROFILES: 'profiles',
   SERIES_EPISODES_PREFIX: 'series_episodes_',
   SERIES_TRACKING_PREFIX: 'series_tracking_',
+  NEW_EPISODES_INBOX: 'new_episodes_inbox',
   SCOPE_MIGRATED: 'storage_scope_v1_migrated',
 };
 
@@ -420,6 +421,21 @@ export function createStorageService(storage: IStorageLike) {
     } catch {
       // ignore
     }
+  },
+
+  // --- Novidades: episódios novos já vistos no painel ou dispensados (por perfil) ---
+  getNewEpisodesInbox(): { seen: string[]; dismissed: string[] } {
+    try {
+      const raw = storage.getString(profileKey(KEYS.NEW_EPISODES_INBOX));
+      const parsed = raw ? JSON.parse(raw) : null;
+      return { seen: parsed?.seen ?? [], dismissed: parsed?.dismissed ?? [] };
+    } catch {
+      return { seen: [], dismissed: [] };
+    }
+  },
+
+  saveNewEpisodesInbox(inbox: { seen: string[]; dismissed: string[] }): void {
+    storage.set(profileKey(KEYS.NEW_EPISODES_INBOX), JSON.stringify(inbox));
   },
 
   // --- Favorites ---

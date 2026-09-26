@@ -103,6 +103,30 @@ export const QuickActionButton = styled.TouchableOpacity`
   gap: 6px;
 `;
 
+export const QuickActionIconWrapper = styled.View`
+  position: relative;
+`;
+
+// Selo de "não visto", como nos apps de mensagem
+export const NotificationBadge = styled.View`
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 18px;
+  height: 18px;
+  padding-horizontal: 4px;
+  border-radius: 9px;
+  background-color: ${({ theme }) => theme.colors.primary};
+  align-items: center;
+  justify-content: center;
+`;
+
+export const NotificationBadgeText = styled.Text`
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: ${({ theme }) => theme.typography.weights.bold};
+`;
+
 export const QuickActionText = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: 11px;

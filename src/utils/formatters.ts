@@ -109,3 +109,16 @@ export function formatEpisodeTitle(
 }
 
 
+
+/** "hoje", "ontem" ou "há N dias", pela data do aparelho */
+export function formatArrival(timestamp: number, now: number = Date.now()): string {
+  const startOfDay = (value: number) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  };
+  const days = Math.round((startOfDay(now) - startOfDay(timestamp)) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return 'hoje';
+  if (days === 1) return 'ontem';
+  return `há ${days} dias`;
+}

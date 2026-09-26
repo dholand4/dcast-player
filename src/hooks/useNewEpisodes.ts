@@ -10,6 +10,7 @@ import {
   pickNewEpisodes,
   updateSeriesTracking,
 } from '../utils/newEpisodes';
+import { simulateNewEpisode } from '../utils/newEpisodesSimulation'; // SIMULAÇÃO TEMPORÁRIA — apagar esta linha
 
 export interface INewEpisodeItem {
   seriesId: string;
@@ -19,6 +20,8 @@ export interface INewEpisodeItem {
   episode: ISeriesEpisodeRef;
   /** Quantos episódios novos a série tem */
   newCount: number;
+  /** IDs de todos os episódios novos ainda não assistidos */
+  episodeIds: string[];
   detectedAt: number;
 }
 
@@ -135,18 +138,21 @@ export function useNewEpisodes(account: IAccountCredentials | null, refreshKey: 
           storageService.saveSeriesTracking(series.seriesId, tracking);
         }
 
-        const pending = pickNewEpisodes(summary.episodes, tracking, series.progress, now);
+        let pending = pickNewEpisodes(summary.episodes, tracking, series.progress, now);
+        pending = simulateNewEpisode(summary.episodes, pending, found.length); // SIMULAÇÃO TEMPORÁRIA — apagar esta linha
         if (pending.length === 0) continue;
         const pendingIds = new Set(pending.map((episode) => episode.id));
+        const detectedTimes = tracking.pending
+          .filter((item) => pendingIds.has(item.id))
+          .map((item) => item.detectedAt);
         found.push({
           seriesId: series.seriesId,
           seriesTitle: summary.name || series.fallbackTitle,
           posterUrl: summary.cover || series.fallbackPoster,
           episode: pending[0],
           newCount: pending.length,
-          detectedAt: Math.max(
-            ...tracking.pending.filter((item) => pendingIds.has(item.id)).map((item) => item.detectedAt)
-          ),
+          episodeIds: pending.map((episode) => episode.id),
+          detectedAt: detectedTimes.length > 0 ? Math.max(...detectedTimes) : now,
         });
       }
       // O que chegou por último aparece primeiro

@@ -22,6 +22,25 @@ const mockProfiles = {
 jest.mock('../../../hooks/useAuth', () => ({ useAuth: () => mockAuth }));
 jest.mock('../../../hooks/useProfiles', () => ({ useProfiles: () => mockProfiles }));
 
+const mockMarkAllSeen = jest.fn();
+const mockInbox = {
+  items: [
+    {
+      seriesId: 'ted',
+      seriesTitle: 'Ted Lasso',
+      posterUrl: '',
+      episode: { id: 'e9', season: 4, episode: 9, title: 'Nove', added: 0 },
+      newCount: 1,
+      episodeIds: ['e9'],
+      detectedAt: Date.now(),
+    },
+  ],
+  unseenCount: 1,
+  markAllSeen: mockMarkAllSeen,
+  dismissItem: jest.fn(),
+};
+jest.mock('../../../hooks/useNewEpisodesInbox', () => ({ useNewEpisodesInbox: () => mockInbox }));
+
 const navigation = { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn() } as unknown as HomeScreenProps['navigation'];
 const route = { key: 'HomeScreen', name: 'HomeScreen' } as unknown as HomeScreenProps['route'];
 
@@ -44,5 +63,25 @@ describe('HomeScreen profile chip', () => {
     fireEvent.press(getByText('Sair'));
 
     expect(mockSwitchProfile).toHaveBeenCalled();
+  });
+
+  it('shows the Novidades badge, marks it as seen when opened and goes to the series', () => {
+    const { getByTestId, getByText } = render(
+      <NavigationContainer>
+        <ThemeProvider theme={theme}>
+          <HomeScreen navigation={navigation} route={route} />
+        </ThemeProvider>
+      </NavigationContainer>
+    );
+
+    expect(getByTestId('new-episodes-badge')).toBeTruthy();
+    fireEvent.press(getByTestId('new-episodes-button'));
+    expect(mockMarkAllSeen).toHaveBeenCalled();
+
+    fireEvent.press(getByText('Ted Lasso'));
+    expect(navigation.navigate).toHaveBeenCalledWith(
+      'DetailsScreen',
+      expect.objectContaining({ id: 'ted', type: 'series', title: 'Ted Lasso' })
+    );
   });
 });

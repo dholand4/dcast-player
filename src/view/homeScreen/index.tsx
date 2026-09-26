@@ -5,7 +5,7 @@ import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfiles } from '../../hooks/useProfiles';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
-import { useNewEpisodes } from '../../hooks/useNewEpisodes';
+import { useNewEpisodesInbox } from '../../hooks/useNewEpisodesInbox';
 import { useFavorites } from '../../hooks/useFavorites';
 import { clearXtreamCache } from '../../hooks/useXtream';
 import { storageService } from '../../services/storageService';
@@ -17,6 +17,7 @@ import { SectionCarouselGlobal } from '../../components/sectionCarouselGlobal';
 import { PosterCardGlobal } from '../../components/posterCardGlobal';
 import { NetworkDiagnosticModal } from '../../components/networkDiagnosticModal';
 import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
+import { NewEpisodesModalGlobal } from '../../components/newEpisodesModalGlobal';
 import {
   formatExpirationDate,
   cleanSeriesTitle,
@@ -29,6 +30,9 @@ import {
   AccountWarningCard,
   AccountWarningText,
   ProfileAvatar,
+  QuickActionIconWrapper,
+  NotificationBadge,
+  NotificationBadgeText,
   SubscriptionCard,
   SubscriptionInfo,
   SubscriptionText,
@@ -49,7 +53,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { activeProfile, switchProfile } = useProfiles();
   const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
     useWatchHistory();
-  const newEpisodes = useNewEpisodes(account, continueWatching);
+  const {
+    items: newEpisodeItems,
+    unseenCount,
+    markAllSeen,
+    dismissItem,
+  } = useNewEpisodesInbox(account, continueWatching);
+  const [isNewEpisodesOpen, setIsNewEpisodesOpen] = useState(false);
   const { favorites, toggleFavorite } = useFavorites();
 
   // Filmes e séries juntos, do favoritado mais recente para o mais antigo
@@ -216,6 +226,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               Testar Conexão
             </QuickActionText>
           </QuickActionButton>
+
+          <QuickActionButton
+            onPress={() => {
+              setIsNewEpisodesOpen(true);
+              markAllSeen();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              unseenCount > 0
+                ? `Novidades: ${unseenCount} série${unseenCount > 1 ? 's' : ''} com episódio novo`
+                : 'Novidades'
+            }
+            testID="new-episodes-button"
+          >
+            <QuickActionIconWrapper>
+              <MaterialIcons
+                name={unseenCount > 0 ? 'notifications-active' : 'notifications-none'}
+                size={20}
+                color="#FFB300"
+              />
+              {unseenCount > 0 && (
+                <NotificationBadge testID="new-episodes-badge">
+                  <NotificationBadgeText>{unseenCount > 9 ? '9+' : unseenCount}</NotificationBadgeText>
+                </NotificationBadge>
+              )}
+            </QuickActionIconWrapper>
+            <QuickActionText numberOfLines={1} adjustsFontSizeToFit>
+              Novidades
+            </QuickActionText>
+          </QuickActionButton>
         </QuickActionsRow>
 
         <MainNavCardsGlobal
@@ -363,40 +403,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         )}
 
-        {newEpisodes.length > 0 && (
-          <View
-            style={{
-              marginTop:
-                collapsedContinueWatching.length > 0 || favoriteTitles.length > 0 ? 0 : ROW_GAP,
-            }}
-          >
-            <SectionCarouselGlobal
-              title="Novos Episódios"
-              style={CAROUSEL_STYLE}
-              data={newEpisodes}
-              keyExtractor={(item) => `home-new-${item.seriesId}`}
-              testID="home-new-episodes"
-              renderItem={(item) => (
-                <PosterCardGlobal
-                  title={`${item.seriesTitle} • T${item.episode.season}E${item.episode.episode}${
-                    item.newCount > 1 ? ` +${item.newCount - 1}` : ''
-                  }`}
-                  posterUrl={item.posterUrl}
-                  width={130}
-                  onPress={() =>
-                    navigation.navigate('DetailsScreen', {
-                      id: item.seriesId,
-                      type: 'series',
-                      title: item.seriesTitle,
-                      posterUrl: item.posterUrl,
-                    })
-                  }
-                />
-              )}
-            />
-          </View>
-        )}
       </ScrollArea>
+
+      <NewEpisodesModalGlobal
+        visible={isNewEpisodesOpen}
+        items={newEpisodeItems}
+        onClose={() => setIsNewEpisodesOpen(false)}
+        onSelect={(item) => {
+          setIsNewEpisodesOpen(false);
+          navigation.navigate('DetailsScreen', {
+            id: item.seriesId,
+            type: 'series',
+            title: item.seriesTitle,
+            posterUrl: item.posterUrl,
+          });
+        }}
+        onDismiss={dismissItem}
+        testID="new-episodes-modal"
+      />
 
       <NetworkDiagnosticModal
         visible={isDiagnosticOpen}
