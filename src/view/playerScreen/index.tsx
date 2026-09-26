@@ -18,6 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer } from 'expo-video';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as NavigationBar from 'expo-navigation-bar';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { PlayerScreenProps, LiveChannelItem } from '../../routes/types';
 import { IEpgListing } from '../../@types/xtream';
@@ -999,15 +1000,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
           // Oculta a barra de navegação virtual do Android (botões Voltar, Home, Recents)
           if (Platform.OS === 'android') {
-            try {
-              const NavigationBar = require('expo-navigation-bar');
-              if (NavigationBar) {
-                await NavigationBar.setVisibilityAsync('hidden');
-                await NavigationBar.setBehaviorAsync('overlay-swipe');
-              }
-            } catch {
-              // expo-navigation-bar ainda não vinculado no runtime
-            }
+            // Com edge-to-edge, a barra oculta reaparece temporariamente ao deslizar da borda
+            await NavigationBar.setVisibilityAsync('hidden').catch(() => {});
           }
         } else {
           RNStatusBar.setHidden(false, 'fade');
@@ -1040,28 +1034,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         statusBarHidden: false,
       });
       if (Platform.OS === 'android') {
-        try {
-          const NavigationBar = require('expo-navigation-bar');
-          if (NavigationBar) {
-            NavigationBar.setVisibilityAsync('visible').catch(() => {});
-          }
-        } catch {}
+        NavigationBar.setVisibilityAsync('visible').catch(() => {});
       }
     };
   }, [isCasting, navigation]);
 
   // Sincroniza a visibilidade da barra de navegação virtual do Android com o sumiço dos controles
   useEffect(() => {
-    if (Platform.OS === 'android' && !isCasting) {
-      try {
-        const NavigationBar = require('expo-navigation-bar');
-        if (NavigationBar) {
-          if (!showControls) {
-            NavigationBar.setVisibilityAsync('hidden').catch(() => {});
-            NavigationBar.setBehaviorAsync('overlay-swipe').catch(() => {});
-          }
-        }
-      } catch {}
+    if (Platform.OS === 'android' && !isCasting && !showControls) {
+      NavigationBar.setVisibilityAsync('hidden').catch(() => {});
     }
   }, [showControls, isCasting]);
 
