@@ -23,6 +23,8 @@ import {
 import {
   Container,
   ScrollArea,
+  AccountWarningCard,
+  AccountWarningText,
   SubscriptionCard,
   SubscriptionInfo,
   SubscriptionText,
@@ -34,9 +36,10 @@ import {
 } from './style';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { account, userInfo, logout } = useAuth();
+  const { account, userInfo, accountWarning, logout } = useAuth();
   const { isCasting, stopCast } = useCast();
-  const { continueWatching, removeProgress, clearHistory } = useWatchHistory();
+  const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
+    useWatchHistory();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
@@ -149,6 +152,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       />
 
       <ScrollArea>
+        {accountWarning && (
+          <AccountWarningCard testID="account-warning">
+            <MaterialIcons name="warning-amber" size={20} color="#FFB300" />
+            <AccountWarningText>{accountWarning}</AccountWarningText>
+          </AccountWarningCard>
+        )}
+
         {account && (
           <SubscriptionCard testID="subscription-card">
             <SubscriptionInfo>
@@ -348,15 +358,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ConfirmModalGlobal
         visible={isClearHistoryModalVisible}
-        title="Limpar Histórico"
-        description="Deseja limpar todo o histórico de Continuar Assistindo? Esta ação não pode ser desfeita."
-        confirmText="Apagar Tudo"
+        title="Limpar Continuar Assistindo"
+        description="Deseja limpar a lista de Continuar Assistindo? Os episódios assistidos continuam marcados."
+        confirmText="Limpar"
         cancelText="Cancelar"
         variant="danger"
         iconName="delete-sweep"
         onConfirm={() => {
           setIsClearHistoryModalVisible(false);
-          clearHistory();
+          hideAllFromContinueWatching();
         }}
         onCancel={() => setIsClearHistoryModalVisible(false)}
         testID="home-clear-history-modal"
@@ -364,7 +374,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ConfirmModalGlobal
         visible={Boolean(itemToRemove)}
-        title="Remover do Histórico"
+        title="Remover do Continuar Assistindo"
         description={
           itemToRemove
             ? `Deseja remover "${itemToRemove.title}" do Continuar Assistindo?`
@@ -376,7 +386,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         iconName="delete-outline"
         onConfirm={() => {
           if (itemToRemove) {
-            removeProgress(itemToRemove.id, itemToRemove.seriesId);
+            hideFromContinueWatching(itemToRemove.id, itemToRemove.seriesId);
             setItemToRemove(null);
           }
         }}

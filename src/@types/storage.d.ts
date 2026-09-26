@@ -13,6 +13,8 @@ export interface IWatchProgress {
   percentage: number;
   updatedAt: number;
   streamUrl?: string;
+  /** Removido da fileira "Continuar Assistindo", mas mantido no histórico de assistidos */
+  hiddenFromContinue?: boolean;
 }
 
 export interface IFavoriteItem {

@@ -30,7 +30,11 @@ describe('supabaseService', () => {
       expect(getUserKey({ username: '' } as IAccountCredentials)).toBe('guest');
     });
 
-    it('formats a clean identifier from username and serverUrl', () => {
+    it('returns "guest" when the password is missing', () => {
+      expect(getUserKey({ username: 'user', password: '', serverUrl: 'http://a.com' } as IAccountCredentials)).toBe('guest');
+    });
+
+    it('derives a secret hash from server, username and password', () => {
       const acc: IAccountCredentials = {
         username: 'User.Name#1',
         serverUrl: 'http://iptv-server.net:8080/live',
@@ -38,7 +42,11 @@ describe('supabaseService', () => {
         label: 'My Account',
       };
       const key = getUserKey(acc);
-      expect(key).toBe('user_name_1_iptv_server_net');
+      expect(key).toMatch(/^[0-9a-f]{64}$/);
+      expect(key).not.toContain('user');
+      // Mesmo resultado em outro aparelho com a mesma conta (porta e caixa não importam)
+      expect(getUserKey({ ...acc, username: 'user.name#1', serverUrl: 'HTTP://IPTV-SERVER.NET' })).toBe(key);
+      expect(getUserKey({ ...acc, password: 'other' })).not.toBe(key);
     });
   });
 
@@ -60,7 +68,10 @@ describe('supabaseService', () => {
         updatedAt: 1700000000,
       };
 
-      await upsertWatchProgress('user_1', progress);
+      await upsertWatchProgress('user_1', {
+        ...progress,
+        streamUrl: 'http://server/movie/user/secret/100.mp4',
+      });
 
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/rest/v1/dcast_watch_progress'),
@@ -68,9 +79,21 @@ describe('supabaseService', () => {
           method: 'POST',
           headers: expect.objectContaining({
             Prefer: 'resolution=merge-duplicates',
+            'x-dcast-key': 'user_1',
           }),
         })
       );
+      // A URL do stream contém a senha do IPTV e nunca pode ir para a nuvem
+      const body = (fetch as jest.Mock).mock.calls[0][1].body as string;
+      expect(body).not.toContain('secret');
+      expect(JSON.parse(body)[0]).toEqual(
+        expect.objectContaining({ content_id: '100', hidden_from_continue: false })
+      );
+    });
+
+    it('does not send anything for guest users', async () => {
+      await upsertWatchProgress('guest', { id: '1' } as IWatchProgress);
+      expect(fetch).not.toHaveBeenCalled();
     });
 
     it('handles network error without throwing', async () => {

@@ -55,6 +55,35 @@ export function toArray<T>(data: unknown): T[] {
   return [];
 }
 
+export type XtreamErrorKind = 'auth' | 'expired' | 'disabled' | 'http' | 'network' | 'timeout';
+
+// Erro com mensagem pronta para exibir ao usuário
+export class XtreamError extends Error {
+  readonly kind: XtreamErrorKind;
+
+  constructor(kind: XtreamErrorKind, message: string) {
+    super(message);
+    this.name = 'XtreamError';
+    this.kind = kind;
+  }
+}
+
+function httpErrorMessage(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'O servidor recusou o acesso. Confira usuário e senha.';
+  }
+  if (status === 404) return 'Servidor não encontrado nesse endereço. Confira a URL.';
+  if (status === 429) return 'Muitas requisições ao servidor. Aguarde um pouco e tente de novo.';
+  if (status >= 500) return 'O servidor IPTV está com problemas agora. Tente novamente mais tarde.';
+  return `O servidor respondeu com erro (${status}).`;
+}
+
+function assertOk(response: Response): void {
+  if (!response.ok) {
+    throw new XtreamError('http', httpErrorMessage(response.status));
+  }
+}
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -62,7 +91,11 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   const targetUrl = resolveUrlForPlatform(url);
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let timedOut = false;
+  const id = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
 
   const onExternalAbort = () => controller.abort();
   if (externalSignal) {
@@ -79,6 +112,16 @@ async function fetchWithTimeout(
       signal: controller.signal,
     });
     return response;
+  } catch (err) {
+    // Cancelamento pedido por quem chamou: repassa o erro original
+    if (externalSignal?.aborted) throw err;
+    if (timedOut) {
+      throw new XtreamError('timeout', 'O servidor demorou demais para responder. Tente novamente.');
+    }
+    throw new XtreamError(
+      'network',
+      'Não foi possível conectar ao servidor. Verifique sua internet e a URL da lista.'
+    );
   } finally {
     clearTimeout(id);
     if (externalSignal) {
@@ -94,13 +137,26 @@ export const xtreamService = {
     const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
     const response = await fetchWithTimeout(url);
-    if (!response.ok) {
-      throw new Error(`HTTP Error ${response.status}`);
+    assertOk(response);
+
+    let data: IXtreamAuthResponse;
+    try {
+      data = (await response.json()) as IXtreamAuthResponse;
+    } catch {
+      throw new XtreamError('http', 'O endereço não parece ser um servidor IPTV. Confira a URL.');
     }
 
-    const data = (await response.json()) as IXtreamAuthResponse;
-    if (data?.user_info?.auth === 0 || data?.user_info?.status === 'Disabled') {
-      throw new Error('Credenciais inválidas ou conta desativada.');
+    const info = data?.user_info;
+    if (info && Number(info.auth) === 0) {
+      throw new XtreamError('auth', 'Usuário ou senha inválidos.');
+    }
+    const status = String(info?.status || '').toLowerCase();
+    if (status === 'disabled' || status === 'banned') {
+      throw new XtreamError('disabled', 'Esta conta foi desativada pelo provedor.');
+    }
+    const expiresAt = Number(info?.exp_date) * 1000;
+    if (status === 'expired' || (expiresAt > 0 && expiresAt < Date.now())) {
+      throw new XtreamError('expired', 'Sua assinatura expirou. Fale com seu provedor para renovar.');
     }
 
     return data;
@@ -112,7 +168,7 @@ export const xtreamService = {
     const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&action=get_live_categories`;
 
     const response = await fetchWithTimeout(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamCategory>(data);
   },
@@ -122,7 +178,7 @@ export const xtreamService = {
     const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&action=get_vod_categories`;
 
     const response = await fetchWithTimeout(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamCategory>(data);
   },
@@ -132,7 +188,7 @@ export const xtreamService = {
     const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&action=get_series_categories`;
 
     const response = await fetchWithTimeout(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamCategory>(data);
   },
@@ -150,7 +206,7 @@ export const xtreamService = {
     }
 
     const response = await fetchWithTimeout(url, {}, signal);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamLiveStream>(data);
   },
@@ -167,7 +223,7 @@ export const xtreamService = {
     }
 
     const response = await fetchWithTimeout(url, {}, signal);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamVodStream>(data);
   },
@@ -184,7 +240,7 @@ export const xtreamService = {
     }
 
     const response = await fetchWithTimeout(url, {}, signal);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     const data = (await response.json()) as unknown;
     return toArray<IXtreamSeries>(data);
   },
@@ -195,7 +251,7 @@ export const xtreamService = {
     const url = `${serverUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&action=get_series_info&series_id=${encodeURIComponent(seriesId)}`;
 
     const response = await fetchWithTimeout(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    assertOk(response);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = (await response.json()) as any;
     if (!data) return {};

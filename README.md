@@ -135,7 +135,8 @@ dcast-player/
 │       └── setupScreen/       # Conexão e troca de listas IPTV
 ├── app.json                   # Configurações do Expo e EAS Update
 ├── package.json               # Dependências e scripts
-└── vercel.json                # Configuração de build e rotas para Web (Vercel)
+├── api/proxy.js               # Proxy de streams para a versão Web (dev e VPS)
+└── supabase/migrations/       # SQL das tabelas e políticas de acesso da nuvem
 ```
 
 ---
@@ -221,9 +222,13 @@ npx tsc --noEmit
 
 ### Build e Exportação Web
 ```bash
-# Gera o build estático otimizado na pasta 'dist' (utilizado pela Vercel)
+# Gera o build estático otimizado na pasta 'dist' (servido pela VPS)
 npm run build:web
 ```
+
+Na VPS, o `api/proxy.js` deve responder em `/api/proxy`. Variáveis de ambiente:
+- `PROXY_ALLOWED_ORIGINS`: origens autorizadas, separadas por vírgula (ex.: `https://app.seudominio.com`). Sem ela, qualquer site pode usar o proxy.
+- `PROXY_ALLOW_PRIVATE_HOSTS=true`: só se o servidor IPTV estiver na rede interna da VPS.
 
 ### Publicação de Atualizações OTA (Over-The-Air)
 ```bash

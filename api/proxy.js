@@ -1,4 +1,90 @@
 const { Readable } = require('stream');
+const dns = require('dns');
+const net = require('net');
+
+const MAX_REDIRECTS = 5;
+
+// Origens autorizadas a usar o proxy (ex.: "https://app.dominio.com,https://outro.com").
+// Vazio = qualquer origem, útil só no desenvolvimento local.
+const ALLOWED_ORIGINS = (process.env.PROXY_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+// Só ative se o servidor IPTV estiver na mesma rede do proxy.
+const ALLOW_PRIVATE_HOSTS = process.env.PROXY_ALLOW_PRIVATE_HOSTS === 'true';
+
+function isPrivateAddress(address) {
+  if (net.isIPv4(address)) {
+    const [a, b] = address.split('.').map(Number);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a >= 224
+    );
+  }
+  const ip = address.toLowerCase();
+  if (ip.startsWith('::ffff:')) {
+    return isPrivateAddress(ip.slice(7));
+  }
+  return (
+    ip === '::' ||
+    ip === '::1' ||
+    ip.startsWith('fc') ||
+    ip.startsWith('fd') ||
+    ip.startsWith('fe80') ||
+    ip.startsWith('ff')
+  );
+}
+
+// Bloqueia URLs que não sejam http(s) e hosts da rede interna (SSRF)
+async function assertPublicHttpUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw Object.assign(new Error('URL inválida'), { statusCode: 400 });
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw Object.assign(new Error('Apenas URLs http e https são permitidas'), { statusCode: 400 });
+  }
+  if (ALLOW_PRIVATE_HOSTS) return;
+
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  const addresses = net.isIP(hostname)
+    ? [hostname]
+    : (await dns.promises.lookup(hostname, { all: true })).map((entry) => entry.address);
+  if (addresses.length === 0 || addresses.some(isPrivateAddress)) {
+    throw Object.assign(new Error('Destino não permitido'), { statusCode: 403 });
+  }
+}
+
+function isOriginAllowed(req) {
+  if (ALLOWED_ORIGINS.length === 0) return true;
+  const origin = req.headers?.['origin'] || req.headers?.['referer'] || '';
+  return ALLOWED_ORIGINS.some((allowed) => origin.startsWith(allowed));
+}
+
+// Segue redirecionamentos manualmente para validar cada destino
+async function fetchPublic(url, options) {
+  let currentUrl = url;
+  for (let i = 0; i <= MAX_REDIRECTS; i++) {
+    await assertPublicHttpUrl(currentUrl);
+    const response = await fetch(currentUrl, { ...options, redirect: 'manual' });
+    const location = response.headers.get('location');
+    if (response.status >= 300 && response.status < 400 && location) {
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+    return { response, finalUrl: currentUrl };
+  }
+  throw Object.assign(new Error('Redirecionamentos demais'), { statusCode: 502 });
+}
 
 function setStatus(res, code) {
   if (typeof res.status === 'function') {
@@ -54,7 +140,7 @@ function rewriteM3u8(m3u8Text, baseUrl) {
 module.exports = async function handler(req, res) {
   // Configuração global de CORS para streaming e requisições parciais (byte ranges)
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader(
     'Access-Control-Expose-Headers',
@@ -69,8 +155,18 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const targetUrl = req.query?.url;
-  if (!targetUrl || typeof targetUrl !== 'string') {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    sendJson(res, 405, { error: 'Método não permitido' });
+    return;
+  }
+
+  if (!isOriginAllowed(req)) {
+    sendJson(res, 403, { error: 'Origem não permitida' });
+    return;
+  }
+
+  const requestedUrl = req.query?.url;
+  if (!requestedUrl || typeof requestedUrl !== 'string') {
     sendJson(res, 400, { error: 'Parâmetro url é obrigatório' });
     return;
   }
@@ -107,11 +203,10 @@ module.exports = async function handler(req, res) {
       upstreamHeaders['If-Range'] = req.headers['if-range'];
     }
 
-    const upstreamRes = await fetch(targetUrl, {
+    const { response: upstreamRes, finalUrl: targetUrl } = await fetchPublic(requestedUrl, {
       method: req.method,
       headers: upstreamHeaders,
       signal: abortController.signal,
-      redirect: 'follow',
     });
 
     setStatus(res, upstreamRes.status);
@@ -159,8 +254,8 @@ module.exports = async function handler(req, res) {
       contentType.includes('video/mp2t');
 
     if (isSegment) {
-      // Chunks de vídeo de IPTV são imutáveis. Cachear na borda (Edge Vercel)
-      // permite entrega ultrarrápida (<15ms) e absorve oscilações da rede sem travar o player.
+      // Chunks de vídeo de IPTV são imutáveis. Cachear no CDN/proxy reverso
+      // permite entrega ultrarrápida e absorve oscilações da rede sem travar o player.
       res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=60');
     } else if (
       upstreamRes.status === 206 &&
@@ -225,9 +320,10 @@ module.exports = async function handler(req, res) {
       // O cliente cancelou a requisição intencionalmente (ex: seek ou troca de página)
       return;
     }
-    sendJson(res, 502, {
-      error: 'Erro de conexão com o servidor IPTV',
-      message: err instanceof Error ? err.message : String(err),
-    });
+    if (err && err.statusCode) {
+      sendJson(res, err.statusCode, { error: err.message });
+      return;
+    }
+    sendJson(res, 502, { error: 'Erro de conexão com o servidor IPTV' });
   }
 };

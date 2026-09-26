@@ -266,9 +266,38 @@ export const storageService = {
     const all = this.getAllWatchProgress();
     return all.filter(
       (item) =>
+        !item.hiddenFromContinue &&
         (item.currentTime > 0 || item.percentage > 0 || item.updatedAt > 0) &&
         item.percentage < 98
     );
+  },
+
+  /**
+   * Tira o item (e os episódios da mesma série) do "Continuar Assistindo" sem apagar
+   * o progresso, para que a lista de episódios continue mostrando o que foi assistido.
+   * Retorna os itens alterados.
+   */
+  hideFromContinueWatching(contentId: string, seriesId?: string): IWatchProgress[] {
+    const ids = [String(contentId), ...(seriesId ? [String(seriesId)] : [])];
+    const matches = (item: IWatchProgress) =>
+      ids.includes(String(item.id)) || (item.seriesId != null && ids.includes(String(item.seriesId)));
+    return this.markHiddenFromContinue(matches);
+  },
+
+  hideAllFromContinueWatching(type?: ContentType): IWatchProgress[] {
+    return this.markHiddenFromContinue((item) => !type || item.type === type);
+  },
+
+  markHiddenFromContinue(predicate: (item: IWatchProgress) => boolean): IWatchProgress[] {
+    const changed: IWatchProgress[] = [];
+    for (const item of this.getAllWatchProgress()) {
+      if (!item.hiddenFromContinue && predicate(item)) {
+        const hidden = { ...item, hiddenFromContinue: true };
+        this.saveWatchProgress(hidden);
+        changed.push(hidden);
+      }
+    }
+    return changed;
   },
 
   clearWatchHistory(type?: ContentType): void {

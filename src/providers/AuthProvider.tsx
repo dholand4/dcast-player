@@ -1,7 +1,7 @@
-import React, { createContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { IAccountCredentials, IXtreamUserInfo } from '../@types/xtream';
 import { storageService } from '../services/storageService';
-import { xtreamService } from '../services/xtreamService';
+import { xtreamService, XtreamError } from '../services/xtreamService';
 import { parseM3uUrl } from '../utils/m3uParser';
 
 export interface IAuthContextData {
@@ -10,6 +10,8 @@ export interface IAuthContextData {
   savedAccounts: IAccountCredentials[];
   isLoading: boolean;
   error: string | null;
+  /** Problema na conta detectado ao abrir o app (ex.: assinatura expirada) */
+  accountWarning: string | null;
   loginWithM3u: (m3uUrl: string, label?: string) => Promise<boolean>;
   loginWithCredentials: (creds: IAccountCredentials) => Promise<boolean>;
   removeSavedAccount: (serverUrl: string, username: string) => void;
@@ -17,6 +19,14 @@ export interface IAuthContextData {
 }
 
 export const AuthContext = createContext<IAuthContextData>({} as IAuthContextData);
+
+// Só avisa quando o servidor confirmou o problema; falha de rede não é motivo para alarmar
+function getAccountWarning(err: unknown): string | null {
+  if (err instanceof XtreamError && ['auth', 'expired', 'disabled'].includes(err.kind)) {
+    return err.message;
+  }
+  return null;
+}
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [account, setAccount] = useState<IAccountCredentials | null>(null);
@@ -30,6 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [accountWarning, setAccountWarning] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = storageService.getAccount();
@@ -48,8 +59,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUserInfo(data.user_info);
           }
         })
-        .catch(() => {
-          // ignore background refresh failure
+        .catch((err) => {
+          setAccountWarning(getAccountWarning(err));
         });
     }
   }, []);
@@ -69,6 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const authData = await xtreamService.authenticate(creds);
       storageService.saveAccount(creds);
       setAccount(creds);
+      setAccountWarning(null);
       setSavedAccounts(storageService.getSavedAccounts());
       if (authData?.user_info) {
         storageService.saveUserInfo(authData.user_info);
@@ -92,6 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const authData = await xtreamService.authenticate(creds);
       storageService.saveAccount(creds);
       setAccount(creds);
+      setAccountWarning(null);
       setSavedAccounts(storageService.getSavedAccounts());
       if (authData?.user_info) {
         storageService.saveUserInfo(authData.user_info);
@@ -115,26 +128,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(() => {
     storageService.clearAccount();
     setAccount(null);
+    setAccountWarning(null);
     setUserInfo(null);
     setSavedAccounts(storageService.getSavedAccounts());
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        account,
-        userInfo,
-        savedAccounts,
-        isLoading,
-        error,
-        loginWithM3u,
-        loginWithCredentials,
-        removeSavedAccount,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      account,
+      userInfo,
+      savedAccounts,
+      isLoading,
+      error,
+      accountWarning,
+      loginWithM3u,
+      loginWithCredentials,
+      removeSavedAccount,
+      logout,
+    }),
+    [
+      account,
+      userInfo,
+      savedAccounts,
+      isLoading,
+      error,
+      accountWarning,
+      loginWithM3u,
+      loginWithCredentials,
+      removeSavedAccount,
+      logout,
+    ]
   );
-};
 
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

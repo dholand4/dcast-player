@@ -1,5 +1,7 @@
 import { Paths, File } from 'expo-file-system';
 import { MMKV } from 'react-native-mmkv';
+import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
 import { IAccountCredentials, IXtreamUserInfo } from '../@types/xtream';
 import { IWatchProgress, IFavoriteItem, ContentType, ICustomCategoryFolder } from '../@types/storage';
 import { cleanEpisodeDisplayTitle } from '../utils/formatters';
@@ -51,8 +53,41 @@ hydrateMemoryStoreAsync();
 
 let storageImpl: IStorageLike;
 
+const ENCRYPTION_KEY_NAME = 'dcast_storage_key';
+const KEY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+function generateEncryptionKey(): string {
+  // MMKV aceita chaves de até 16 bytes
+  return Array.from(Crypto.getRandomBytes(16), (byte) => KEY_ALPHABET[byte % KEY_ALPHABET.length]).join('');
+}
+
+// Credenciais e histórico ficam criptografados no aparelho; a chave fica no Keystore/Keychain
+function createEncryptedStorage(): MMKV {
+  let existingKey: string | null = null;
+  try {
+    existingKey = SecureStore.getItem(ENCRYPTION_KEY_NAME);
+  } catch {
+    // Keystore indisponível: segue sem criptografia
+    return new MMKV();
+  }
+  if (existingKey) {
+    return new MMKV({ id: 'mmkv.default', encryptionKey: existingKey });
+  }
+
+  // Primeira execução com criptografia: criptografa os dados já existentes
+  const instance = new MMKV();
+  try {
+    const newKey = generateEncryptionKey();
+    SecureStore.setItem(ENCRYPTION_KEY_NAME, newKey);
+    instance.recrypt(newKey);
+  } catch {
+    SecureStore.deleteItemAsync(ENCRYPTION_KEY_NAME).catch(() => {});
+  }
+  return instance;
+}
+
 try {
-  storageImpl = new MMKV();
+  storageImpl = createEncryptedStorage();
 } catch {
   // Fallback when running inside Expo Go without prebuilt native binaries
   storageImpl = {
@@ -277,9 +312,38 @@ export const storageService = {
     const all = this.getAllWatchProgress();
     return all.filter(
       (item) =>
+        !item.hiddenFromContinue &&
         (item.currentTime > 0 || item.percentage > 0 || item.updatedAt > 0) &&
         item.percentage < 98
     );
+  },
+
+  /**
+   * Tira o item (e os episódios da mesma série) do "Continuar Assistindo" sem apagar
+   * o progresso, para que a lista de episódios continue mostrando o que foi assistido.
+   * Retorna os itens alterados.
+   */
+  hideFromContinueWatching(contentId: string, seriesId?: string): IWatchProgress[] {
+    const ids = [String(contentId), ...(seriesId ? [String(seriesId)] : [])];
+    const matches = (item: IWatchProgress) =>
+      ids.includes(String(item.id)) || (item.seriesId != null && ids.includes(String(item.seriesId)));
+    return this.markHiddenFromContinue(matches);
+  },
+
+  hideAllFromContinueWatching(type?: ContentType): IWatchProgress[] {
+    return this.markHiddenFromContinue((item) => !type || item.type === type);
+  },
+
+  markHiddenFromContinue(predicate: (item: IWatchProgress) => boolean): IWatchProgress[] {
+    const changed: IWatchProgress[] = [];
+    for (const item of this.getAllWatchProgress()) {
+      if (!item.hiddenFromContinue && predicate(item)) {
+        const hidden = { ...item, hiddenFromContinue: true };
+        this.saveWatchProgress(hidden);
+        changed.push(hidden);
+      }
+    }
+    return changed;
   },
 
   clearWatchHistory(type?: ContentType): void {

@@ -1,4 +1,4 @@
-import { xtreamService } from '../xtreamService';
+import { xtreamService, XtreamError } from '../xtreamService';
 
 describe('xtreamService', () => {
   const creds = {
@@ -57,5 +57,54 @@ describe('xtreamService', () => {
     // HTML entities
     expect(safeDecodeBase64('Telecine &amp; Pipoca')).toBe('Telecine & Pipoca');
     expect(cleanHtmlEntities('Rock&#039;n&#x27;Roll &quot;Live&quot;')).toBe("Rock'n'Roll \"Live\"");
+  });
+
+  describe('authenticate', () => {
+    const mockAuthResponse = (userInfo: object) =>
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ user_info: userInfo, server_info: {} }),
+      } as Response);
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('accepts an active account', async () => {
+      mockAuthResponse({ auth: 1, status: 'Active', exp_date: String(Date.now() / 1000 + 86400) });
+      await expect(xtreamService.authenticate(creds)).resolves.toBeDefined();
+    });
+
+    it('rejects an expired account with a friendly message', async () => {
+      mockAuthResponse({ auth: 1, status: 'Expired' });
+      await expect(xtreamService.authenticate(creds)).rejects.toMatchObject({
+        kind: 'expired',
+        message: expect.stringContaining('assinatura expirou'),
+      });
+    });
+
+    it('treats a past exp_date as expired even when status is Active', async () => {
+      mockAuthResponse({ auth: 1, status: 'Active', exp_date: '1600000000' });
+      await expect(xtreamService.authenticate(creds)).rejects.toMatchObject({ kind: 'expired' });
+    });
+
+    it('rejects invalid credentials', async () => {
+      mockAuthResponse({ auth: 0 });
+      await expect(xtreamService.authenticate(creds)).rejects.toMatchObject({ kind: 'auth' });
+    });
+
+    it('translates HTTP and network failures', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+      await expect(xtreamService.authenticate(creds)).rejects.toMatchObject({
+        kind: 'http',
+        message: expect.stringContaining('Confira a URL'),
+      });
+
+      jest.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('Network request failed'));
+      const err = await xtreamService.authenticate(creds).catch((e) => e);
+      expect(err).toBeInstanceOf(XtreamError);
+      expect(err.kind).toBe('network');
+    });
   });
 });

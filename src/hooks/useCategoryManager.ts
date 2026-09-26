@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ContentType, ICustomCategoryFolder } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
+import { claimSessionSync, releaseSessionSync } from '../utils/sessionSync';
 
 type CategoryManagerListener = () => void;
 const listeners = new Set<CategoryManagerListener>();
@@ -14,6 +15,64 @@ function notifyListeners() {
       // ignore
     }
   });
+}
+
+async function syncCloudCategoryData(userKey: string, type: ContentType) {
+  // 1. Sync Custom Folders
+  const cloudFolders = await supabaseService.fetchCustomFoldersList(userKey, type);
+  const localFolders = storageService.getCustomFolders(type);
+  let changed = false;
+
+  for (const cf of cloudFolders) {
+    const existingIdx = localFolders.findIndex((lf) => lf.id === cf.id);
+    if (existingIdx === -1) {
+      localFolders.push(cf);
+      changed = true;
+    } else if (cf.createdAt > (localFolders[existingIdx].createdAt || 0)) {
+      localFolders[existingIdx] = cf;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    storageService.setCustomFolders(type, localFolders);
+  }
+
+  // Upload any local folders not yet in cloud
+  for (const lf of localFolders) {
+    const inCloud = cloudFolders.some((cf) => cf.id === lf.id);
+    if (!inCloud) {
+      supabaseService.upsertCustomFolder(userKey, lf);
+    }
+  }
+
+  // 2. Sync Hidden Categories & Streams
+  const cloudHidden = await supabaseService.fetchHiddenItems(userKey, type);
+  const localCats = storageService.getHiddenCategories(type);
+  const localStreams = storageService.getHiddenStreams(type);
+  const cloudCats = cloudHidden?.hiddenCategories ?? [];
+  const cloudStreams = cloudHidden?.hiddenStreams ?? [];
+
+  const mergedCats = Array.from(new Set([...localCats, ...cloudCats]));
+  if (mergedCats.length !== localCats.length) {
+    storageService.setHiddenCategories(type, mergedCats);
+    changed = true;
+  }
+
+  const mergedStreams = Array.from(new Set([...localStreams, ...cloudStreams]));
+  if (mergedStreams.length !== localStreams.length) {
+    storageService.setHiddenStreams(type, mergedStreams);
+    changed = true;
+  }
+
+  // Upload local hidden items the cloud doesn't have yet
+  if (mergedCats.length !== cloudCats.length || mergedStreams.length !== cloudStreams.length) {
+    supabaseService.upsertHiddenItems(userKey, type, mergedCats, mergedStreams);
+  }
+
+  if (changed) {
+    notifyListeners();
+  }
 }
 
 export function useCategoryManager(type: ContentType = 'live') {
@@ -65,86 +124,15 @@ export function useCategoryManager(type: ContentType = 'live') {
     };
   }, [reload]);
 
-  // Cloud sync on mount
+  // Sincroniza com a nuvem uma vez por sessão para cada tipo de conteúdo
   useEffect(() => {
-    let isMounted = true;
+    const userKey = supabaseService.getUserKey(storageService.getAccount());
+    if (!userKey || userKey === 'guest') return;
+    const syncKey = `categories:${type}:${userKey}`;
+    if (!claimSessionSync(syncKey)) return;
 
-    async function syncCloudCategoryData() {
-      try {
-        const account = storageService.getAccount();
-        if (!account) return;
-        const userKey = supabaseService.getUserKey(account);
-        if (!userKey || userKey === 'guest') return;
-
-        // 1. Sync Custom Folders
-        const cloudFolders = await supabaseService.fetchCustomFoldersList(userKey, type);
-        if (isMounted && cloudFolders) {
-          const localFolders = storageService.getCustomFolders(type);
-          let foldersChanged = false;
-
-          for (const cf of cloudFolders) {
-            const existingIdx = localFolders.findIndex((lf) => lf.id === cf.id);
-            if (existingIdx === -1) {
-              localFolders.push(cf);
-              foldersChanged = true;
-            } else if (cf.createdAt > (localFolders[existingIdx].createdAt || 0)) {
-              localFolders[existingIdx] = cf;
-              foldersChanged = true;
-            }
-          }
-
-          if (foldersChanged) {
-            storageService.setCustomFolders(type, localFolders);
-            if (isMounted) {
-              reload();
-              notifyListeners();
-            }
-          }
-
-          // Upload any local folders not yet in cloud
-          for (const lf of localFolders) {
-            const inCloud = cloudFolders.some((cf) => cf.id === lf.id);
-            if (!inCloud) {
-              supabaseService.upsertCustomFolder(userKey, lf);
-            }
-          }
-        }
-
-        // 2. Sync Hidden Categories & Streams
-        const cloudHidden = await supabaseService.fetchHiddenItems(userKey, type);
-        if (isMounted && cloudHidden) {
-          const localCats = storageService.getHiddenCategories(type);
-          const localStreams = storageService.getHiddenStreams(type);
-          let hiddenChanged = false;
-
-          const mergedCats = Array.from(new Set([...localCats, ...cloudHidden.hiddenCategories]));
-          if (mergedCats.length !== localCats.length) {
-            storageService.setHiddenCategories(type, mergedCats);
-            hiddenChanged = true;
-          }
-
-          const mergedStreams = Array.from(new Set([...localStreams, ...cloudHidden.hiddenStreams]));
-          if (mergedStreams.length !== localStreams.length) {
-            storageService.setHiddenStreams(type, mergedStreams);
-            hiddenChanged = true;
-          }
-
-          if (hiddenChanged && isMounted) {
-            reload();
-            notifyListeners();
-          }
-        }
-      } catch {
-        // ignore network error
-      }
-    }
-
-    syncCloudCategoryData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [type, reload]);
+    syncCloudCategoryData(userKey, type).catch(() => releaseSessionSync(syncKey));
+  }, [type]);
 
   const toggleHideCategory = useCallback(
     (categoryId: string) => {

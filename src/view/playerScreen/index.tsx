@@ -10,21 +10,20 @@ import {
   View,
   Text,
   useWindowDimensions,
-  StatusBar as RNStatusBar,
   BackHandler,
 } from 'react-native';
-import { StatusBar, setStatusBarHidden } from 'expo-status-bar';
+import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer } from 'expo-video';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import * as NavigationBar from 'expo-navigation-bar';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { PlayerScreenProps, LiveChannelItem } from '../../routes/types';
 import { IEpgListing } from '../../@types/xtream';
 import { useCast } from '../../hooks/useCast';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
+import { usePlayerSystemUI } from '../../hooks/usePlayerSystemUI';
+import { useProgressPersistence } from '../../hooks/useProgressPersistence';
 import { useCategoryManager } from '../../hooks/useCategoryManager';
 import {
   formatSeconds,
@@ -983,68 +982,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
   }, [resetHideTimer, player]);
 
-  // Lock orientation to landscape and hide system status bar for local playback, restore on unmount or cast
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    async function applyOrientationAndStatusBar() {
-      try {
-        if (!isCasting) {
-          RNStatusBar.setHidden(true, 'fade');
-          setStatusBarHidden(true, 'fade');
-          navigation?.setOptions?.({
-            statusBarHidden: true,
-            statusBarAnimation: 'fade',
-          });
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-
-          // Oculta a barra de navegação virtual do Android (botões Voltar, Home, Recents)
-          if (Platform.OS === 'android') {
-            // Com edge-to-edge, a barra oculta reaparece temporariamente ao deslizar da borda
-            await NavigationBar.setVisibilityAsync('hidden').catch(() => {});
-          }
-        } else {
-          RNStatusBar.setHidden(false, 'fade');
-          setStatusBarHidden(false, 'fade');
-          navigation?.setOptions?.({
-            statusBarHidden: false,
-            statusBarAnimation: 'fade',
-          });
-          if (Platform.isTV) {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-          } else {
-            await ScreenOrientation.unlockAsync();
-          }
-        }
-      } catch {
-        // ignore on unsupported environments
-      }
-    }
-    applyOrientationAndStatusBar();
-
-    return () => {
-      if (Platform.isTV) {
-        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-      } else {
-        ScreenOrientation.unlockAsync().catch(() => {});
-      }
-      RNStatusBar.setHidden(false, 'fade');
-      setStatusBarHidden(false, 'fade');
-      navigation?.setOptions?.({
-        statusBarHidden: false,
-      });
-      if (Platform.OS === 'android') {
-        NavigationBar.setVisibilityAsync('visible').catch(() => {});
-      }
-    };
-  }, [isCasting, navigation]);
-
-  // Sincroniza a visibilidade da barra de navegação virtual do Android com o sumiço dos controles
-  useEffect(() => {
-    if (Platform.OS === 'android' && !isCasting && !showControls) {
-      NavigationBar.setVisibilityAsync('hidden').catch(() => {});
-    }
-  }, [showControls, isCasting]);
+  usePlayerSystemUI({ isCasting, showControls, navigation });
 
   // Configura pré-carregamento suave de buffer e restauração de initialTime no elemento <video> do navegador (Web)
   useEffect(() => {
@@ -1963,15 +1901,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
   }, [player, streamUrl, account]);
 
-  useEffect(() => {
-    return () => {
-      const cur = currentTimeRef.current;
-      const dur = durationRef.current || duration;
-      if (cur > 0 && dur > 0) {
-        persistCurrentProgress(cur, dur);
-      }
-    };
-  }, [duration, persistCurrentProgress]);
+  useProgressPersistence({
+    isPlaying: isCasting ? isCastPlaying : isPlaying,
+    getSnapshot: () =>
+      isCastingRef.current
+        ? { time: streamPosition, duration: streamDuration }
+        : { time: currentTimeRef.current, duration: durationRef.current || duration },
+    persist: persistCurrentProgress,
+  });
 
   // Monitorar reprodução real do episódio atual no Chromecast
   useEffect(() => {

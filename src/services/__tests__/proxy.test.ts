@@ -1,3 +1,11 @@
+jest.mock('dns', () => ({
+  promises: {
+    lookup: jest.fn(async (host: string) =>
+      host === 'intranet.local' ? [{ address: '10.0.0.5', family: 4 }] : [{ address: '203.0.113.10', family: 4 }]
+    ),
+  },
+}));
+
 const proxyHandler = require('../../../api/proxy.js');
 
 global.fetch = jest.fn();
@@ -26,6 +34,54 @@ describe('api/proxy.js', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
     expect(res.statusCode).toBe(200);
     expect(res.end).toHaveBeenCalled();
+  });
+
+  it('rejects methods other than GET and HEAD', async () => {
+    req.method = 'POST';
+    req.query.url = 'http://iptv.server/player_api.php';
+    await proxyHandler(req, res);
+
+    expect(res.statusCode).toBe(405);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-http protocols', async () => {
+    req.query.url = 'file:///etc/passwd';
+    await proxyHandler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('blocks internal network destinations (SSRF)', async () => {
+    for (const url of ['http://127.0.0.1:8080/', 'http://169.254.169.254/latest', 'http://intranet.local/']) {
+      req.query.url = url;
+      await proxyHandler(req, res);
+      expect(res.statusCode).toBe(403);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('validates each redirect target before following it', async () => {
+    req.query.url = 'http://iptv.server/movie/1.mp4';
+    const redirectHeaders = new Headers();
+    redirectHeaders.set('location', 'http://127.0.0.1/admin');
+    (fetch as jest.Mock).mockResolvedValueOnce({ status: 302, headers: redirectHeaders, body: null });
+
+    await proxyHandler(req, res);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('does not leak upstream error details', async () => {
+    req.query.url = 'http://iptv.server/live/1.ts';
+    (fetch as jest.Mock).mockRejectedValueOnce(new Error('connect ECONNREFUSED 203.0.113.10:80'));
+
+    await proxyHandler(req, res);
+
+    expect(res.statusCode).toBe(502);
+    expect(res.end).toHaveBeenCalledWith(expect.not.stringContaining('ECONNREFUSED'));
   });
 
   it('returns 400 if url parameter is missing', async () => {

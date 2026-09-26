@@ -103,6 +103,7 @@ export function useAuth(): IAuthContextData {
     savedAccounts,
     isLoading,
     error,
+    accountWarning: null,
     loginWithM3u,
     loginWithCredentials,
     removeSavedAccount,

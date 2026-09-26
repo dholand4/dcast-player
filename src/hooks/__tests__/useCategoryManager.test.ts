@@ -1,10 +1,26 @@
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useCategoryManager } from '../useCategoryManager';
 import { storageService } from '../../services/storageService';
+import { supabaseService } from '../../services/supabaseService';
+import { resetSessionSyncs } from '../../utils/sessionSync';
 import { ICustomCategoryFolder } from '../../@types/storage';
+
+jest.mock('../../services/supabaseService', () => ({
+  supabaseService: {
+    getUserKey: jest.fn(() => 'hashed_key'),
+    fetchCustomFoldersList: jest.fn(async () => []),
+    upsertCustomFolder: jest.fn(),
+    fetchHiddenItems: jest.fn(async () => null),
+    upsertHiddenItems: jest.fn(),
+  },
+}));
 
 jest.mock('../../services/storageService', () => ({
   storageService: {
+    getAccount: jest.fn(() => null),
+    setHiddenCategories: jest.fn(),
+    setHiddenStreams: jest.fn(),
+    setCustomFolders: jest.fn(),
     getHiddenCategories: jest.fn(() => []),
     toggleHideCategory: jest.fn(() => true),
     getHiddenStreams: jest.fn(() => []),
@@ -19,6 +35,23 @@ jest.mock('../../services/storageService', () => ({
 describe('useCategoryManager hook', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetSessionSyncs();
+  });
+
+  it('uploads local hidden items when the cloud has none, only once per session', async () => {
+    (storageService.getAccount as jest.Mock).mockReturnValue({ username: 'u', password: 'p' });
+    (storageService.getHiddenCategories as jest.Mock).mockReturnValue(['adult']);
+
+    renderHook(() => useCategoryManager('live'));
+    renderHook(() => useCategoryManager('live'));
+
+    await waitFor(() => {
+      expect(supabaseService.upsertHiddenItems).toHaveBeenCalledWith('hashed_key', 'live', ['adult'], []);
+    });
+    expect(supabaseService.fetchHiddenItems).toHaveBeenCalledTimes(1);
+
+    (storageService.getAccount as jest.Mock).mockReturnValue(null);
+    (storageService.getHiddenCategories as jest.Mock).mockReturnValue([]);
   });
 
   const mockFolder: ICustomCategoryFolder = {

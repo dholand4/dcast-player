@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { IFavoriteItem } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
+import { claimSessionSync, releaseSessionSync } from '../utils/sessionSync';
 
 type FavoriteListener = () => void;
 const favoriteListeners = new Set<FavoriteListener>();
@@ -14,6 +15,34 @@ function notifyFavoriteListeners() {
       // ignore
     }
   });
+}
+
+async function syncCloudFavorites(userKey: string) {
+  const cloudFavs = await supabaseService.fetchFavoritesList(userKey);
+  const currentLocal = storageService.getFavorites();
+  let changed = false;
+
+  // Merge cloud favorites into local storage
+  for (const cloudItem of cloudFavs) {
+    const existsLocally = currentLocal.some((local) => String(local.id) === String(cloudItem.id));
+    if (!existsLocally) {
+      currentLocal.push(cloudItem);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    storageService.saveFavorites(currentLocal);
+    notifyFavoriteListeners();
+  }
+
+  // Upload any local favorites not yet present in the cloud
+  for (const localItem of currentLocal) {
+    const inCloud = cloudFavs.some((cf) => String(cf.id) === String(localItem.id));
+    if (!inCloud) {
+      supabaseService.upsertFavorite(userKey, localItem);
+    }
+  }
 }
 
 export function useFavorites() {
@@ -44,62 +73,15 @@ export function useFavorites() {
     };
   }, [reload]);
 
-  // Cloud sync on mount
+  // Sincroniza com a nuvem uma vez por sessão (várias telas usam este hook)
   useEffect(() => {
-    let isMounted = true;
+    const userKey = supabaseService.getUserKey(storageService.getAccount());
+    if (!userKey || userKey === 'guest') return;
+    const syncKey = `favorites:${userKey}`;
+    if (!claimSessionSync(syncKey)) return;
 
-    async function syncCloudFavorites() {
-      try {
-        const account = storageService.getAccount();
-        if (!account) return;
-        const userKey = supabaseService.getUserKey(account);
-        if (!userKey || userKey === 'guest') return;
-
-        const cloudFavs = await supabaseService.fetchFavoritesList(userKey);
-        if (!isMounted || !cloudFavs) return;
-
-        const currentLocal = storageService.getFavorites();
-        let changed = false;
-
-        // Merge cloud favorites into local storage
-        for (const cloudItem of cloudFavs) {
-          const existsLocally = currentLocal.some(
-            (local) => String(local.id) === String(cloudItem.id)
-          );
-          if (!existsLocally) {
-            currentLocal.push(cloudItem);
-            changed = true;
-          }
-        }
-
-        if (changed) {
-          storageService.saveFavorites(currentLocal);
-          if (isMounted) {
-            reload();
-            notifyFavoriteListeners();
-          }
-        }
-
-        // Upload any local favorites not yet present in the cloud
-        for (const localItem of currentLocal) {
-          const inCloud = cloudFavs.some(
-            (cf) => String(cf.id) === String(localItem.id)
-          );
-          if (!inCloud) {
-            supabaseService.upsertFavorite(userKey, localItem);
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    syncCloudFavorites();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [reload]);
+    syncCloudFavorites(userKey).catch(() => releaseSessionSync(syncKey));
+  }, []);
 
   const toggleFavorite = useCallback(
     (item: IFavoriteItem): boolean => {

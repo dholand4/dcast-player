@@ -25,6 +25,25 @@ export const SubscriptionCard = styled.View`
   justify-content: space-between;
 `;
 
+export const AccountWarningCard = styled.View`
+  margin-horizontal: ${({ theme }) => theme.spacing.md}px;
+  margin-bottom: ${({ theme }) => theme.spacing.md}px;
+  padding: ${({ theme }) => theme.spacing.sm}px ${({ theme }) => theme.spacing.md}px;
+  background-color: rgba(255, 179, 0, 0.12);
+  border-radius: ${({ theme }) => theme.radii.md}px;
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.warning};
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm}px;
+`;
+
+export const AccountWarningText = styled.Text`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
+`;
+
 export const SubscriptionInfo = styled.View`
   flex-direction: row;
   align-items: center;

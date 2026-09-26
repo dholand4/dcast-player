@@ -78,7 +78,8 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     prefetchCategory,
   } = useXtream(account);
   const { favorites, isFavorite, toggleFavorite, reload } = useFavorites();
-  const { continueWatching, clearHistory, removeProgress } = useWatchHistory();
+  const { continueWatching, hideFromContinueWatching, hideAllFromContinueWatching } =
+    useWatchHistory();
   const { hiddenCategories, hiddenStreams, customFolders } = useCategoryManager(type);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -1093,15 +1094,15 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
 
       <ConfirmModalGlobal
         visible={isClearHistoryModalVisible}
-        title="Limpar Histórico"
-        description={`Deseja limpar todo o histórico de Continuar Assistindo ${type === 'series' ? 'de Séries' : 'de Filmes'}? Esta ação não pode ser desfeita.`}
-        confirmText="Apagar Tudo"
+        title="Limpar Continuar Assistindo"
+        description={`Deseja limpar a lista de Continuar Assistindo ${type === 'series' ? 'de Séries' : 'de Filmes'}? Os episódios assistidos continuam marcados.`}
+        confirmText="Limpar"
         cancelText="Cancelar"
         variant="danger"
         iconName="delete-sweep"
         onConfirm={() => {
           setIsClearHistoryModalVisible(false);
-          clearHistory(type);
+          hideAllFromContinueWatching(type);
         }}
         onCancel={() => setIsClearHistoryModalVisible(false)}
         testID="category-clear-history-modal"
@@ -1109,7 +1110,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
 
       <ConfirmModalGlobal
         visible={Boolean(itemToRemove)}
-        title="Remover do Histórico"
+        title="Remover do Continuar Assistindo"
         description={
           itemToRemove
             ? `Deseja remover "${itemToRemove.title}" do Continuar Assistindo?`
@@ -1121,7 +1122,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         iconName="delete-outline"
         onConfirm={() => {
           if (itemToRemove) {
-            removeProgress(itemToRemove.id, itemToRemove.seriesId);
+            hideFromContinueWatching(itemToRemove.id, itemToRemove.seriesId);
             setItemToRemove(null);
           }
         }}

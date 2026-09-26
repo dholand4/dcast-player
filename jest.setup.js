@@ -24,9 +24,28 @@ jest.mock('react-native-mmkv', () => {
       }),
       getAllKeys: jest.fn(() => Array.from(store.keys())),
       clearAll: jest.fn(() => store.clear()),
+      recrypt: jest.fn(),
     })),
   };
 });
+
+// Mock expo-secure-store (chave de criptografia do MMKV)
+jest.mock('expo-secure-store', () => {
+  const secureStore = new Map();
+  return {
+    getItem: jest.fn((key) => secureStore.get(key) ?? null),
+    setItem: jest.fn((key, value) => {
+      secureStore.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key) => {
+      secureStore.delete(key);
+    }),
+  };
+});
+
+jest.mock('expo-crypto', () => ({
+  getRandomBytes: jest.fn((count) => Uint8Array.from({ length: count }, (_, i) => (i * 37) % 256)),
+}));
 
 const { NativeModules } = require('react-native');
 NativeModules.RNGoogleCast = NativeModules.RNGoogleCast || {};
