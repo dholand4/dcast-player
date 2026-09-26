@@ -101,7 +101,7 @@ describe('SetupScreen', () => {
     expect(getByText('Adicionar Lista IPTV')).toBeTruthy();
     expect(getByPlaceholderText('Ex: Lista Principal')).toBeTruthy();
     expect(
-      getByPlaceholderText('http://servidor.com:8080/get.php?username=...')
+      getByPlaceholderText('Cole o link da lista aqui')
     ).toBeTruthy();
   });
 
@@ -122,7 +122,7 @@ describe('SetupScreen', () => {
       <SetupScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    const urlInput = getByPlaceholderText('http://servidor.com:8080/get.php?username=...');
+    const urlInput = getByPlaceholderText('Cole o link da lista aqui');
     fireEvent.changeText(urlInput, 'http://server.com:8080/get.php?username=user1&password=pass1');
 
     const connectBtn = getByTestId('connect-m3u-button');
@@ -144,7 +144,7 @@ describe('SetupScreen', () => {
     // Switch to Xtream tab
     fireEvent.press(getByTestId('tab-xtream-btn'));
 
-    const serverInput = getByPlaceholderText('http://dns.meuservidor.com:8080');
+    const serverInput = getByPlaceholderText('http://servidor:porta');
     const userInput = getByPlaceholderText('Seu usuário');
     const passInput = getByPlaceholderText('Sua senha');
 
@@ -170,7 +170,7 @@ describe('SetupScreen', () => {
 
     fireEvent.press(getByTestId('tab-xtream-btn'));
 
-    const serverInput = getByPlaceholderText('http://dns.meuservidor.com:8080');
+    const serverInput = getByPlaceholderText('http://servidor:porta');
     fireEvent.changeText(
       serverInput,
       'http://iptv.example.com:8000/get.php?username=autouser&password=autopass&type=m3u'

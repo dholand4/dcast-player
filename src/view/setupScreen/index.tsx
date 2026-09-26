@@ -298,7 +298,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
             <>
               <InputGlobal
                 label="Link M3U / Xtream"
-                placeholder="http://servidor.com:8080/get.php?username=..."
+                placeholder="Cole o link da lista aqui"
                 value={url}
                 onChangeText={(text) => {
                   setUrl(text);
@@ -325,7 +325,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
             <>
               <InputGlobal
                 label="URL do Servidor / DNS"
-                placeholder="http://dns.meuservidor.com:8080"
+                placeholder="http://servidor:porta"
                 value={serverUrl}
                 onChangeText={handleServerUrlChange}
                 autoCapitalize="none"
