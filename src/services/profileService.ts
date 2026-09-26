@@ -3,7 +3,7 @@ import { storageService, DEFAULT_PROFILE_ID } from './storageService';
 import { supabaseService } from './supabaseService';
 
 export const PROFILE_COLORS = ['#E50914', '#29B6F6', '#46D369', '#FFB300', '#AB47BC', '#FF7043'];
-export const MAX_PROFILES = 5;
+export const MAX_PROFILES = 4;
 export const PROFILE_NAME_MAX_LENGTH = 20;
 
 /** Chave da nuvem para histórico e favoritos do perfil em uso */

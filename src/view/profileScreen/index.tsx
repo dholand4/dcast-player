@@ -10,18 +10,20 @@ import { InputGlobal } from '../../components/inputGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { ConfirmModalGlobal } from '../../components/confirmModalGlobal';
 import {
+  Screen,
   Container,
+  GearButton,
   Title,
-  ProfilesGrid,
-  ProfileTile,
+  Subtitle,
+  ProfileList,
+  ProfileRow,
   Avatar,
   AddAvatar,
-  AvatarInitial,
-  EditBadge,
   ProfileName,
-  ManageButtonWrapper,
+  AddLabel,
   ModalBackdrop,
   ModalCard,
+  ModalHeader,
   ModalTitle,
   ColorRow,
   ColorSwatch,
@@ -83,63 +85,69 @@ export const ProfileScreen: React.FC = () => {
   const editingProfile = editor?.mode === 'edit' ? editor.profile : null;
 
   return (
-    <Container insetTop={insets.top} testID="profile-screen">
-      <Title>{isManaging ? 'Gerenciar perfis' : 'Quem está assistindo?'}</Title>
+    <Screen testID="profile-screen">
+      <GearButton
+        insetTop={insets.top}
+        onPress={() => setIsManaging((prev) => !prev)}
+        onFocus={() => setFocusedId('gear')}
+        onBlur={() => setFocusedId(null)}
+        isFocused={focusedId === 'gear'}
+        accessibilityRole="button"
+        accessibilityLabel={isManaging ? 'Concluir gerenciamento de perfis' : 'Gerenciar perfis'}
+        testID="profile-manage-toggle"
+      >
+        <MaterialIcons name={isManaging ? 'check' : 'settings'} size={24} color="#FFFFFF" />
+      </GearButton>
 
-      <ProfilesGrid>
-        {profiles.map((profile, index) => (
-          <ProfileTile
-            key={profile.id}
-            onPress={() => handleProfilePress(profile)}
-            onFocus={() => setFocusedId(profile.id)}
-            onBlur={() => setFocusedId(null)}
-            isFocused={focusedId === profile.id}
-            hasTVPreferredFocus={index === 0}
-            accessibilityRole="button"
-            accessibilityLabel={isManaging ? `Editar perfil ${profile.name}` : `Entrar como ${profile.name}`}
-            testID={`profile-tile-${profile.id}`}
-          >
-            <Avatar color={profile.color || PROFILE_COLORS[0]}>
-              <AvatarInitial>{profile.name.charAt(0).toUpperCase()}</AvatarInitial>
-              {isManaging && (
-                <EditBadge>
-                  <MaterialIcons name="edit" size={32} color="#FFFFFF" />
-                </EditBadge>
-              )}
-            </Avatar>
-            <ProfileName>{profile.name}</ProfileName>
-          </ProfileTile>
-        ))}
+      <Container>
+        <Title>{isManaging ? 'Gerenciar perfis' : 'Quem está assistindo?'}</Title>
+        {isManaging && <Subtitle>Toque em um perfil para editar</Subtitle>}
 
-        {canAddProfile && (
-          <ProfileTile
-            onPress={openCreate}
-            onFocus={() => setFocusedId('add')}
-            onBlur={() => setFocusedId(null)}
-            isFocused={focusedId === 'add'}
-            accessibilityRole="button"
-            accessibilityLabel="Adicionar perfil"
-            testID="profile-add"
-          >
-            <AddAvatar>
-              <MaterialIcons name="add" size={40} color="#AAAAAA" />
-            </AddAvatar>
-            <ProfileName>Adicionar</ProfileName>
-          </ProfileTile>
-        )}
-      </ProfilesGrid>
+        <ProfileList>
+          {profiles.map((profile, index) => (
+            <ProfileRow
+              key={profile.id}
+              onPress={() => handleProfilePress(profile)}
+              onFocus={() => setFocusedId(profile.id)}
+              onBlur={() => setFocusedId(null)}
+              isFocused={focusedId === profile.id}
+              hasTVPreferredFocus={index === 0}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isManaging ? `Editar perfil ${profile.name}` : `Entrar como ${profile.name}`
+              }
+              testID={`profile-tile-${profile.id}`}
+            >
+              <Avatar color={profile.color || PROFILE_COLORS[0]}>
+                <MaterialIcons name="person" size={30} color="#FFFFFF" />
+              </Avatar>
+              <ProfileName>{profile.name}</ProfileName>
+              <MaterialIcons
+                name={isManaging ? 'edit' : 'chevron-right'}
+                size={22}
+                color="#AAAAAA"
+              />
+            </ProfileRow>
+          ))}
 
-      <ManageButtonWrapper>
-        <ButtonGlobal
-          label={isManaging ? 'Concluído' : 'Gerenciar perfis'}
-          variant={isManaging ? 'primary' : 'ghost'}
-          icon={
-            <MaterialIcons name={isManaging ? 'check' : 'edit'} size={18} color="#FFFFFF" />
-          }
-          onPress={() => setIsManaging((prev) => !prev)}
-          testID="profile-manage-toggle"
-        />
-      </ManageButtonWrapper>
+          {isManaging && canAddProfile && (
+            <ProfileRow
+              onPress={openCreate}
+              onFocus={() => setFocusedId('add')}
+              onBlur={() => setFocusedId(null)}
+              isFocused={focusedId === 'add'}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar perfil"
+              testID="profile-add"
+            >
+              <AddAvatar>
+                <MaterialIcons name="add" size={24} color="#AAAAAA" />
+              </AddAvatar>
+              <AddLabel>Adicionar perfil</AddLabel>
+            </ProfileRow>
+          )}
+        </ProfileList>
+      </Container>
 
       <Modal
         visible={Boolean(editor) && !isDeleteConfirmVisible}
@@ -149,7 +157,12 @@ export const ProfileScreen: React.FC = () => {
       >
         <ModalBackdrop>
           <ModalCard keyboardShouldPersistTaps="handled">
-            <ModalTitle>{editingProfile ? 'Editar perfil' : 'Novo perfil'}</ModalTitle>
+            <ModalHeader>
+              <Avatar color={color} size={52}>
+                <MaterialIcons name="person" size={36} color="#FFFFFF" />
+              </Avatar>
+              <ModalTitle>{editingProfile ? 'Editar perfil' : 'Novo perfil'}</ModalTitle>
+            </ModalHeader>
 
             <InputGlobal
               label="Nome"
@@ -210,6 +223,6 @@ export const ProfileScreen: React.FC = () => {
         onCancel={() => setIsDeleteConfirmVisible(false)}
         testID="profile-delete-confirm"
       />
-    </Container>
+    </Screen>
   );
 };

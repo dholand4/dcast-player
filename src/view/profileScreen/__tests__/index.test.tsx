@@ -40,9 +40,38 @@ describe('ProfileScreen', () => {
     expect(selectProfile).toHaveBeenCalledWith('kids');
   });
 
+  it('only shows "add profile" after opening the gear menu', () => {
+    const { getByTestId, queryByTestId } = wrap(<ProfileScreen />);
+
+    expect(queryByTestId('profile-add')).toBeNull();
+    fireEvent.press(getByTestId('profile-manage-toggle'));
+    expect(getByTestId('profile-add')).toBeTruthy();
+  });
+
+  it('hides "add profile" when the account already has 4 profiles', () => {
+    (useProfiles as jest.Mock).mockReturnValue({
+      profiles: ['a', 'b', 'c', 'd'].map((id, i) => ({
+        id,
+        name: id,
+        color: '#E50914',
+        createdAt: i,
+        updatedAt: i,
+      })),
+      selectProfile,
+      createProfile,
+      updateProfile,
+      deleteProfile,
+    });
+    const { getByTestId, queryByTestId } = wrap(<ProfileScreen />);
+
+    fireEvent.press(getByTestId('profile-manage-toggle'));
+    expect(queryByTestId('profile-add')).toBeNull();
+  });
+
   it('creates a new profile', () => {
     const { getByTestId } = wrap(<ProfileScreen />);
 
+    fireEvent.press(getByTestId('profile-manage-toggle'));
     fireEvent.press(getByTestId('profile-add'));
     fireEvent.changeText(getByTestId('profile-name-input').findByType(require('react-native').TextInput), 'Maria');
     fireEvent.press(getByTestId('profile-color-#46D369'));
