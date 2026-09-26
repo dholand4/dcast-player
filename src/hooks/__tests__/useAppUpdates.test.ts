@@ -46,13 +46,55 @@ describe('useAppUpdates', () => {
     (Updates.fetchUpdateAsync as jest.Mock).mockResolvedValueOnce(undefined);
     (Updates.reloadAsync as jest.Mock).mockResolvedValueOnce(undefined);
 
-    renderHook(() => useAppUpdates());
+    const { result } = renderHook(() => useAppUpdates());
 
     await waitFor(() => {
       expect(Updates.checkForUpdateAsync).toHaveBeenCalled();
       expect(Updates.fetchUpdateAsync).toHaveBeenCalled();
-      expect(Updates.reloadAsync).toHaveBeenCalled();
+      expect(Updates.reloadAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reloadScreenOptions: expect.objectContaining({ backgroundColor: '#121212' }),
+        })
+      );
     });
+    expect(result.current).toBe('restarting');
+  });
+
+  it('reports downloading status while the update is being fetched', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global as any).__DEV__ = false;
+    (Updates.checkForUpdateAsync as jest.Mock).mockResolvedValueOnce({
+      isAvailable: true,
+    });
+    (Updates.fetchUpdateAsync as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+
+    const { result } = renderHook(() => useAppUpdates());
+
+    expect(result.current).toBe('idle');
+    await waitFor(() => {
+      expect(result.current).toBe('downloading');
+    });
+    expect(Updates.reloadAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns to idle when the download fails', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global as any).__DEV__ = false;
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    (Updates.checkForUpdateAsync as jest.Mock).mockResolvedValueOnce({
+      isAvailable: true,
+    });
+    (Updates.fetchUpdateAsync as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    const { result } = renderHook(() => useAppUpdates());
+
+    await waitFor(() => {
+      expect(Updates.fetchUpdateAsync).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+    expect(result.current).toBe('idle');
+    expect(Updates.reloadAsync).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 
   it('catches and handles errors silently without crashing', async () => {

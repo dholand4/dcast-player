@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppProviders } from './src/providers';
 import { Routes } from './src/routes';
 import { useAppUpdates } from './src/hooks/useAppUpdates';
+import { LoadingGlobal } from './src/components/loadingGlobal';
 
 const styles = StyleSheet.create({
   root: {
@@ -13,7 +14,7 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
-  useAppUpdates();
+  const updateStatus = useAppUpdates();
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -66,6 +67,19 @@ export default function App() {
       <AppProviders>
         <StatusBar style="light" />
         <Routes />
+        {updateStatus !== 'idle' && (
+          <View style={StyleSheet.absoluteFill}>
+            <LoadingGlobal
+              fullscreen
+              testID="app-update-screen"
+              message={
+                updateStatus === 'downloading'
+                  ? 'Baixando nova versão...'
+                  : 'Aplicando atualização...'
+              }
+            />
+          </View>
+        )}
       </AppProviders>
     </View>
   );
