@@ -11,7 +11,6 @@ import {
   Text,
   useWindowDimensions,
   BackHandler,
-  ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -19,7 +18,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useAppInsets } from '../../hooks/useAppInsets';
 import { PlayerScreenProps, LiveChannelItem } from '../../routes/types';
-import { IEpgListing, IXtreamUserInfo } from '../../@types/xtream';
+import { IEpgListing } from '../../@types/xtream';
 import { useCast } from '../../hooks/useCast';
 import { useAuth } from '../../hooks/useAuth';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
@@ -151,43 +150,6 @@ async function safeReplacePlayerSource(playerInstance: any, source: any): Promis
 // Module-level guards to prevent auto-advance loops across rapid screen remounts
 let globalLastAdvanceTimestamp = 0;
 let globalLastAdvancedId = '';
-
-// Troca de episódio na TV com o atual ainda tocando, como na troca manual (que funciona);
-// a troca depois que a TV terminava o episódio falhava
-const CAST_NEXT_PROMPT_BEFORE_END_S = 25;
-const CAST_NEXT_ADVANCE_BEFORE_END_S = 10;
-
-// Novas tentativas de abrir na TV, dando tempo para a lista IPTV liberar a conexão anterior.
-// Com a tela do celular apagada o Android pausa os timers, então elas rodam ao voltar ao app
-const CAST_RETRY_DELAYS_MS = [5000, 10000, 20000];
-
-// Na tela de controle da TV o aviso de próximo episódio fica no fluxo, acima dos botões
-const CAST_NEXT_EPISODE_CARD_STYLE: ViewStyle = {
-  position: 'relative',
-  bottom: 0,
-  right: 0,
-  width: '100%',
-  marginBottom: 16,
-};
-
-function describeCastFailure(err?: unknown): string {
-  const code = err instanceof Error ? err.message : '';
-  if (code.includes('Nenhum dispositivo')) {
-    return 'O app perdeu a sessão com a TV. Desconecte e conecte o Chromecast de novo.';
-  }
-  if (err) {
-    return `A TV recusou o vídeo${code ? ` (${code})` : ''}.`;
-  }
-  return 'A TV começou a abrir o vídeo, mas parou com erro.';
-}
-
-// Com a lista cheia, a TV é recusada mesmo com o Chromecast conectado
-function describeConnectionUsage(info?: IXtreamUserInfo): string {
-  const active = parseInt(info?.active_cons || '', 10);
-  const max = parseInt(info?.max_connections || '', 10);
-  if (!Number.isFinite(active) || !Number.isFinite(max) || max <= 0) return '';
-  return ` Lista IPTV: ${active} de ${max} ${max === 1 ? 'conexão' : 'conexões'} em uso.`;
-}
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   route,
@@ -412,7 +374,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [initialTime, contentId, getProgress]);
 
   const [castError, setCastError] = useState<string | null>(null);
-  const [castRetryStatus, setCastRetryStatus] = useState<string | null>(null);
   const isCastingRef = useRef(isCasting);
   isCastingRef.current = isCasting;
   const prevIsCastingRef = useRef(isCasting);
@@ -421,29 +382,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const isDisconnectingCastRef = useRef(false);
   const hasCastAutoAdvancedRef = useRef(false);
   const hasCastStartedPlayingRef = useRef(false);
-  const castRetryCountRef = useRef(0);
-  const castRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxCastPositionObservedRef = useRef(
     typeof effectiveInitialTime === 'number' && effectiveInitialTime > 0 ? effectiveInitialTime : 0
   );
 
-  // O que a TV está tocando de fato: logo após trocar de episódio, o status e a posição
-  // ainda são do episódio anterior e não podem ser atribuídos a este
-  const castStatusContentId = castMediaStatus?.mediaInfo?.customData?.id;
-  const isTvOnThisContent = castStatusContentId
-    ? String(castStatusContentId) === String(activeContentId)
-    : !activeCastMedia ||
-      activeCastMedia.contentId === activeContentId ||
-      extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl);
-
   useEffect(() => {
-    if (isCasting && isTvOnThisContent && streamPosition > 0) {
+    if (isCasting && streamPosition > 0) {
       lastCastPositionRef.current = streamPosition;
     }
-  }, [isCasting, isTvOnThisContent, streamPosition]);
+  }, [isCasting, streamPosition]);
 
-  // O celular abre o vídeo mesmo transmitindo (pausado e sem som): sem ele aberto,
-  // a TV não conseguia reproduzir filmes e séries desta lista IPTV
   const player = useVideoPlayer(videoSource, (p) => {
     p.loop = false;
     p.muted = false;
@@ -1637,9 +1585,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     nextEpisodeDismissedRef.current = true;
   }, []);
 
-  // Na TV a contagem segue a posição do episódio (os timers param com a tela do celular apagada)
   useEffect(() => {
-    if (!showNextEpisodePrompt || isCasting) return;
+    if (!showNextEpisodePrompt) return;
 
     const interval = setInterval(() => {
       setNextEpisodeCountdown((prev) => {
@@ -1658,7 +1605,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showNextEpisodePrompt, isCasting]);
+  }, [showNextEpisodePrompt]);
 
   useEffect(() => {
     setShowNextEpisodePrompt(false);
@@ -1673,13 +1620,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     currentTimeRef.current = effectiveInitialTime;
     setCurrentTime(effectiveInitialTime);
     hasCastRef.current = false;
-    castRetryCountRef.current = 0;
-    if (castRetryTimerRef.current) {
-      clearTimeout(castRetryTimerRef.current);
-      castRetryTimerRef.current = null;
-    }
     setCastError(null);
-    setCastRetryStatus(null);
   }, [contentId, effectiveInitialTime]);
 
   const handleGoToPrevEpisode = useCallback(() => {
@@ -2007,38 +1948,39 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Monitorar reprodução real do episódio atual no Chromecast
   useEffect(() => {
-    // Só conta a posição quando a TV está de fato neste episódio
-    if (!isCasting || type !== 'series' || !isTvOnThisContent) return;
+    if (!isCasting || type !== 'series') return;
 
-    if (streamPosition > 0) {
-      maxCastPositionObservedRef.current = Math.max(
-        maxCastPositionObservedRef.current,
-        streamPosition
-      );
-    }
-    if (streamPosition > 10 && streamDuration > 30 && (isCastPlaying || streamPosition > 20)) {
-      hasCastStartedPlayingRef.current = true;
+    // Verificar se a mídia no Chromecast é de fato a deste episódio
+    const isCurrentEpisodeActive =
+      !activeCastMedia ||
+      activeCastMedia.contentId === contentId ||
+      extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl);
+
+    if (isCurrentEpisodeActive) {
+      if (streamPosition > 0) {
+        maxCastPositionObservedRef.current = Math.max(
+          maxCastPositionObservedRef.current,
+          streamPosition
+        );
+      }
+      if (streamPosition > 10 && streamDuration > 30 && (isCastPlaying || streamPosition > 20)) {
+        hasCastStartedPlayingRef.current = true;
+      }
     }
   }, [
     isCasting,
     type,
-    isTvOnThisContent,
+    contentId,
+    streamUrl,
+    activeCastMedia,
     streamPosition,
     streamDuration,
     isCastPlaying,
   ]);
 
-  // Próximo episódio na TV: aviso nos últimos segundos e troca com o episódio atual ainda tocando.
-  // Tudo segue a posição informada pela TV, que continua chegando com a tela do celular apagada
+  // Avanço automático estrito somente ao término real do episódio no Chromecast
   useEffect(() => {
-    if (
-      !isCasting ||
-      type !== 'series' ||
-      !nextEpisode ||
-      hasCastAutoAdvancedRef.current ||
-      !isTvOnThisContent ||
-      nextEpisodeDismissed
-    ) {
+    if (!isCasting || type !== 'series' || !nextEpisode || hasCastAutoAdvancedRef.current) {
       return;
     }
 
@@ -2052,15 +1994,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       return;
     }
 
-    const advanceAt = streamDuration - CAST_NEXT_ADVANCE_BEFORE_END_S;
+    // 3. Critérios estritos de finalização:
+    // a) Posição nos últimos 4 segundos do vídeo
+    const isNearEnd = streamPosition >= streamDuration - 4;
 
-    // 3. Fim do episódio: hora da troca, ou a TV já informou que terminou
-    // (com pelo menos 85% assistido, para não avançar em erros/cancelamentos)
+    // b) OU receptor Chromecast reportou término explícito (idleReason 'finished' ou 1)
+    // E confirmamos que o usuário assistiu pelo menos 85% do episódio (evita falsos positivos em erros/cancelamentos)
     const isFinishedOnCast =
       (castMediaStatus?.idleReason === 'finished' || castMediaStatus?.idleReason === 1) &&
       maxCastPositionObservedRef.current >= streamDuration * 0.85;
 
-    if (streamPosition >= advanceAt || isFinishedOnCast) {
+    if (isNearEnd || isFinishedOnCast) {
       const now = Date.now();
       // Cooldown global estrito de 15 segundos entre quaisquer trocas automáticas de episódio
       if (now - globalLastAdvanceTimestamp < 15000) {
@@ -2070,24 +2014,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       globalLastAdvancedId = nextEpisode.id;
 
       hasCastAutoAdvancedRef.current = true;
-      hasAutoAdvancedRef.current = true;
-      showNextEpisodePromptRef.current = false;
-      setShowNextEpisodePrompt(false);
       handleGoToNextEpisode();
-      return;
-    }
-
-    if (streamPosition >= streamDuration - CAST_NEXT_PROMPT_BEFORE_END_S) {
-      showNextEpisodePromptRef.current = true;
-      setShowNextEpisodePrompt(true);
-      setNextEpisodeCountdown(Math.max(1, Math.ceil(advanceAt - streamPosition)));
     }
   }, [
     isCasting,
     type,
     nextEpisode,
-    isTvOnThisContent,
-    nextEpisodeDismissed,
     streamDuration,
     streamPosition,
     castMediaStatus,
@@ -2106,10 +2038,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (player.status === 'error') {
         safeReplacePlayerSource(player, videoSource);
       }
-      const resumePos = lastCastPositionRef.current;
+      const resumePos = lastCastPositionRef.current || streamPosition;
       if (resumePos > 0) {
-        // O player do celular acabou de abrir o vídeo: não deixa o initialTime da rota sobrescrever a posição da TV
-        hasAppliedInitialTimeRef.current = true;
         try {
           player.currentTime = resumePos;
           setCurrentTime(resumePos);
@@ -2126,129 +2056,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       isDisconnectingCastRef.current = false;
     }
     prevIsCastingRef.current = isCasting;
-  }, [isCasting, player, videoSource]);
-
-  // Carrega na TV o conteúdo desta tela (no ao vivo, o canal escolhido na gaveta)
-  const handleCastFailureRef = useRef<(err?: unknown) => void>(() => {});
-  const castOnTv = useCallback(
-    (startAt: number) => {
-      const isSwitchedChannel = type === 'live' && activeContentId !== contentId;
-      castMedia({
-        streamUrl: extractDirectUrl(isSwitchedChannel ? currentStreamUrl : streamUrl),
-        title: isSwitchedChannel ? activeTitle : title,
-        posterUrl: isSwitchedChannel ? activePoster : posterUrl,
-        type,
-        contentId: activeContentId,
-        seriesId,
-        seasonNumber,
-        episodeNumber,
-        initialTime: startAt,
-      }).catch((err) => {
-        console.warn('Erro ao carregar mídia no Chromecast:', err);
-        handleCastFailureRef.current(err ?? new Error(''));
-      });
-    },
-    [
-      castMedia,
-      type,
-      activeContentId,
-      contentId,
-      currentStreamUrl,
-      streamUrl,
-      activeTitle,
-      title,
-      activePoster,
-      posterUrl,
-      seriesId,
-      seasonNumber,
-      episodeNumber,
-    ]
-  );
-
-  // A TV já está tocando (ou carregando) este conteúdo: uma nova tentativa só reiniciaria o vídeo.
-  // Usa o estado informado pela TV, não o "carregando" do app, que fica preso com a tela apagada
-  const isTvActiveHereRef = useRef(false);
-  isTvActiveHereRef.current =
-    isTvOnThisContent &&
-    ['playing', 'paused', 'buffering', 'loading'].includes(castMediaStatus?.playerState);
-
-  const getCastResumeTime = useCallback(
-    () => (lastCastPositionRef.current > 2 ? lastCastPositionRef.current : effectiveInitialTime),
-    [effectiveInitialTime]
-  );
-
-  // A TV não abriu o vídeo (ex.: a lista IPTV ainda conta a conexão do episódio anterior):
-  // tenta de novo algumas vezes, com intervalos crescentes, e só então mostra o erro
-  const handleCastFailure = useCallback((err?: unknown) => {
-    if (!isCastingRef.current || isDisconnectingCastRef.current || castRetryTimerRef.current) return;
-    const attempt = castRetryCountRef.current;
-    if (attempt < CAST_RETRY_DELAYS_MS.length) {
-      castRetryCountRef.current = attempt + 1;
-      setCastRetryStatus(
-        `A TV não abriu o vídeo. Tentando de novo (${attempt + 1} de ${CAST_RETRY_DELAYS_MS.length})…`
-      );
-      castRetryTimerRef.current = setTimeout(() => {
-        castRetryTimerRef.current = null;
-        if (isCastingRef.current && !isDisconnectingCastRef.current && !isTvActiveHereRef.current) {
-          castOnTv(getCastResumeTime());
-        }
-      }, CAST_RETRY_DELAYS_MS[attempt]);
-      return;
-    }
-
-    setCastRetryStatus(null);
-    const reason = describeCastFailure(err);
-    const showError = (message: string) => {
-      if (!isCastingRef.current || isDisconnectingCastRef.current) return;
-      setCastError(message);
-      Alert.alert('Erro na Transmissão', message);
-    };
-    if (!account) {
-      showError(reason);
-      return;
-    }
-    xtreamService
-      .authenticate(account)
-      .then((auth) => showError(`${reason}${describeConnectionUsage(auth?.user_info)}`))
-      .catch(() => showError(reason));
-  }, [castOnTv, getCastResumeTime, account]);
-  handleCastFailureRef.current = handleCastFailure;
-
-  const handleRetryCastOnTv = useCallback(() => {
-    setCastError(null);
-    castRetryCountRef.current = 0;
-    castOnTv(getCastResumeTime());
-  }, [castOnTv, getCastResumeTime]);
-
-  // O receptor parou com erro neste conteúdo depois de aceitar o carregamento
-  const isCastFailedHere =
-    isCasting &&
-    isTvOnThisContent &&
-    castMediaStatus?.playerState === 'idle' &&
-    castMediaStatus?.idleReason === 'error';
-
-  useEffect(() => {
-    if (isCastFailedHere) {
-      handleCastFailureRef.current();
-    }
-  }, [isCastFailedHere]);
-
-  useEffect(() => {
-    if (isTvOnThisContent && isCastPlaying) {
-      setCastError(null);
-      setCastRetryStatus(null);
-    }
-  }, [isTvOnThisContent, isCastPlaying]);
-
-  useEffect(
-    () => () => {
-      if (castRetryTimerRef.current) {
-        clearTimeout(castRetryTimerRef.current);
-        castRetryTimerRef.current = null;
-      }
-    },
-    []
-  );
+  }, [isCasting, streamPosition, player, videoSource]);
 
   // Transmitir mídia para a TV quando o Cast estiver conectado e garantir silenciamento local total
   useEffect(() => {
@@ -2299,17 +2107,34 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           return;
         }
 
-        castOnTv(effectiveInitialTime);
+        castMedia({
+          streamUrl: extractDirectUrl(streamUrl),
+          title,
+          posterUrl,
+          type,
+          contentId,
+          seriesId,
+          seasonNumber,
+          episodeNumber,
+          initialTime: effectiveInitialTime,
+        }).catch((err) => {
+            console.warn('Erro ao carregar mídia no Chromecast:', err);
+            hasCastRef.current = false;
+            setCastError(
+              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+            );
+            if (!isCastingRef.current || isDisconnectingCastRef.current) {
+              return;
+            }
+            Alert.alert(
+              'Erro na Transmissão',
+              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+            );
+          });
       }
     } else if (!isCasting) {
       hasCastRef.current = false;
-      castRetryCountRef.current = 0;
-      if (castRetryTimerRef.current) {
-        clearTimeout(castRetryTimerRef.current);
-        castRetryTimerRef.current = null;
-      }
       setCastError(null);
-      setCastRetryStatus(null);
     }
   }, [
     isCasting,
@@ -2321,10 +2146,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     streamPosition,
     streamUrl,
     title,
+    posterUrl,
     type,
     contentId,
-    castOnTv,
-    effectiveInitialTime,
+    seriesId,
+    seasonNumber,
+    episodeNumber,
+    castMedia,
     player,
   ]);
 
@@ -2819,7 +2647,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const handleDisconnectAndPlayLocally = useCallback(() => {
     isDisconnectingCastRef.current = true;
-    const resumePos = lastCastPositionRef.current;
+    const resumePos = lastCastPositionRef.current || streamPosition;
     stopCast();
     try {
       player.muted = false;
@@ -2835,51 +2663,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       player.play();
     } catch {}
     setIsPlaying(true);
-  }, [stopCast, player]);
+  }, [stopCast, streamPosition, player]);
 
   const insets = useAppInsets();
-
-  const renderNextEpisodeCard = (style?: ViewStyle) =>
-    nextEpisode ? (
-      <NextEpisodeContainer testID="next-episode-card" style={style}>
-        <NextEpisodeHeader>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
-            <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
-          </View>
-          <TouchableOpacity
-            onPress={handleCancelNextEpisode}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Fechar aviso de próximo episódio"
-          >
-            <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
-          </TouchableOpacity>
-        </NextEpisodeHeader>
-        <NextEpisodeTitle numberOfLines={1}>
-          {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
-        </NextEpisodeTitle>
-        <NextEpisodeButtonRow>
-          <NextEpisodePlayBtn
-            onPress={handleConfirmNextEpisode}
-            accessibilityRole="button"
-            accessibilityLabel="Assistir próximo episódio agora"
-            testID="next-episode-play-btn"
-          >
-            <MaterialIcons name="play-arrow" size={18} color="#FFFFFF" />
-            <NextEpisodePlayBtnText>Assistir Agora</NextEpisodePlayBtnText>
-          </NextEpisodePlayBtn>
-          <NextEpisodeCancelBtn
-            onPress={handleCancelNextEpisode}
-            accessibilityRole="button"
-            accessibilityLabel="Cancelar próximo episódio"
-            testID="next-episode-cancel-btn"
-          >
-            <NextEpisodeCancelBtnText>Cancelar</NextEpisodeCancelBtnText>
-          </NextEpisodeCancelBtn>
-        </NextEpisodeButtonRow>
-      </NextEpisodeContainer>
-    ) : null;
 
   /* --- CENÁRIO B: Cast Ativo na TV (Controle Remoto) --- */
   if (isCasting) {
@@ -2916,7 +2702,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         <RemoteInfo>
           <RemoteTitle>{activeTitle}</RemoteTitle>
           <RemoteSub>
-            {castRetryStatus ?? (type === 'live' ? 'Transmissão Ao Vivo' : 'Reproduzindo no Chromecast')}
+            {type === 'live' ? 'Transmissão Ao Vivo' : 'Reproduzindo no Chromecast'}
           </RemoteSub>
         </RemoteInfo>
 
@@ -2996,8 +2782,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           )}
         </CenterControls>
 
-        {showNextEpisodePrompt && renderNextEpisodeCard(CAST_NEXT_EPISODE_CARD_STYLE)}
-
         {castError && (
           <View
             style={{
@@ -3036,7 +2820,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               label="Tentar Novamente na TV"
               size="sm"
               variant="primary"
-              onPress={handleRetryCastOnTv}
+              onPress={() => {
+                setCastError(null);
+                hasCastRef.current = false;
+              }}
             />
           </View>
         )}
@@ -3962,7 +3749,46 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         )}
 
         {/* Card de Próximo Episódio estilo Netflix */}
-        {showNextEpisodePrompt && !isScreenLocked && renderNextEpisodeCard()}
+        {showNextEpisodePrompt && !isScreenLocked && nextEpisode && (
+          <NextEpisodeContainer testID="next-episode-card">
+            <NextEpisodeHeader>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
+                <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
+              </View>
+              <TouchableOpacity
+                onPress={handleCancelNextEpisode}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar aviso de próximo episódio"
+              >
+                <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </NextEpisodeHeader>
+            <NextEpisodeTitle numberOfLines={1}>
+              {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
+            </NextEpisodeTitle>
+            <NextEpisodeButtonRow>
+              <NextEpisodePlayBtn
+                onPress={handleConfirmNextEpisode}
+                accessibilityRole="button"
+                accessibilityLabel="Assistir próximo episódio agora"
+                testID="next-episode-play-btn"
+              >
+                <MaterialIcons name="play-arrow" size={18} color="#FFFFFF" />
+                <NextEpisodePlayBtnText>Assistir Agora</NextEpisodePlayBtnText>
+              </NextEpisodePlayBtn>
+              <NextEpisodeCancelBtn
+                onPress={handleCancelNextEpisode}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar próximo episódio"
+                testID="next-episode-cancel-btn"
+              >
+                <NextEpisodeCancelBtnText>Cancelar</NextEpisodeCancelBtnText>
+              </NextEpisodeCancelBtn>
+            </NextEpisodeButtonRow>
+          </NextEpisodeContainer>
+        )}
       </VideoWrapper>
     </Container>
   );
