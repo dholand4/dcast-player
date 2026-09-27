@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
@@ -578,6 +579,169 @@ describe('PlayerScreen', () => {
       <PlayerScreen navigation={mockNavigation} route={mockRoute} />
     );
     expect(() => unmount()).not.toThrow();
+  });
+
+  describe('when the TV cannot play the video', () => {
+    const movieRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/movie/user/pass/10.mp4',
+        title: 'Detetive Chinatown [L]',
+        type: 'movie',
+        contentId: '10',
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const castValue = (overrides: Record<string, unknown>) => ({
+      isCasting: true,
+      isPlaying: false,
+      isPaused: false,
+      isBuffering: false,
+      streamPosition: 0,
+      streamDuration: 8089,
+      castMedia: jest.fn().mockResolvedValue(undefined),
+      play: jest.fn(),
+      pause: jest.fn(),
+      seek: jest.fn(),
+      stopCast: jest.fn(),
+      showExpandedControls: jest.fn(),
+      currentMedia: null,
+      mediaStatus: null,
+      ...overrides,
+    });
+
+    const castTree = (value: ReturnType<typeof castValue>) => (
+      <NavigationContainer>
+        <ThemeProvider theme={theme}>
+          <CastContext.Provider value={value as any}>
+            <PlayerScreen navigation={mockNavigation} route={movieRoute} />
+          </CastContext.Provider>
+        </ThemeProvider>
+      </NavigationContainer>
+    );
+
+    const tvError = { playerState: 'idle', idleReason: 'error', mediaInfo: { customData: { id: '10' } } };
+
+    it('says the Chromecast cannot play this video instead of showing it as playing', () => {
+      const castMedia = jest.fn().mockResolvedValue(undefined);
+      const { getByText } = render(castTree(castValue({ castMedia, mediaStatus: tvError })));
+
+      expect(getByText('Erro na Transmissão na TV')).toBeTruthy();
+      expect(getByText(/áudio 5\.1 ou vídeo HEVC/)).toBeTruthy();
+      expect(castMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends the video to the TV again only when the viewer taps retry', () => {
+      const castMedia = jest.fn().mockResolvedValue(undefined);
+      const screen = render(castTree(castValue({ castMedia, mediaStatus: tvError })));
+      screen.rerender(castTree(castValue({ castMedia, mediaStatus: { ...tvError } })));
+      expect(castMedia).toHaveBeenCalledTimes(1);
+
+      fireEvent.press(screen.getByText('Tentar Novamente na TV'));
+      expect(castMedia).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reload the video in a loop after the TV refuses it', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const castMedia = jest.fn().mockRejectedValue(new Error('FAILED'));
+      const screen = render(castTree(castValue({ castMedia })));
+      await act(async () => {});
+      screen.rerender(castTree(castValue({ castMedia, mediaStatus: { playerState: 'idle' } })));
+      await act(async () => {});
+
+      expect(castMedia).toHaveBeenCalledTimes(1);
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/áudio 5\.1 ou vídeo HEVC/)).toBeTruthy();
+      alertSpy.mockRestore();
+    });
+  });
+
+  describe('next episode while casting', () => {
+    const episodes = [
+      { id: '101', title: 'Ted Lasso - T1E1', streamUrl: 'http://server.com/101.mp4', seasonNumber: 1, episodeNumber: 1 },
+      { id: '102', title: 'Ted Lasso - T1E2', streamUrl: 'http://server.com/102.mp4', seasonNumber: 1, episodeNumber: 2 },
+    ];
+
+    const firstEpisodeRoute = {
+      key: 'PlayerScreen',
+      name: 'PlayerScreen',
+      params: {
+        streamUrl: 'http://server.com/101.mp4',
+        title: 'Ted Lasso - T1E1',
+        type: 'series',
+        contentId: '101',
+        seriesId: '999',
+        seasonNumber: 1,
+        episodeNumber: 1,
+        seriesEpisodes: episodes,
+      },
+    } as unknown as PlayerScreenProps['route'];
+
+    const castingAt = (streamPosition: number) => ({
+      isCasting: true,
+      isPlaying: true,
+      isPaused: false,
+      isBuffering: false,
+      streamPosition,
+      streamDuration: 2584,
+      castMedia: jest.fn().mockResolvedValue(undefined),
+      play: jest.fn(),
+      pause: jest.fn(),
+      seek: jest.fn(),
+      stopCast: jest.fn(),
+      showExpandedControls: jest.fn(),
+      currentMedia: null,
+      mediaStatus: { playerState: 'playing' },
+    });
+
+    const castTree = (value: ReturnType<typeof castingAt>) => (
+      <NavigationContainer>
+        <ThemeProvider theme={theme}>
+          <CastContext.Provider value={value}>
+            <PlayerScreen navigation={mockNavigation} route={firstEpisodeRoute} />
+          </CastContext.Provider>
+        </ThemeProvider>
+      </NavigationContainer>
+    );
+
+    // Pula a janela de 15s entre trocas automáticas deixada por outros testes
+    let clock = Date.now();
+    beforeEach(() => {
+      clock += 60000;
+      jest.useFakeTimers({ now: clock });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('shows the next episode card on the TV screen in the last seconds', () => {
+      const { getByTestId, getByText } = render(castTree(castingAt(2560)));
+
+      expect(getByTestId('next-episode-card')).toBeTruthy();
+      expect(getByText('Próximo em 14s')).toBeTruthy();
+      expect(mockNavigation.replace).not.toHaveBeenCalled();
+    });
+
+    it('switches to the next episode 10 seconds before the end, with the episode still playing', () => {
+      render(castTree(castingAt(2575)));
+
+      expect(mockNavigation.replace).toHaveBeenCalledWith(
+        'PlayerScreen',
+        expect.objectContaining({ contentId: '102' })
+      );
+    });
+
+    it('keeps the episode until the end when the viewer cancels the card', () => {
+      const screen = render(castTree(castingAt(2560)));
+
+      fireEvent.press(screen.getByTestId('next-episode-cancel-btn'));
+      screen.rerender(castTree(castingAt(2580)));
+
+      expect(screen.queryByTestId('next-episode-card')).toBeNull();
+      expect(mockNavigation.replace).not.toHaveBeenCalled();
+    });
   });
 });
 

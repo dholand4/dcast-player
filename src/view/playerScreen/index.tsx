@@ -11,6 +11,7 @@ import {
   Text,
   useWindowDimensions,
   BackHandler,
+  ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -150,6 +151,32 @@ async function safeReplacePlayerSource(playerInstance: any, source: any): Promis
 // Module-level guards to prevent auto-advance loops across rapid screen remounts
 let globalLastAdvanceTimestamp = 0;
 let globalLastAdvancedId = '';
+
+// Na TV, o próximo episódio é anunciado nos últimos segundos e a troca acontece com o atual
+// ainda tocando, como na troca manual (que funciona); trocar depois do fim falhava
+const CAST_NEXT_PROMPT_BEFORE_END_S = 25;
+const CAST_NEXT_ADVANCE_BEFORE_END_S = 10;
+
+// Alguns filmes e episódios da lista vêm com áudio 5.1 ou vídeo HEVC (H.265): o celular toca,
+// mas o Chromecast não. Em teste, a versão 5.1 de um filme falhava e a versão estéreo tocava
+const CAST_UNSUPPORTED_MESSAGE =
+  'O Chromecast não conseguiu reproduzir este vídeo. Alguns filmes e episódios vêm com áudio 5.1 ou vídeo HEVC, que ele não toca. Assista no celular ou tente outra versão do título, se houver.';
+
+function describeCastFailure(err?: unknown): string {
+  if (err instanceof Error && err.message.includes('Nenhum dispositivo')) {
+    return 'O app perdeu a conexão com o Chromecast. Desconecte e conecte de novo.';
+  }
+  return CAST_UNSUPPORTED_MESSAGE;
+}
+
+// Na tela de controle da TV o aviso de próximo episódio fica no fluxo, acima dos botões
+const CAST_NEXT_EPISODE_CARD_STYLE: ViewStyle = {
+  position: 'relative',
+  bottom: 0,
+  right: 0,
+  width: '100%',
+  marginBottom: 16,
+};
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   route,
@@ -1585,8 +1612,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     nextEpisodeDismissedRef.current = true;
   }, []);
 
+  // Na TV a contagem segue a posição do episódio (os timers param com a tela do celular apagada)
   useEffect(() => {
-    if (!showNextEpisodePrompt) return;
+    if (!showNextEpisodePrompt || isCasting) return;
 
     const interval = setInterval(() => {
       setNextEpisodeCountdown((prev) => {
@@ -1605,7 +1633,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showNextEpisodePrompt]);
+  }, [showNextEpisodePrompt, isCasting]);
 
   useEffect(() => {
     setShowNextEpisodePrompt(false);
@@ -1978,9 +2006,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     isCastPlaying,
   ]);
 
-  // Avanço automático estrito somente ao término real do episódio no Chromecast
+  // Próximo episódio na TV: aviso nos últimos segundos e troca com o episódio atual ainda tocando.
+  // Segue a posição informada pela TV, que continua chegando com a tela do celular apagada
   useEffect(() => {
-    if (!isCasting || type !== 'series' || !nextEpisode || hasCastAutoAdvancedRef.current) {
+    if (
+      !isCasting ||
+      type !== 'series' ||
+      !nextEpisode ||
+      hasCastAutoAdvancedRef.current ||
+      nextEpisodeDismissed
+    ) {
       return;
     }
 
@@ -1995,8 +2030,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
 
     // 3. Critérios estritos de finalização:
-    // a) Posição nos últimos 4 segundos do vídeo
-    const isNearEnd = streamPosition >= streamDuration - 4;
+    // a) Chegou a hora da troca, ainda com o episódio tocando
+    const advanceAt = streamDuration - CAST_NEXT_ADVANCE_BEFORE_END_S;
+    const isNearEnd = streamPosition >= advanceAt;
 
     // b) OU receptor Chromecast reportou término explícito (idleReason 'finished' ou 1)
     // E confirmamos que o usuário assistiu pelo menos 85% do episódio (evita falsos positivos em erros/cancelamentos)
@@ -2014,12 +2050,23 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       globalLastAdvancedId = nextEpisode.id;
 
       hasCastAutoAdvancedRef.current = true;
+      hasAutoAdvancedRef.current = true;
+      showNextEpisodePromptRef.current = false;
+      setShowNextEpisodePrompt(false);
       handleGoToNextEpisode();
+      return;
+    }
+
+    if (streamPosition >= streamDuration - CAST_NEXT_PROMPT_BEFORE_END_S) {
+      showNextEpisodePromptRef.current = true;
+      setShowNextEpisodePrompt(true);
+      setNextEpisodeCountdown(Math.max(1, Math.ceil(advanceAt - streamPosition)));
     }
   }, [
     isCasting,
     type,
     nextEpisode,
+    nextEpisodeDismissed,
     streamDuration,
     streamPosition,
     castMediaStatus,
@@ -2118,18 +2165,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           episodeNumber,
           initialTime: effectiveInitialTime,
         }).catch((err) => {
+            // Não recarrega sozinho: o vídeo reabria e falhava em ciclo na TV.
+            // Uma nova tentativa fica no botão "Tentar Novamente na TV"
             console.warn('Erro ao carregar mídia no Chromecast:', err);
-            hasCastRef.current = false;
-            setCastError(
-              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-            );
+            const message = describeCastFailure(err);
+            setCastError(message);
             if (!isCastingRef.current || isDisconnectingCastRef.current) {
               return;
             }
-            Alert.alert(
-              'Erro na Transmissão',
-              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-            );
+            Alert.alert('Erro na Transmissão', message);
           });
       }
     } else if (!isCasting) {
@@ -2155,6 +2199,29 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     castMedia,
     player,
   ]);
+
+  // A TV aceitou o vídeo, mas parou com erro (ex.: áudio 5.1 ou HEVC): antes a tela seguia
+  // dizendo "Reproduzindo no Chromecast" com a TV parada
+  const castStatusContentId = castMediaStatus?.mediaInfo?.customData?.id;
+  const isCastErrorHere =
+    isCasting &&
+    castMediaStatus?.playerState === 'idle' &&
+    castMediaStatus?.idleReason === 'error' &&
+    (castStatusContentId
+      ? String(castStatusContentId) === String(activeContentId)
+      : !activeCastMedia || activeCastMedia.contentId === activeContentId);
+
+  useEffect(() => {
+    if (isCastErrorHere) {
+      setCastError(CAST_UNSUPPORTED_MESSAGE);
+    }
+  }, [isCastErrorHere]);
+
+  useEffect(() => {
+    if (isCastPlaying) {
+      setCastError(null);
+    }
+  }, [isCastPlaying]);
 
   const handleBack = useCallback(() => {
     const cur = isCasting ? streamPosition : (player.currentTime || currentTime);
@@ -2533,6 +2600,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         initialTime: streamPosition > 2 ? streamPosition : effectiveInitialTime,
       }).catch((err) => {
         console.warn('[Player] Erro ao recarregar mídia no Chromecast via Play:', err);
+        setCastError(describeCastFailure(err));
       });
     } else {
       castPlay();
@@ -2667,6 +2735,48 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const insets = useAppInsets();
 
+  const renderNextEpisodeCard = (style?: ViewStyle) =>
+    nextEpisode ? (
+      <NextEpisodeContainer testID="next-episode-card" style={style}>
+        <NextEpisodeHeader>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
+            <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
+          </View>
+          <TouchableOpacity
+            onPress={handleCancelNextEpisode}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar aviso de próximo episódio"
+          >
+            <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+        </NextEpisodeHeader>
+        <NextEpisodeTitle numberOfLines={1}>
+          {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
+        </NextEpisodeTitle>
+        <NextEpisodeButtonRow>
+          <NextEpisodePlayBtn
+            onPress={handleConfirmNextEpisode}
+            accessibilityRole="button"
+            accessibilityLabel="Assistir próximo episódio agora"
+            testID="next-episode-play-btn"
+          >
+            <MaterialIcons name="play-arrow" size={18} color="#FFFFFF" />
+            <NextEpisodePlayBtnText>Assistir Agora</NextEpisodePlayBtnText>
+          </NextEpisodePlayBtn>
+          <NextEpisodeCancelBtn
+            onPress={handleCancelNextEpisode}
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar próximo episódio"
+            testID="next-episode-cancel-btn"
+          >
+            <NextEpisodeCancelBtnText>Cancelar</NextEpisodeCancelBtnText>
+          </NextEpisodeCancelBtn>
+        </NextEpisodeButtonRow>
+      </NextEpisodeContainer>
+    ) : null;
+
   /* --- CENÁRIO B: Cast Ativo na TV (Controle Remoto) --- */
   if (isCasting) {
     const castPct = calculatePercentage(streamPosition, streamDuration);
@@ -2782,6 +2892,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           )}
         </CenterControls>
 
+        {showNextEpisodePrompt && renderNextEpisodeCard(CAST_NEXT_EPISODE_CARD_STYLE)}
+
         {castError && (
           <View
             style={{
@@ -2822,7 +2934,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               variant="primary"
               onPress={() => {
                 setCastError(null);
-                hasCastRef.current = false;
+                handleCastPlayOrReload();
               }}
             />
           </View>
@@ -3749,46 +3861,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         )}
 
         {/* Card de Próximo Episódio estilo Netflix */}
-        {showNextEpisodePrompt && !isScreenLocked && nextEpisode && (
-          <NextEpisodeContainer testID="next-episode-card">
-            <NextEpisodeHeader>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
-                <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
-              </View>
-              <TouchableOpacity
-                onPress={handleCancelNextEpisode}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar aviso de próximo episódio"
-              >
-                <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
-            </NextEpisodeHeader>
-            <NextEpisodeTitle numberOfLines={1}>
-              {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
-            </NextEpisodeTitle>
-            <NextEpisodeButtonRow>
-              <NextEpisodePlayBtn
-                onPress={handleConfirmNextEpisode}
-                accessibilityRole="button"
-                accessibilityLabel="Assistir próximo episódio agora"
-                testID="next-episode-play-btn"
-              >
-                <MaterialIcons name="play-arrow" size={18} color="#FFFFFF" />
-                <NextEpisodePlayBtnText>Assistir Agora</NextEpisodePlayBtnText>
-              </NextEpisodePlayBtn>
-              <NextEpisodeCancelBtn
-                onPress={handleCancelNextEpisode}
-                accessibilityRole="button"
-                accessibilityLabel="Cancelar próximo episódio"
-                testID="next-episode-cancel-btn"
-              >
-                <NextEpisodeCancelBtnText>Cancelar</NextEpisodeCancelBtnText>
-              </NextEpisodeCancelBtn>
-            </NextEpisodeButtonRow>
-          </NextEpisodeContainer>
-        )}
+        {showNextEpisodePrompt && !isScreenLocked && renderNextEpisodeCard()}
       </VideoWrapper>
     </Container>
   );
