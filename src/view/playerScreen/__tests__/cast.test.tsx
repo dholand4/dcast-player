@@ -88,12 +88,14 @@ describe('PlayerScreen while casting', () => {
     jest.useRealTimers();
   });
 
-  it('does not open the stream on the phone while the TV is playing it', () => {
+  it('keeps the stream open on the phone while the TV is playing it', () => {
     render(tree(castValue(), movieRoute));
 
     const sources = (useVideoPlayer as jest.Mock).mock.calls.map(([source]) => source);
     expect(sources.length).toBeGreaterThan(0);
-    expect(sources.every((source) => source === null)).toBe(true);
+    expect(
+      sources.every((source) => source?.uri === 'http://server.com/movie/user/pass/10.mp4')
+    ).toBe(true);
   });
 
   it('opens the stream on the phone when not casting', () => {

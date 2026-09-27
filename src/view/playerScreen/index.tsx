@@ -152,8 +152,8 @@ async function safeReplacePlayerSource(playerInstance: any, source: any): Promis
 let globalLastAdvanceTimestamp = 0;
 let globalLastAdvancedId = '';
 
-// Troca de episódio na TV com o atual ainda tocando, como na troca manual: depois que a TV
-// termina o episódio, listas IPTV de uma tela recusam o próximo
+// Troca de episódio na TV com o atual ainda tocando, como na troca manual (que funciona);
+// a troca depois que a TV terminava o episódio falhava
 const CAST_NEXT_PROMPT_BEFORE_END_S = 25;
 const CAST_NEXT_ADVANCE_BEFORE_END_S = 10;
 
@@ -442,9 +442,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     }
   }, [isCasting, isTvOnThisContent, streamPosition]);
 
-  // Enquanto transmite, o celular não abre o vídeo: cada aparelho conectado ocupa uma conexão
-  // da lista IPTV e, na troca de episódio, a TV acabava recusada por falta de conexão livre
-  const player = useVideoPlayer(isCasting ? null : videoSource, (p) => {
+  // O celular abre o vídeo mesmo transmitindo (pausado e sem som): sem ele aberto,
+  // a TV não conseguia reproduzir filmes e séries desta lista IPTV
+  const player = useVideoPlayer(videoSource, (p) => {
     p.loop = false;
     p.muted = false;
     p.volume = 1.0;
