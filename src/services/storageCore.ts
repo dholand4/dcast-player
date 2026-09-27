@@ -2,6 +2,7 @@ import { IAccountCredentials, IXtreamUserInfo } from '../@types/xtream';
 import {
   IWatchProgress,
   IFavoriteItem,
+  IFavoritesSyncState,
   ContentType,
   ICustomCategoryFolder,
   IProfile,
@@ -21,6 +22,7 @@ const KEYS = {
   SAVED_ACCOUNTS: 'saved_accounts',
   USER_INFO: 'user_info',
   FAVORITES: 'user_favorites',
+  FAVORITES_SYNC: 'favorites_sync',
   HISTORY_PREFIX: 'history_',
   HIDDEN_CATEGORIES_PREFIX: 'hidden_categories_',
   HIDDEN_STREAMS_PREFIX: 'hidden_streams_',
@@ -479,6 +481,23 @@ export function createStorageService(storage: IStorageLike) {
   removeFavorite(contentId: string): void {
     const favorites = this.getFavorites().filter((item) => item.id !== contentId);
     storage.set(profileKey(KEYS.FAVORITES), JSON.stringify(favorites));
+  },
+
+  getFavoritesSyncState(): IFavoritesSyncState {
+    try {
+      const raw = storage.getString(profileKey(KEYS.FAVORITES_SYNC));
+      const parsed = raw ? JSON.parse(raw) : null;
+      return {
+        syncedIds: Array.isArray(parsed?.syncedIds) ? parsed.syncedIds : null,
+        removedIds: Array.isArray(parsed?.removedIds) ? parsed.removedIds : [],
+      };
+    } catch {
+      return { syncedIds: null, removedIds: [] };
+    }
+  },
+
+  saveFavoritesSyncState(state: IFavoritesSyncState): void {
+    storage.set(profileKey(KEYS.FAVORITES_SYNC), JSON.stringify(state));
   },
 
   // --- Hidden Categories ---

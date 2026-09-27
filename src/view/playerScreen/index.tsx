@@ -151,6 +151,9 @@ async function safeReplacePlayerSource(playerInstance: any, source: any): Promis
 let globalLastAdvanceTimestamp = 0;
 let globalLastAdvancedId = '';
 
+// Espera antes de tentar abrir de novo na TV, para a lista IPTV liberar a conexão anterior
+const CAST_RETRY_DELAY_MS = 4000;
+
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   route,
   navigation,
@@ -382,17 +385,30 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   const isDisconnectingCastRef = useRef(false);
   const hasCastAutoAdvancedRef = useRef(false);
   const hasCastStartedPlayingRef = useRef(false);
+  const castRetryCountRef = useRef(0);
+  const castRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxCastPositionObservedRef = useRef(
     typeof effectiveInitialTime === 'number' && effectiveInitialTime > 0 ? effectiveInitialTime : 0
   );
 
+  // O que a TV está tocando de fato: logo após trocar de episódio, o status e a posição
+  // ainda são do episódio anterior e não podem ser atribuídos a este
+  const castStatusContentId = castMediaStatus?.mediaInfo?.customData?.id;
+  const isTvOnThisContent = castStatusContentId
+    ? String(castStatusContentId) === String(activeContentId)
+    : !activeCastMedia ||
+      activeCastMedia.contentId === activeContentId ||
+      extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl);
+
   useEffect(() => {
-    if (isCasting && streamPosition > 0) {
+    if (isCasting && isTvOnThisContent && streamPosition > 0) {
       lastCastPositionRef.current = streamPosition;
     }
-  }, [isCasting, streamPosition]);
+  }, [isCasting, isTvOnThisContent, streamPosition]);
 
-  const player = useVideoPlayer(videoSource, (p) => {
+  // Enquanto transmite, o celular não abre o vídeo: cada aparelho conectado ocupa uma conexão
+  // da lista IPTV e, na troca de episódio, a TV acabava recusada por falta de conexão livre
+  const player = useVideoPlayer(isCasting ? null : videoSource, (p) => {
     p.loop = false;
     p.muted = false;
     p.volume = 1.0;
@@ -1620,6 +1636,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     currentTimeRef.current = effectiveInitialTime;
     setCurrentTime(effectiveInitialTime);
     hasCastRef.current = false;
+    castRetryCountRef.current = 0;
+    if (castRetryTimerRef.current) {
+      clearTimeout(castRetryTimerRef.current);
+      castRetryTimerRef.current = null;
+    }
     setCastError(null);
   }, [contentId, effectiveInitialTime]);
 
@@ -1948,31 +1969,22 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Monitorar reprodução real do episódio atual no Chromecast
   useEffect(() => {
-    if (!isCasting || type !== 'series') return;
+    // Só conta a posição quando a TV está de fato neste episódio
+    if (!isCasting || type !== 'series' || !isTvOnThisContent) return;
 
-    // Verificar se a mídia no Chromecast é de fato a deste episódio
-    const isCurrentEpisodeActive =
-      !activeCastMedia ||
-      activeCastMedia.contentId === contentId ||
-      extractDirectUrl(activeCastMedia.streamUrl) === extractDirectUrl(streamUrl);
-
-    if (isCurrentEpisodeActive) {
-      if (streamPosition > 0) {
-        maxCastPositionObservedRef.current = Math.max(
-          maxCastPositionObservedRef.current,
-          streamPosition
-        );
-      }
-      if (streamPosition > 10 && streamDuration > 30 && (isCastPlaying || streamPosition > 20)) {
-        hasCastStartedPlayingRef.current = true;
-      }
+    if (streamPosition > 0) {
+      maxCastPositionObservedRef.current = Math.max(
+        maxCastPositionObservedRef.current,
+        streamPosition
+      );
+    }
+    if (streamPosition > 10 && streamDuration > 30 && (isCastPlaying || streamPosition > 20)) {
+      hasCastStartedPlayingRef.current = true;
     }
   }, [
     isCasting,
     type,
-    contentId,
-    streamUrl,
-    activeCastMedia,
+    isTvOnThisContent,
     streamPosition,
     streamDuration,
     isCastPlaying,
@@ -1980,7 +1992,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   // Avanço automático estrito somente ao término real do episódio no Chromecast
   useEffect(() => {
-    if (!isCasting || type !== 'series' || !nextEpisode || hasCastAutoAdvancedRef.current) {
+    if (
+      !isCasting ||
+      type !== 'series' ||
+      !nextEpisode ||
+      hasCastAutoAdvancedRef.current ||
+      !isTvOnThisContent
+    ) {
       return;
     }
 
@@ -2020,6 +2038,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     isCasting,
     type,
     nextEpisode,
+    isTvOnThisContent,
     streamDuration,
     streamPosition,
     castMediaStatus,
@@ -2038,8 +2057,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (player.status === 'error') {
         safeReplacePlayerSource(player, videoSource);
       }
-      const resumePos = lastCastPositionRef.current || streamPosition;
+      const resumePos = lastCastPositionRef.current;
       if (resumePos > 0) {
+        // O player do celular acabou de abrir o vídeo: não deixa o initialTime da rota sobrescrever a posição da TV
+        hasAppliedInitialTimeRef.current = true;
         try {
           player.currentTime = resumePos;
           setCurrentTime(resumePos);
@@ -2056,7 +2077,110 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       isDisconnectingCastRef.current = false;
     }
     prevIsCastingRef.current = isCasting;
-  }, [isCasting, streamPosition, player, videoSource]);
+  }, [isCasting, player, videoSource]);
+
+  // Carrega na TV o conteúdo desta tela (no ao vivo, o canal escolhido na gaveta)
+  const handleCastFailureRef = useRef<() => void>(() => {});
+  const castOnTv = useCallback(
+    (startAt: number) => {
+      const isSwitchedChannel = type === 'live' && activeContentId !== contentId;
+      castMedia({
+        streamUrl: extractDirectUrl(isSwitchedChannel ? currentStreamUrl : streamUrl),
+        title: isSwitchedChannel ? activeTitle : title,
+        posterUrl: isSwitchedChannel ? activePoster : posterUrl,
+        type,
+        contentId: activeContentId,
+        seriesId,
+        seasonNumber,
+        episodeNumber,
+        initialTime: startAt,
+      }).catch((err) => {
+        console.warn('Erro ao carregar mídia no Chromecast:', err);
+        handleCastFailureRef.current();
+      });
+    },
+    [
+      castMedia,
+      type,
+      activeContentId,
+      contentId,
+      currentStreamUrl,
+      streamUrl,
+      activeTitle,
+      title,
+      activePoster,
+      posterUrl,
+      seriesId,
+      seasonNumber,
+      episodeNumber,
+    ]
+  );
+
+  // A TV já está tocando (ou carregando) este conteúdo: uma nova tentativa só reiniciaria o vídeo
+  const isTvActiveHereRef = useRef(false);
+  isTvActiveHereRef.current = isTvOnThisContent && (isCastPlaying || isCastBuffering || isCastPaused);
+
+  const getCastResumeTime = useCallback(
+    () => (lastCastPositionRef.current > 2 ? lastCastPositionRef.current : effectiveInitialTime),
+    [effectiveInitialTime]
+  );
+
+  // A TV não abriu o vídeo (ex.: a lista IPTV ainda conta a conexão do episódio anterior):
+  // tenta de novo sozinho depois de alguns segundos e, se falhar outra vez, mostra o erro
+  const handleCastFailure = useCallback(() => {
+    if (!isCastingRef.current || isDisconnectingCastRef.current || castRetryTimerRef.current) return;
+    if (castRetryCountRef.current < 1) {
+      castRetryCountRef.current += 1;
+      castRetryTimerRef.current = setTimeout(() => {
+        castRetryTimerRef.current = null;
+        if (isCastingRef.current && !isDisconnectingCastRef.current && !isTvActiveHereRef.current) {
+          castOnTv(getCastResumeTime());
+        }
+      }, CAST_RETRY_DELAY_MS);
+      return;
+    }
+    setCastError('A TV não conseguiu abrir este vídeo. Tente novamente ou assista no celular.');
+    Alert.alert(
+      'Erro na Transmissão',
+      'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
+    );
+  }, [castOnTv, getCastResumeTime]);
+  handleCastFailureRef.current = handleCastFailure;
+
+  const handleRetryCastOnTv = useCallback(() => {
+    setCastError(null);
+    castRetryCountRef.current = 0;
+    castOnTv(getCastResumeTime());
+  }, [castOnTv, getCastResumeTime]);
+
+  // O receptor parou com erro neste conteúdo depois de aceitar o carregamento
+  const isCastFailedHere =
+    isCasting &&
+    isTvOnThisContent &&
+    castMediaStatus?.playerState === 'idle' &&
+    castMediaStatus?.idleReason === 'error';
+
+  useEffect(() => {
+    if (isCastFailedHere) {
+      handleCastFailureRef.current();
+    }
+  }, [isCastFailedHere]);
+
+  useEffect(() => {
+    if (isTvOnThisContent && isCastPlaying) {
+      setCastError(null);
+    }
+  }, [isTvOnThisContent, isCastPlaying]);
+
+  useEffect(
+    () => () => {
+      if (castRetryTimerRef.current) {
+        clearTimeout(castRetryTimerRef.current);
+        castRetryTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   // Transmitir mídia para a TV quando o Cast estiver conectado e garantir silenciamento local total
   useEffect(() => {
@@ -2107,33 +2231,15 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           return;
         }
 
-        castMedia({
-          streamUrl: extractDirectUrl(streamUrl),
-          title,
-          posterUrl,
-          type,
-          contentId,
-          seriesId,
-          seasonNumber,
-          episodeNumber,
-          initialTime: effectiveInitialTime,
-        }).catch((err) => {
-            console.warn('Erro ao carregar mídia no Chromecast:', err);
-            hasCastRef.current = false;
-            setCastError(
-              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-            );
-            if (!isCastingRef.current || isDisconnectingCastRef.current) {
-              return;
-            }
-            Alert.alert(
-              'Erro na Transmissão',
-              'Não foi possível iniciar a reprodução na TV. Verifique a conexão com o Chromecast.'
-            );
-          });
+        castOnTv(effectiveInitialTime);
       }
     } else if (!isCasting) {
       hasCastRef.current = false;
+      castRetryCountRef.current = 0;
+      if (castRetryTimerRef.current) {
+        clearTimeout(castRetryTimerRef.current);
+        castRetryTimerRef.current = null;
+      }
       setCastError(null);
     }
   }, [
@@ -2146,13 +2252,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     streamPosition,
     streamUrl,
     title,
-    posterUrl,
     type,
     contentId,
-    seriesId,
-    seasonNumber,
-    episodeNumber,
-    castMedia,
+    castOnTv,
+    effectiveInitialTime,
     player,
   ]);
 
@@ -2647,7 +2750,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const handleDisconnectAndPlayLocally = useCallback(() => {
     isDisconnectingCastRef.current = true;
-    const resumePos = lastCastPositionRef.current || streamPosition;
+    const resumePos = lastCastPositionRef.current;
     stopCast();
     try {
       player.muted = false;
@@ -2663,7 +2766,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       player.play();
     } catch {}
     setIsPlaying(true);
-  }, [stopCast, streamPosition, player]);
+  }, [stopCast, player]);
 
   const insets = useAppInsets();
 
@@ -2820,10 +2923,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               label="Tentar Novamente na TV"
               size="sm"
               variant="primary"
-              onPress={() => {
-                setCastError(null);
-                hasCastRef.current = false;
-              }}
+              onPress={handleRetryCastOnTv}
             />
           </View>
         )}

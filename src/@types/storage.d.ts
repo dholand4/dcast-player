@@ -27,6 +27,14 @@ export interface IFavoriteItem {
   addedAt: number;
 }
 
+/** Estado da sincronização dos favoritos deste aparelho com a nuvem */
+export interface IFavoritesSyncState {
+  /** Ids que estavam na nuvem na última sincronização; null se este aparelho ainda não sincronizou */
+  syncedIds: string[] | null;
+  /** Removidos neste aparelho e ainda não confirmados como apagados na nuvem */
+  removedIds: string[];
+}
+
 export interface ICustomCategoryFolder {
   id: string;
   name: string;

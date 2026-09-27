@@ -11,6 +11,8 @@ jest.mock('../../services/storageService', () => ({
     isFavorite: jest.fn(() => false),
     toggleFavorite: jest.fn(() => true),
     removeFavorite: jest.fn(),
+    getFavoritesSyncState: jest.fn(() => ({ syncedIds: null, removedIds: [] })),
+    saveFavoritesSyncState: jest.fn(),
   },
 }));
 
