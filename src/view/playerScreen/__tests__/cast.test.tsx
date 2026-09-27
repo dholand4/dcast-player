@@ -7,6 +7,8 @@ import { useVideoPlayer } from 'expo-video';
 import { theme } from '../../../constants/theme';
 import { PlayerScreen } from '../index';
 import { CastContext, ICastContextData } from '../../../providers/CastProvider';
+import { AuthContext } from '../../../providers/AuthProvider';
+import { xtreamService } from '../../../services/xtreamService';
 import { PlayerScreenProps } from '../../../routes/types';
 
 const mockNavigation = {
@@ -131,7 +133,7 @@ describe('PlayerScreen while casting', () => {
     );
   });
 
-  it('retries on the TV once by itself and then shows the error with a retry button', () => {
+  it('retries on the TV a few times by itself and then shows the error with a retry button', () => {
     jest.useFakeTimers();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const castMedia = jest.fn().mockResolvedValue(undefined);
@@ -140,26 +142,63 @@ describe('PlayerScreen while casting', () => {
       isPlaying: false,
       mediaStatus: { playerState: 'idle', idleReason: 'error', mediaInfo: { customData: { id: '10' } } },
     });
+    const loading = castValue({ castMedia, isPlaying: false, mediaStatus: null });
 
     const screen = render(tree(failed, movieRoute));
     expect(castMedia).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('A TV não abriu o vídeo. Tentando de novo (1 de 3)…')).toBeTruthy();
 
-    act(() => {
-      jest.advanceTimersByTime(4000);
+    // Cada nova tentativa também falha na TV
+    [5000, 10000, 20000].forEach((delay, index) => {
+      act(() => {
+        jest.advanceTimersByTime(delay);
+      });
+      expect(castMedia).toHaveBeenCalledTimes(index + 2);
+      expect(screen.queryByText('Erro na Transmissão na TV')).toBeNull();
+      screen.rerender(tree(loading, movieRoute));
+      screen.rerender(tree(failed, movieRoute));
     });
-    expect(castMedia).toHaveBeenCalledTimes(2);
-    expect(screen.queryByText('Erro na Transmissão na TV')).toBeNull();
 
-    // O novo carregamento também falha na TV
-    screen.rerender(tree(castValue({ castMedia, isPlaying: false, mediaStatus: null }), movieRoute));
-    screen.rerender(tree(failed, movieRoute));
-
+    const reason = 'A TV começou a abrir o vídeo, mas parou com erro.';
     expect(screen.getByText('Erro na Transmissão na TV')).toBeTruthy();
+    expect(screen.getByText(reason)).toBeTruthy();
     expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith('Erro na Transmissão', reason);
 
     fireEvent.press(screen.getByText('Tentar Novamente na TV'));
-    expect(castMedia).toHaveBeenCalledTimes(3);
+    expect(castMedia).toHaveBeenCalledTimes(5);
     expect(screen.queryByText('Erro na Transmissão na TV')).toBeNull();
+    alertSpy.mockRestore();
+  });
+
+  it('shows why the TV refused the video and how many IPTV connections are in use', async () => {
+    jest.useFakeTimers();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const authSpy = jest
+      .spyOn(xtreamService, 'authenticate')
+      .mockResolvedValue({ user_info: { active_cons: '1', max_connections: '1' } } as any);
+    const castMedia = jest.fn().mockRejectedValue(new Error('FAILED'));
+    const auth = {
+      account: { serverUrl: 'http://server.com', username: 'user', password: 'pass' },
+      loginWithM3u: jest.fn(),
+    } as any;
+
+    render(
+      <AuthContext.Provider value={auth}>{tree(castValue({ castMedia, isPlaying: false }), movieRoute)}</AuthContext.Provider>
+    );
+    await act(async () => {});
+    for (const delay of [5000, 10000, 20000]) {
+      await act(async () => {
+        jest.advanceTimersByTime(delay);
+      });
+    }
+
+    expect(castMedia).toHaveBeenCalledTimes(4);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Erro na Transmissão',
+      'A TV recusou o vídeo (FAILED). Lista IPTV: 1 de 1 conexão em uso.'
+    );
+    authSpy.mockRestore();
     alertSpy.mockRestore();
   });
 
@@ -190,9 +229,41 @@ describe('PlayerScreen while casting', () => {
       )
     );
     act(() => {
-      jest.advanceTimersByTime(4000);
+      jest.advanceTimersByTime(5000);
     });
 
     expect(castMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the next episode card on the TV screen in the last seconds', () => {
+    const value = castValue({
+      streamPosition: 2560,
+      streamDuration: 2584,
+      mediaStatus: { playerState: 'playing', mediaInfo: { customData: { id: '101' } } },
+    });
+
+    const screen = render(tree(value, episodeRoute(0)));
+
+    expect(screen.getByTestId('next-episode-card')).toBeTruthy();
+    expect(screen.getByText('Próximo em 14s')).toBeTruthy();
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('does not switch episodes on the TV after the viewer cancels the card', () => {
+    // Fora da janela de 15s entre trocas automáticas de outros testes
+    jest.useFakeTimers({ now: Date.now() + 60000 });
+    const playing = (position: number) =>
+      castValue({
+        streamPosition: position,
+        streamDuration: 2584,
+        mediaStatus: { playerState: 'playing', mediaInfo: { customData: { id: '101' } } },
+      });
+
+    const screen = render(tree(playing(2560), episodeRoute(0)));
+    fireEvent.press(screen.getByTestId('next-episode-cancel-btn'));
+    screen.rerender(tree(playing(2580), episodeRoute(0)));
+
+    expect(screen.queryByTestId('next-episode-card')).toBeNull();
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
   });
 });
