@@ -374,6 +374,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [initialTime, contentId, getProgress]);
 
   const [castError, setCastError] = useState<string | null>(null);
+  // Incrementado pelo botão "Tentar novamente" para reenviar o vídeo à TV
+  const [castRetryKey, setCastRetryKey] = useState(0);
   const isCastingRef = useRef(isCasting);
   isCastingRef.current = isCasting;
   const prevIsCastingRef = useRef(isCasting);
@@ -2154,6 +2156,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     episodeNumber,
     castMedia,
     player,
+    castRetryKey,
   ]);
 
   const handleBack = useCallback(() => {
@@ -2521,6 +2524,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       castMediaStatus?.idleReason !== 'finished';
 
     if (!isTvActivelyPlaying) {
+      // Episódio terminou na TV: Play segue para o próximo (ou recomeça), em vez de
+      // recarregar na posição final, o que fazia a TV abrir e encerrar na hora
+      const hasFinishedOnTv =
+        castMediaStatus?.idleReason === 'finished' ||
+        castMediaStatus?.idleReason === 1 ||
+        (streamDuration > 30 && streamPosition >= streamDuration - 15);
+      if (hasFinishedOnTv && type === 'series' && nextEpisode) {
+        handleGoToNextEpisode();
+        return;
+      }
       castMedia({
         streamUrl: extractDirectUrl(streamUrl),
         title,
@@ -2530,9 +2543,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         seriesId,
         seasonNumber,
         episodeNumber,
-        initialTime: streamPosition > 2 ? streamPosition : effectiveInitialTime,
+        initialTime: hasFinishedOnTv ? 0 : streamPosition > 2 ? streamPosition : effectiveInitialTime,
       }).catch((err) => {
         console.warn('[Player] Erro ao recarregar mídia no Chromecast via Play:', err);
+        setCastError('A TV não respondeu. Tente novamente ou desconecte e conecte o Chromecast de novo.');
       });
     } else {
       castPlay();
@@ -2555,6 +2569,9 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     episodeNumber,
     effectiveInitialTime,
     castPlay,
+    streamDuration,
+    nextEpisode,
+    handleGoToNextEpisode,
   ]);
 
   const handleTogglePlay = useCallback(() => {
@@ -2823,8 +2840,21 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               onPress={() => {
                 setCastError(null);
                 hasCastRef.current = false;
+                setCastRetryKey((key) => key + 1);
               }}
             />
+            {/* Sessão travada: desconecta para o usuário conectar de novo pelo botão de Cast */}
+            <View style={{ marginTop: 8 }}>
+              <ButtonGlobal
+                label="Desconectar da TV"
+                size="sm"
+                variant="ghost"
+                onPress={() => {
+                  setCastError(null);
+                  handleDisconnectAndPlayLocally();
+                }}
+              />
+            </View>
           </View>
         )}
 

@@ -227,8 +227,13 @@ describe('supabaseService', () => {
 
       const list = await fetchFavoritesList('user_1');
       expect(list).toHaveLength(1);
-      expect(list[0].id).toBe('99');
-      expect(list[0].name).toBe('HBO');
+      expect(list?.[0].id).toBe('99');
+      expect(list?.[0].name).toBe('HBO');
+    });
+
+    it('returns null when the favorites request fails', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({ ok: false });
+      expect(await fetchFavoritesList('user_1')).toBeNull();
     });
 
     it('sends DELETE request on removeFavorite', async () => {

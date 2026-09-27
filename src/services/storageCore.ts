@@ -21,6 +21,7 @@ const KEYS = {
   SAVED_ACCOUNTS: 'saved_accounts',
   USER_INFO: 'user_info',
   FAVORITES: 'user_favorites',
+  FAVORITES_SYNCED_IDS: 'user_favorites_synced_ids',
   HISTORY_PREFIX: 'history_',
   HIDDEN_CATEGORIES_PREFIX: 'hidden_categories_',
   HIDDEN_STREAMS_PREFIX: 'hidden_streams_',
@@ -479,6 +480,25 @@ export function createStorageService(storage: IStorageLike) {
   removeFavorite(contentId: string): void {
     const favorites = this.getFavorites().filter((item) => item.id !== contentId);
     storage.set(profileKey(KEYS.FAVORITES), JSON.stringify(favorites));
+  },
+
+  /**
+   * IDs dos favoritos que estavam iguais no aparelho e na nuvem na última sincronização.
+   * null = este aparelho ainda não sincronizou (ex.: instalação antiga).
+   */
+  getFavoritesSyncedIds(): string[] | null {
+    try {
+      const raw = storage.getString(profileKey(KEYS.FAVORITES_SYNCED_IDS));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map(String) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveFavoritesSyncedIds(ids: string[]): void {
+    storage.set(profileKey(KEYS.FAVORITES_SYNCED_IDS), JSON.stringify(Array.from(new Set(ids))));
   },
 
   // --- Hidden Categories ---

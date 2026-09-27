@@ -9,7 +9,7 @@ import GoogleCast, {
   RemoteMediaClient,
   MediaStreamType,
 } from 'react-native-google-cast';
-import { CastContext, ICastContextData, ICastMediaParams } from '../providers/CastProvider';
+import { CastContext, ICastContextData, ICastMediaParams, withCastTimeout } from '../providers/CastProvider';
 import { IWatchProgress } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { calculatePercentage } from '../utils/formatters';
@@ -268,7 +268,7 @@ function useLocalCastFallback(): ICastContextData {
       }
 
       try {
-        await activeClient.loadMedia(loadRequest);
+        await withCastTimeout(activeClient.loadMedia(loadRequest));
         setCurrentMedia(params);
         try {
           activeClient.play?.();
@@ -282,7 +282,7 @@ function useLocalCastFallback(): ICastContextData {
           console.warn('[Cast] loadMedia falhou com startTime, tentando novamente do início:', loadErr);
           delete loadRequest.startTime;
           try {
-            await activeClient.loadMedia(loadRequest);
+            await withCastTimeout(activeClient.loadMedia(loadRequest));
             setCurrentMedia(params);
             try {
               activeClient.play?.();

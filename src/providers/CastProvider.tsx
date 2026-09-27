@@ -44,6 +44,29 @@ export interface ICastContextData {
 
 export const CastContext = createContext<ICastContextData>({} as ICastContextData);
 
+// Se a TV não responder ao carregamento nesse tempo, a sessão está travada:
+// melhor avisar e liberar o controle do que deixar o celular parado para sempre.
+export const CAST_LOAD_TIMEOUT_MS = 20000;
+
+export function withCastTimeout<T>(promise: Promise<T>, ms: number = CAST_LOAD_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('A TV não respondeu ao carregar o vídeo.')),
+      ms
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 const isNativeCastModulePresent = Boolean(
   NativeModules.RNGoogleCast || NativeModules.RNGCSessionManager || NativeModules.RNGCCastContext
 );
@@ -56,6 +79,9 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [isStoppingCast, setIsStoppingCast] = useState(false);
   const [isMediaLoading, setIsMediaLoading] = useState(false);
+  // Enquanto uma mídia nova carrega, os eventos que chegam ainda são do episódio anterior
+  const isMediaLoadingRef = useRef(false);
+  const loadRequestIdRef = useRef(0);
 
   // Fallback client instantiated once for direct native invocation
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
@@ -107,6 +133,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isCasting) {
       storageService.clearActiveCastMedia();
       setCurrentMedia(null);
+      isMediaLoadingRef.current = false;
       setIsMediaLoading(false);
     }
   }, [isCasting]);
@@ -128,27 +155,25 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     client.getMediaStatus?.()?.then((status: any) => {
-      if (status) {
+      if (status && !isMediaLoadingRef.current) {
         setMediaStatus(status);
-        setIsMediaLoading(false);
       }
     })?.catch(() => {});
 
     const statusSub = client.onMediaStatusUpdated?.((status: any) => {
-      if (status) {
+      if (status && !isMediaLoadingRef.current) {
         setMediaStatus(status);
-        setIsMediaLoading(false);
       }
     });
 
     const endedSub = client.onMediaPlaybackEnded?.((status: any) => {
-      if (status) {
+      if (status && !isMediaLoadingRef.current) {
         setMediaStatus(status);
-        setIsMediaLoading(false);
       }
     });
 
     const progressSub = client.onMediaProgressUpdated?.((pos: number, dur: number) => {
+      if (isMediaLoadingRef.current) return;
       if (typeof pos === 'number' && !isNaN(pos)) setLivePosition(pos);
       if (typeof dur === 'number' && !isNaN(dur)) setLiveDuration(dur);
     }, 1);
@@ -284,6 +309,8 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       setIsStoppingCast(false);
+      const loadRequestId = ++loadRequestIdRef.current;
+      isMediaLoadingRef.current = true;
       setIsMediaLoading(true);
       // Reset position, duration and status immediately so stale data never triggers auto-advance loops
       setLivePosition(0);
@@ -363,7 +390,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       try {
-        await activeClient.loadMedia(loadRequest);
+        await withCastTimeout(activeClient.loadMedia(loadRequest));
         setCurrentMedia(params);
         storageService.saveActiveCastMedia(params);
         try {
@@ -378,7 +405,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.warn('[Cast] loadMedia falhou com startTime, tentando novamente do início:', loadErr);
           delete loadRequest.startTime;
           try {
-            await activeClient.loadMedia(loadRequest);
+            await withCastTimeout(activeClient.loadMedia(loadRequest));
             setCurrentMedia(params);
             storageService.saveActiveCastMedia(params);
             try {
@@ -394,8 +421,22 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         throw loadErr;
       } finally {
+        // Descarta posição/duração que ainda eram do episódio anterior e lê o status novo
+        if (loadRequestId === loadRequestIdRef.current) {
+          setLivePosition(0);
+          setLiveDuration(0);
+        }
         setTimeout(() => {
+          // Outro carregamento começou depois deste: ele é quem libera o estado
+          if (loadRequestId !== loadRequestIdRef.current) return;
+          isMediaLoadingRef.current = false;
           setIsMediaLoading(false);
+          activeClient
+            .getMediaStatus?.()
+            ?.then((status: any) => {
+              if (status && !isMediaLoadingRef.current) setMediaStatus(status);
+            })
+            ?.catch(() => {});
         }, 500);
       }
     },

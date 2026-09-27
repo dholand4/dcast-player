@@ -198,11 +198,12 @@ export async function clearWatchProgress(
 // Favorites (Favoritos)
 // ---------------------------------------------------------------------------
 
+/** Retorna true quando a nuvem confirmou a gravação */
 export async function upsertFavorite(
   userKey: string,
   item: IFavoriteItem
-): Promise<void> {
-  if (!userKey || userKey === 'guest' || !item?.id) return;
+): Promise<boolean> {
+  if (!userKey || userKey === 'guest' || !item?.id) return false;
   try {
     const recordId = `${userKey}_${item.id}`;
     const payload = {
@@ -217,44 +218,51 @@ export async function upsertFavorite(
       added_at: item.addedAt || Date.now(),
     };
 
-    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_favorites`, {
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_favorites`, {
       method: 'POST',
       headers: getHeaders(userKey, 'resolution=merge-duplicates'),
       body: JSON.stringify(payload),
     });
+    return Boolean(res?.ok);
   } catch {
-    // ignore
+    return false;
   }
 }
 
+/** Retorna true quando a nuvem confirmou a remoção */
 export async function removeFavorite(
   userKey: string,
   itemId: string
-): Promise<void> {
-  if (!userKey || userKey === 'guest' || !itemId) return;
+): Promise<boolean> {
+  if (!userKey || userKey === 'guest' || !itemId) return false;
   try {
     const recordId = encodeURIComponent(`${userKey}_${itemId}`);
-    await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_favorites?id=eq.${recordId}`, {
+    const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/dcast_favorites?id=eq.${recordId}`, {
       method: 'DELETE',
       headers: getHeaders(userKey),
     });
+    return Boolean(res?.ok);
   } catch {
-    // ignore
+    return false;
   }
 }
 
-export async function fetchFavoritesList(userKey: string): Promise<IFavoriteItem[]> {
-  if (!userKey || userKey === 'guest') return [];
+/**
+ * Lista os favoritos da nuvem. Retorna null quando a consulta falha, para que a
+ * sincronização não confunda "sem internet" com "todos os favoritos foram removidos".
+ */
+export async function fetchFavoritesList(userKey: string): Promise<IFavoriteItem[] | null> {
+  if (!userKey || userKey === 'guest') return null;
   try {
     const encodedUser = encodeURIComponent(userKey);
-    const url = `${SUPABASE_URL}/rest/v1/dcast_favorites?user_key=eq.${encodedUser}&order=added_at.desc&limit=200`;
+    const url = `${SUPABASE_URL}/rest/v1/dcast_favorites?user_key=eq.${encodedUser}&order=added_at.desc&limit=1000`;
     const res = await fetchWithTimeout(url, {
       method: 'GET',
       headers: getHeaders(userKey),
     });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const rows = await res.json();
-    if (!Array.isArray(rows)) return [];
+    if (!Array.isArray(rows)) return null;
 
     return rows.map((row) => ({
       id: String(row.item_id),
@@ -266,7 +274,7 @@ export async function fetchFavoritesList(userKey: string): Promise<IFavoriteItem
       addedAt: Number(row.added_at || Date.now()),
     }));
   } catch {
-    return [];
+    return null;
   }
 }
 
