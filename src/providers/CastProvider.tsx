@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useState, useCallback, useEffect, ReactNode, useRef, useContext } from 'react';
 import { NativeModules } from 'react-native';
 import GoogleCast, {
   useCastSession,
@@ -12,6 +12,7 @@ import GoogleCast, {
 import { IWatchProgress } from '../@types/storage';
 import { storageService } from '../services/storageService';
 import { calculatePercentage } from '../utils/formatters';
+import { ProfileContext } from './ProfileProvider';
 
 export interface ICastMediaParams {
   streamUrl: string;
@@ -57,6 +58,11 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isStoppingCast, setIsStoppingCast] = useState(false);
   const [isMediaLoading, setIsMediaLoading] = useState(false);
 
+  // Perfil que iniciou a transmissão: o progresso dela vai só para o histórico dele
+  const { activeProfile } = useContext(ProfileContext);
+  const activeProfileId = activeProfile?.id ?? null;
+  const castOwnerProfileRef = useRef<string | null>(null);
+
   // Fallback client instantiated once for direct native invocation
   const fallbackClientRef = useRef<RemoteMediaClient | null>(null);
   if (isNativeCastModulePresent && !fallbackClientRef.current) {
@@ -71,6 +77,8 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (!castSession && castState !== CastState.CONNECTED) {
       setIsStoppingCast(false);
+      // Só aqui a transmissão deixa de ter dono: enquanto a TV encerra, ela ainda é do perfil anterior
+      castOwnerProfileRef.current = null;
     }
   }, [castSession, castState]);
 
@@ -235,6 +243,9 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const data = activeMediaStatus.mediaInfo.customData as Partial<IWatchProgress>;
     if (!data.id || !data.type || data.type === 'live') return;
+    if (castOwnerProfileRef.current && storageService.getActiveProfileId() !== castOwnerProfileRef.current) {
+      return;
+    }
 
     const currentTime = Math.floor(streamPosition);
     const duration = Math.floor(streamDuration);
@@ -284,6 +295,7 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       setIsStoppingCast(false);
+      castOwnerProfileRef.current = storageService.getActiveProfileId();
       setIsMediaLoading(true);
       // Reset position, duration and status immediately so stale data never triggers auto-advance loops
       setLivePosition(0);
@@ -437,6 +449,18 @@ export const CastProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
   }, [client]);
+
+  // Trocar para outro perfil encerra a transmissão do anterior; voltar ao mesmo perfil não
+  useEffect(() => {
+    if (!isCasting || !activeProfileId) return;
+    if (!castOwnerProfileRef.current) {
+      castOwnerProfileRef.current = activeProfileId;
+      return;
+    }
+    if (castOwnerProfileRef.current !== activeProfileId) {
+      stopCast();
+    }
+  }, [isCasting, activeProfileId, stopCast]);
 
   const showExpandedControls = useCallback(() => {
     try {
