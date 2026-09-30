@@ -1,246 +1,345 @@
-# 🎬 DCast Player
+# dcast-player
 
-**DCast Player** é um player de streaming e IPTV moderno, ultrarrápido e de alto desempenho, desenvolvido para **Mobile (Android e iOS)** e **Web**. O projeto foi desenhado com foco em usabilidade cinematográfica, performance fluida a 60/120 fps, sincronização em nuvem e suporte a listas Xtream Codes e M3U.
+<p align="center">
+  <img src="https://img.shields.io/badge/React_Native-0.86-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/Expo-SDK_57-000020?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/styled--components-6.x-DB7093?style=for-the-badge&logo=styledcomponents&logoColor=white" />
+  <img src="https://img.shields.io/badge/React_Navigation-7.x-6B52AE?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase-cloud_sync-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google_Cast-Chromecast-4285F4?style=for-the-badge&logo=googlecast&logoColor=white" />
+  <img src="https://img.shields.io/badge/Android_TV-leanback-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
+  <img src="https://img.shields.io/badge/Jest-tests-C21325?style=for-the-badge&logo=jest&logoColor=white" />
+</p>
 
----
-
-## 🚀 Principais Funcionalidades
-
-### 📺 1. TV Ao Vivo (Live TV)
-- **Zapping Ágil de Canais**: Transição fluida entre canais com decodificação por hardware.
-- **Grade Completa de Programação (EPG 24h a 48h)**:
-  - Integração completa com o endpoint de programação IPTV com decodificação segura Base64.
-  - Badges em tempo real: 🔴 **NO AR**, ⏳ **A SEGUIR** e ⏱️ **ENCERRADO**.
-  - Barra de progresso dinâmica com a porcentagem de conclusão do programa atual.
-  - Sinopses expansíveis com um toque.
-  - Rolagem automática (*scroll to current*) para a atração ao vivo.
-- **Gaveta de Canais no Player**: Navegue e troque de canal lateralmente sem interromper a transmissão em tela cheia.
-- **Deduplicação Inteligente**: Canais espelhados que compartilham o mesmo ID no servidor IPTV são automaticamente deduplicados, evitando canais repetidos na listagem.
-
-### 🎬 2. Filmes (VOD)
-- **Catálogo Completo**: Navegação veloz em grade de 3 colunas, com paginação e busca instantânea.
-- **Tela de Detalhes Cinematográfica**:
-  - Pôsteres em alta resolução com cache em disco e memória.
-  - Informações completas: nota TMDB (estrelas), gênero, duração, direção, elenco e sinopse.
-  - Botão integrado para **assistir ao trailer oficial no YouTube**.
-- **Smart Pre-fetch**: Pré-carregamento dos primeiros megabytes da mídia em segundo plano para início imediato da reprodução.
-- **Continuar Assistindo**: Salva automaticamente a minutagem exata onde você parou.
-
-### 🍿 3. Séries
-- **Organização por Temporadas e Episódios**:
-  - Navegação entre temporadas por pílulas (*Season Pills*).
-  - Miniaturas individuais por episódio, duração e sinopse.
-- **Higienização e Idempotência de Títulos**: Títulos sempre padronizados (`Série - T1E1: Título`), evitando duplicações sucessivas no histórico.
-- **Próximo Episódio Automático**: Contagem regressiva no término do episódio para iniciar o próximo sem necessidade de voltar ao menu.
-
-### ⚡ 4. Fila Inteligente de Pré-Carregamento (`catalogSyncService`)
-- **Carregamento Sequencial em Segundo Plano**:
-  - **Passo 1 (0s - Imediato)**: Pré-carrega canais e categorias de **TV Ao Vivo** assim que a Home abre. Entrar em TV Ao Vivo abre em **0.1s** com os jogos do dia já baixados.
-  - **Passo 2 (3s)**: Pré-carrega o catálogo de **Séries**.
-  - **Passo 3 (6s)**: Pré-carrega o catálogo de **Filmes**.
-- **Zero Gargalos**: Elimina travamentos de rede ou bloqueios por excesso de requisições simultâneas (HTTP 429).
-- **Abertura em "Todos os Conteúdos"**: Todas as seções iniciam exibindo o catálogo completo ("Todos os Canais", "Todos os Filmes", "Todas as Séries") em vez de ficarem presas na primeira categoria do servidor.
-
-### 📁 5. Gerenciador de Pastas e Categorias Personalizadas
-- **Minhas Pastas (Pastas Customizadas)**: Crie pastas exclusivas (ex: *"Canais Abertos"*, *"Meus Filmes"*) e selecione apenas os canais e conteúdos desejados com mapeamento 1-para-1 exato.
-- **Ocultar Pastas da Lista**: Remova categorias indesejadas da lista IPTV (ex: Conteúdo Adulto, Canais Estrangeiros) com 1 toque no ícone de olho (👁️).
-- **Ocultar Canais Redundantes**: Oculte canais repetidos ou que você não assiste da grade geral e da gaveta de zapping.
-- **Design Ultra-Compacto**: Cabeçalho e abas em chips finos (~28px), liberando mais de 80% do espaço da tela para busca e listagem.
-
-### ☁️ 6. Sincronização em Nuvem (Supabase)
-- **Pastas e Itens Ocultos na Nuvem**: As tabelas `dcast_custom_folders` e `dcast_hidden_items` mantêm suas preferências sincronizadas em tempo real.
-- **Multi-Plataforma**: Crie ou edite uma pasta no celular Android/iOS e ela reflete instantaneamente na Web e vice-versa.
-
-### ⏯️ 7. Player de Vídeo Avançado
-- **Controles Completos**:
-  - Play, Pause, Avançar 10s e Retroceder 10s.
-  - Seletor de Velocidade de Reprodução: `0.5x`, `0.75x`, `1x`, `1.25x`, `1.5x`, `2x`.
-  - Seletor de Faixas de Áudio e Legendas embutidas na transmissão.
-  - Ajuste de Proporção de Tela (*Aspect Ratio*): Padrão, 16:9, 4:3 e Preenchimento (Zoom).
-  - Bloqueio de Tela (*Lock Screen*): Trava os controles contra toques acidentais.
-  - **Sleep Timer (Timer para Dormir)**: Opções de `15`, `30`, `45`, `60 minutos` ou `Ao Término do Filme/Episódio`.
-
-### 📡 8. Transmissão Google Cast (Chromecast & Smart TVs)
-- **Modal Dark Customizado**: Busca dispositivos na rede Wi-Fi com indicador visual de radar.
-- **Controle Remoto de Transmissão**: Alterne canais, pause e desfaça a conexão diretamente do app.
-
-### 👥 9. Múltiplas Contas Salvas (Trocar / Sair da Lista)
-- **Suporte Multi-Listas**: Conecte diferentes servidores Xtream Codes e alterne entre eles na tela inicial (`SetupScreen`) com apenas 2 toques.
-- **Limpeza Segura de Cache**: Alternar de conta limpa automaticamente os dados da lista anterior para evitar misturar canais.
-
-### 🚀 10. Performance Extrema & Arquitetura Híbrida
-- **Mobile com FlashList**: Utiliza `@shopify/flash-list` com `drawDistance={2500}` e altura determinística, eliminando telas pretas e garantindo rolagem a 60/120fps.
-- **Web Otimizado**: Utiliza `FlatList` com `windowSize` ajustado no navegador para rolagem suave com a roda do mouse e trackpad.
-- **Cache em 2 Níveis**: Cache em RAM instantâneo e persistência local via **MMKV** (Mobile) e **localStorage** (Web).
+> Player de IPTV e streaming com TV ao vivo, filmes e séries a partir de listas Xtream Codes e M3U. Tem perfis, favoritos, "Continuar Assistindo" sincronizado na nuvem e transmissão para Chromecast. Roda no Android, no iOS, na Android TV e na Web.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## Índice
 
-- **Core**: React Native 0.86, React 19, Expo SDK 57 (New Architecture habilitada).
-- **Linguagem**: TypeScript 5.9 (tipagem estrita).
-- **Estilização**: Styled Components (Native & Web).
-- **Navegação**: React Navigation v7 (Native Stack com `navigationRef` resiliente).
-- **Reprodução de Vídeo**: `expo-video` e `react-native-video`.
-- **Transmissão**: `react-native-google-cast`.
-- **Banco de Dados & Nuvem**: Supabase (`@supabase/supabase-js`).
-- **Armazenamento Local**: `react-native-mmkv` (Mobile) e `localStorage` (Web).
-- **Listas Virtuais**: `@shopify/flash-list` (Mobile) e `FlatList` nativo (Web).
-- **Ícones & Mídia**: `@expo/vector-icons`, `expo-image`.
-- **Testes**: Jest, `@testing-library/react-native`, `react-test-renderer` (192 testes automatizados).
+- [Sobre](#sobre)
+- [Funcionalidades](#-funcionalidades)
+- [Arquitetura](#arquitetura)
+- [Tecnologias](#tecnologias)
+- [Como rodar](#como-rodar)
+- [Web e proxy](#-web-e-proxy)
+- [Banco de dados](#️-banco-de-dados)
+- [Variáveis de ambiente](#️-variáveis-de-ambiente)
+- [Scripts disponíveis](#-scripts-disponíveis)
+- [Builds e atualizações OTA](#-builds-e-atualizações-ota)
 
 ---
 
-## 📁 Estrutura do Projeto
+## Sobre
+
+O **DCast Player** conecta a um servidor IPTV (Xtream Codes ou lista M3U) e organiza o conteúdo em **TV ao vivo**, **filmes** e **séries**, com grade de programação, pôsteres e detalhes de cada título. Cada conta pode ter até 4 perfis, cada um com seu próprio histórico e seus favoritos. Pastas, itens ocultos e progresso ficam salvos no aparelho e são sincronizados no Supabase, então o que você faz no celular aparece na Web e na TV.
+
+---
+
+## ✨ Funcionalidades
+
+**Contas e perfis**
+- 🔐 Login por link M3U ou por Xtream Codes (servidor, usuário e senha), com botão de colar e mostrar senha
+- 👥 Várias listas salvas, com troca rápida entre elas
+- 🧑‍🤝‍🧑 Até 4 perfis por conta, com avatar e cor, sincronizados entre aparelhos
+- 🧹 Ao trocar de lista, o cache da lista anterior é limpo para não misturar canais
+
+**Home**
+- 🏠 Fileiras de Continuar Assistindo, Favoritos e categorias em carrossel
+- ⭐ Favoritar segurando o pôster
+- 🆕 Botão **Novidades** com selo de contagem e painel de episódios novos das séries favoritas
+- 🔎 Busca integrada em canais, filmes e séries
+
+**TV ao vivo**
+- 📺 Zapping com gaveta de canais dentro do player, sem sair da tela cheia
+- 🗓️ Grade de programação (EPG) com selos **NO AR**, **A SEGUIR** e **ENCERRADO**, barra de progresso e rolagem até o programa atual
+- ⏪ Replay de programas (catch-up) nos canais que oferecem arquivo
+- 🧬 Canais repetidos com o mesmo ID no servidor aparecem uma vez só
+
+**Filmes e séries**
+- 🎬 Catálogo em grade com paginação e busca
+- 🖼️ Tela de detalhes com pôster, nota, gênero, duração, direção, elenco, sinopse e trailer no YouTube
+- 🍿 Séries por temporadas e episódios, com miniatura, duração e sinopse de cada um
+- ✅ Marcar episódio ou filme como assistido
+- ⏭️ Próximo episódio automático com contagem regressiva
+
+**Player**
+- ⏯️ Play/pause, avançar e voltar 10s (toque duplo no celular, duplo clique na Web)
+- 🐢 Velocidade de `0.5x` a `2x`, faixas de áudio e legendas, proporção de tela (padrão, 16:9, 4:3, preencher)
+- 🔒 Bloqueio de tela contra toques acidentais
+- 😴 Timer para dormir: 15, 30, 45, 60 min ou ao fim do título
+- 🪟 Picture-in-Picture no Android e na Web
+- 🩺 Watchdog que detecta travamento e reconecta sozinho, com diagnóstico de rede
+
+**Chromecast**
+- 📡 Busca de dispositivos na rede Wi-Fi e controle da transmissão pelo app
+- 🔁 Sessão ativa restaurada ao reabrir o app, sem reiniciar o vídeo na TV
+- ⏭️ Troca de episódio na TV antes do fim, com aviso de próximo episódio
+- ⚠️ Aviso quando a TV não reproduz o formato do vídeo (áudio 5.1 ou HEVC)
+
+**Pastas e organização**
+- 📁 Pastas personalizadas (ex.: *Canais Abertos*, *Meus Filmes*) com os itens que você escolher
+- 👁️ Ocultar categorias e canais da lista e da gaveta de zapping
+- ☁️ Pastas, ocultos, favoritos, perfis e progresso sincronizados no Supabase
+
+**Android TV e tablets**
+- 📺 Suporte nativo a Android TV (leanback), com banner próprio e navegação pelo controle remoto
+- 📐 Layout responsivo para tablets
+
+**Desempenho**
+- ⚡ Pré-carregamento em fila: TV ao vivo assim que a Home abre, séries após 3s e filmes após 6s, sem estourar o limite de requisições do servidor (HTTP 429)
+- 🚀 Pré-carregamento dos primeiros megabytes do filme para começar a tocar mais rápido
+- 🧠 Cache em memória e em disco (MMKV criptografado no celular, `localStorage` na Web)
+- 🧾 Listas com `@shopify/flash-list` no celular e `FlatList` ajustada na Web
+
+---
+
+## Arquitetura
+
+```
+┌─────────────────────────────────────────────┐
+│     App (React Native + Expo + Web)         │
+│  AuthStack                                  │
+│   SetupScreen     → Login Xtream / M3U      │
+│  ProfileStack                               │
+│   ProfileScreen   → Escolha de perfil       │
+│  AppStack                                   │
+│   HomeScreen      → Home e Novidades        │
+│   CategoryScreen  → Canais, filmes, séries  │
+│   DetailsScreen   → Detalhes e episódios    │
+│   PlayerScreen    → Player de vídeo         │
+│   SearchScreen    → Busca                   │
+└───────┬───────────────┬─────────────┬───────┘
+        │ HTTP          │ REST        │ Google Cast
+        │ (Web via      │ x-dcast-key │
+        │  /api/proxy)  │             │
+┌───────▼───────┐ ┌─────▼───────┐ ┌───▼───────────┐
+│ Servidor IPTV │ │  Supabase   │ │  Chromecast   │
+│ Xtream / M3U  │ │  5 tabelas  │ │  Smart TV     │
+│ Live, VOD,    │ │  + RLS por  │ │               │
+│ Séries, EPG   │ │  conta      │ │               │
+└───────────────┘ └─────────────┘ └───────────────┘
+```
+
+### Estrutura de pastas
 
 ```
 dcast-player/
-├── assets/                    # Ícones, splash screen e imagens
-├── src/
-│   ├── @types/                # Definições de tipagem TypeScript (Xtream, Storage, etc.)
-│   ├── components/            # Componentes reutilizáveis globais
-│   │   ├── badgeGlobal/
-│   │   ├── buttonGlobal/
-│   │   ├── cardGlobal/
-│   │   ├── castButtonGlobal/
-│   │   ├── castModalGlobal/
-│   │   ├── categoryDrawerGlobal/
-│   │   ├── categoryManagerModalGlobal/
-│   │   ├── channelCardGlobal/
-│   │   ├── confirmModalGlobal/
-│   │   ├── customFolderEditModalGlobal/
-│   │   ├── epgModalGlobal/
-│   │   ├── headerGlobal/
-│   │   ├── mainNavCardsGlobal/
-│   │   ├── miniPlayerGlobal/
-│   │   ├── posterCardGlobal/
-│   │   └── ...
-│   ├── hooks/                 # Hooks customizados (useAuth, useXtream, useCategoryManager, etc.)
-│   ├── routes/                # Configuração do React Navigation e navigationRef
-│   ├── services/              # Serviços de rede, storage, Xtream e Supabase
-│   │   ├── catalogSyncService.ts  # Fila de pré-carregamento sequencial
-│   │   ├── prefetchService.ts     # Pre-fetch dos primeiros megabytes do VOD
-│   │   ├── storageService.ts      # MMKV storage (Mobile)
-│   │   ├── storageService.web.ts  # localStorage (Web)
-│   │   ├── supabaseService.ts     # Integração com banco Supabase
-│   │   └── xtreamService.ts       # API Xtream Codes (Live, VOD, Séries, EPG)
-│   ├── styles/                # Tema dark e tokens de design
-│   ├── utils/                 # Formatadores, cálculos e higienizadores de título
-│   └── view/                  # Telas da aplicação
-│       ├── categoryScreen/    # Listagem de canais, filmes e séries
-│       ├── detailsScreen/     # Detalhes de filmes e séries
-│       ├── homeScreen/        # Tela inicial do app
-│       ├── playerScreen/      # Player de vídeo avançado
-│       ├── searchScreen/      # Busca integrada
-│       └── setupScreen/       # Conexão e troca de listas IPTV
-├── app.json                   # Configurações do Expo e EAS Update
-├── package.json               # Dependências e scripts
-├── api/proxy.js               # Proxy de streams para a versão Web (dev e VPS)
-└── supabase/migrations/       # SQL das tabelas e políticas de acesso da nuvem
+├── api/
+│   └── proxy.js                # proxy de streams para a versão Web (dev e VPS)
+├── assets/                     # ícone, splash e banner da Android TV
+├── plugins/
+│   └── withAndroidTV.js        # config plugin: leanback, banner e manifest da TV
+├── supabase/
+│   └── migrations/             # SQL de RLS por conta e da tabela de perfis
+├── web/
+│   └── index.html              # HTML base da versão Web
+└── src/
+    ├── @types/                 # tipagens (Xtream, storage, styled)
+    ├── assets/                 # imagens usadas no código
+    ├── components/             # componentes globais (castModalGlobal, epgModalGlobal, etc.)
+    ├── constants/              # tema de cores e tokens
+    ├── hooks/                  # useAuth, useXtream, useCast, useFavorites, useProfiles, etc.
+    ├── providers/              # Auth, Profile, Cast e Theme
+    ├── routes/                 # AuthStack, ProfileStack, AppStack e navigationRef
+    ├── services/               # Xtream, Supabase, storage, prefetch e diagnóstico de rede
+    ├── utils/                  # formatadores, parser M3U, identidade da conta, novos episódios
+    └── view/                   # telas (setupScreen, profileScreen, homeScreen, etc.)
 ```
 
 ---
 
-## 🗄️ Esquema do Banco de Dados (Supabase SQL)
+## Tecnologias
 
-Para habilitar a sincronização em nuvem de pastas customizadas e itens ocultos, execute o seguinte SQL no **SQL Editor** do Supabase:
+### App
+| Tecnologia | Uso |
+|------------|-----|
+| React Native 0.86 + Expo SDK 57 | Base do app Android, iOS, Android TV e Web (New Architecture) |
+| React 19 + React Native Web | Interface e versão Web |
+| TypeScript 5.9 | Tipagem estática |
+| styled-components 6 | Estilização com tema de tokens |
+| React Navigation 7 | Navegação (native stack + `navigationRef`) |
+| expo-video + react-native-video | Reprodução de vídeo e PiP |
+| react-native-google-cast | Transmissão para Chromecast |
+| @shopify/flash-list | Listas virtualizadas no celular |
+| react-native-mmkv + expo-secure-store | Armazenamento local criptografado |
+| expo-image | Pôsteres com cache |
+| expo-updates | Atualizações OTA pelo EAS Update |
 
-```sql
--- 1. Tabela de Pastas Personalizadas
-CREATE TABLE IF NOT EXISTS dcast_custom_folders (
-  id TEXT NOT NULL,
-  account_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL, -- 'live', 'movie', 'series'
-  stream_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-  created_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL,
-  PRIMARY KEY (id, account_id)
-);
+### Nuvem e infraestrutura
+| Tecnologia | Uso |
+|------------|-----|
+| Supabase (REST) | Sincronização de perfis, favoritos, progresso, pastas e ocultos |
+| Row Level Security | Cada conta só enxerga as próprias linhas (chave SHA-256 no cabeçalho `x-dcast-key`) |
+| Node.js (`api/proxy.js`) | Proxy de streams para a Web, com bloqueio de hosts internos (SSRF) |
+| EAS Build / EAS Update | Builds nativos e publicação OTA |
 
-CREATE INDEX IF NOT EXISTS idx_custom_folders_account 
-  ON dcast_custom_folders (account_id, type);
-
--- 2. Tabela de Itens Ocultos (Categorias e Canais)
-CREATE TABLE IF NOT EXISTS dcast_hidden_items (
-  account_id TEXT NOT NULL,
-  type TEXT NOT NULL, -- 'live', 'movie', 'series'
-  hidden_categories JSONB NOT NULL DEFAULT '[]'::jsonb,
-  hidden_streams JSONB NOT NULL DEFAULT '[]'::jsonb,
-  updated_at BIGINT NOT NULL,
-  PRIMARY KEY (account_id, type)
-);
-
-CREATE INDEX IF NOT EXISTS idx_hidden_items_account 
-  ON dcast_hidden_items (account_id, type);
-
--- 3. Habilitar RLS (Row Level Security) permissivo para leitura e escrita
-ALTER TABLE dcast_custom_folders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dcast_hidden_items ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public read/write on dcast_custom_folders" 
-  ON dcast_custom_folders FOR ALL USING (true) WITH CHECK (true);
-
-CREATE POLICY "Allow public read/write on dcast_hidden_items" 
-  ON dcast_hidden_items FOR ALL USING (true) WITH CHECK (true);
-```
+### Testes
+| Tecnologia | Uso |
+|------------|-----|
+| Jest + jest-expo | Execução dos testes |
+| @testing-library/react-native | Testes de componentes e telas |
+| react-test-renderer | Renderização nos testes |
 
 ---
 
-## 💻 Comandos e Scripts
+## Como rodar
 
-### Instalação de Dependências
+### Pré-requisitos
+
+- Node.js 20+
+- npm 10+
+- Android Studio (emulador Android / Android TV) ou Xcode (simulador iOS)
+- Uma lista IPTV (Xtream Codes ou M3U) para testar
+
+> O app usa módulos nativos (Chromecast, MMKV, vídeo), então **não roda no Expo Go**. Use `npm run android` / `npm run ios` ou um build de desenvolvimento do EAS.
+
+### Mobile
+
 ```bash
+# Instalar dependências
 npm install
-```
 
-### Executar Localmente
-```bash
 # Iniciar o Metro Bundler
 npm start
 
-# Executar no Android (Emulador ou Dispositivo Conectado)
+# Compilar e abrir no Android (emulador ou aparelho conectado)
 npm run android
 
-# Executar no Navegador Web
+# Compilar e abrir no iOS
+npm run ios
+```
+
+### Web
+
+```bash
+# Iniciar a versão Web
 npm run web
 ```
 
-### Testes Automatizados
-```bash
-# Executar todas as 41 suítes de testes (192 testes)
-npm test
+A aplicação abre em `http://localhost:8081`.
 
-# Modo de observação (Watch Mode)
-npm run test:watch
-```
+---
 
-### Verificação de Tipos TypeScript
-```bash
-npx tsc --noEmit
-```
+## 🌐 Web e proxy
 
-### Build e Exportação Web
+No navegador, os streams IPTV passam pelo `api/proxy.js`, que responde em `/api/proxy`. Ele evita bloqueios de CORS e conteúdo misto (HTTP dentro de HTTPS) e recusa URLs que apontem para a rede interna.
+
 ```bash
-# Gera o build estático otimizado na pasta 'dist' (servido pela VPS)
+# Gerar o build estático na pasta dist (servido pela VPS)
 npm run build:web
 ```
 
-Na VPS, o `api/proxy.js` deve responder em `/api/proxy`. Variáveis de ambiente:
-- `PROXY_ALLOWED_ORIGINS`: origens autorizadas, separadas por vírgula (ex.: `https://app.seudominio.com`). Sem ela, qualquer site pode usar o proxy.
-- `PROXY_ALLOW_PRIVATE_HOSTS=true`: só se o servidor IPTV estiver na rede interna da VPS.
+Na VPS, sirva a pasta `dist` e exponha o `api/proxy.js` em `/api/proxy`, configurando as variáveis da seção [Variáveis de ambiente](#️-variáveis-de-ambiente).
 
-### Publicação de Atualizações OTA (Over-The-Air)
+---
+
+## 🗄️ Banco de dados
+
+### Tabelas (Supabase)
+
+| Tabela | Descrição |
+|--------|-----------|
+| `dcast_profiles` | Perfis de cada conta (nome, cor, exclusão lógica) |
+| `dcast_watch_progress` | Progresso de reprodução e histórico de assistidos |
+| `dcast_favorites` | Favoritos de canais, filmes e séries |
+| `dcast_custom_folders` | Pastas personalizadas e os itens de cada uma |
+| `dcast_hidden_items` | Categorias e canais ocultos por tipo de conteúdo |
+
+Todas as tabelas têm a coluna `user_key`, um hash SHA-256 de servidor + usuário + senha (ou do perfil). O app envia esse valor no cabeçalho `x-dcast-key` e a política `dcast_owner_only` só libera as linhas com o mesmo `user_key`. Sem o cabeçalho, nenhuma linha fica visível.
+
+### Migrations
+
+Rode no **SQL Editor** do Supabase, nesta ordem. As duas podem ser executadas de novo sem problema.
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `supabase/migrations/20260926000000_isolar_dados_por_conta.sql` | Cria a função `dcast_request_key()`, remove dados no formato antigo, adiciona `hidden_from_continue` e aplica a RLS por conta |
+| `supabase/migrations/20260927000000_perfis.sql` | Cria a tabela `dcast_profiles` com a mesma RLS |
+
+> A primeira migration assume que `dcast_watch_progress`, `dcast_favorites`, `dcast_custom_folders` e `dcast_hidden_items` já existem no projeto Supabase.
+
+---
+
+## ⚙️ Variáveis de ambiente
+
+### App — `.env`
+
+```env
+# Projeto Supabase usado na sincronização
+EXPO_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-chave-publica
+```
+
+| Variável | Obrigatória | Descrição |
+|----------|:-----------:|-----------|
+| `EXPO_PUBLIC_SUPABASE_URL` | ❌ | URL do projeto Supabase (padrão: projeto do DCast) |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | ❌ | Chave pública do Supabase (padrão: chave do DCast) |
+
+### Proxy Web — VPS
+
+```env
+# Origens autorizadas, separadas por vírgula
+PROXY_ALLOWED_ORIGINS=https://app.seudominio.com
+
+# Só se o servidor IPTV estiver na rede interna da VPS
+PROXY_ALLOW_PRIVATE_HOSTS=false
+```
+
+| Variável | Obrigatória | Descrição |
+|----------|:-----------:|-----------|
+| `PROXY_ALLOWED_ORIGINS` | ✅ em produção | Origens que podem usar o proxy. Vazia, qualquer site consegue usar |
+| `PROXY_ALLOW_PRIVATE_HOSTS` | ❌ | `true` libera hosts da rede interna (padrão: bloqueado) |
+
+---
+
+## 📋 Scripts disponíveis
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm start` | Inicia o Metro Bundler |
+| `npm run android` | Compila e abre no Android |
+| `npm run ios` | Compila e abre no iOS |
+| `npm run web` | Inicia a versão Web |
+| `npm run build:web` | Gera o build estático da Web em `dist/` |
+| `npm test` | Roda todos os testes |
+| `npm run test:watch` | Roda os testes em modo observação |
+| `npx tsc --noEmit` | Verifica os tipos TypeScript |
+
+---
+
+## 🚀 Builds e atualizações OTA
+
+### Perfis do EAS Build (`eas.json`)
+
+| Perfil | Saída | Canal |
+|--------|-------|-------|
+| `development` | Build de desenvolvimento (dev client) | — |
+| `preview` | APK interno | `preview` |
+| `production` | App Bundle (Play Store) | `production` |
+| `production-apk` | APK interno | `production` |
+
 ```bash
-# Canal de Produção (disponibiliza imediatamente para os usuários do APK/iOS)
-npx eas-cli update --channel production --environment production --message "descricao da atualizacao"
+# Gerar um APK de testes
+npx eas-cli build --profile preview --platform android
+```
 
-# Canal de Testes / Preview
+### Atualizações OTA
+
+A versão nativa do app (`runtimeVersion`) acompanha o campo `version` do `app.json`. Mudanças só em JavaScript podem ser publicadas sem novo build:
+
+```bash
+# Canal de testes
 npx eas-cli update --channel preview --environment preview --message "descricao da atualizacao"
+
+# Canal de produção
+npx eas-cli update --channel production --environment production --message "descricao da atualizacao"
 ```
 
 ---
 
 ## 📄 Licença
 
-Este projeto é de propriedade privada para distribuição personalizada do **DCast Player**.
+Projeto privado para distribuição personalizada do **DCast Player**.
