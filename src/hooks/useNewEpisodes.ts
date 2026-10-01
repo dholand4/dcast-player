@@ -10,7 +10,6 @@ import {
   pickNewEpisodes,
   updateSeriesTracking,
 } from '../utils/newEpisodes';
-import { simulateNewEpisode } from '../utils/newEpisodesSimulation'; // SIMULAÇÃO TEMPORÁRIA — apagar esta linha
 
 export interface INewEpisodeItem {
   seriesId: string;
@@ -138,8 +137,7 @@ export function useNewEpisodes(account: IAccountCredentials | null, refreshKey: 
           storageService.saveSeriesTracking(series.seriesId, tracking);
         }
 
-        let pending = pickNewEpisodes(summary.episodes, tracking, series.progress, now);
-        pending = simulateNewEpisode(summary.episodes, pending, found.length); // SIMULAÇÃO TEMPORÁRIA — apagar esta linha
+        const pending = pickNewEpisodes(summary.episodes, tracking, series.progress, now);
         if (pending.length === 0) continue;
         const pendingIds = new Set(pending.map((episode) => episode.id));
         const detectedTimes = tracking.pending

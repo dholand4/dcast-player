@@ -127,6 +127,7 @@ O **DCast Player** conecta a um servidor IPTV (Xtream Codes ou lista M3U) e orga
 
 ```
 dcast-player/
+├── .github/workflows/ci.yml    # tsc + jest a cada push e pull request
 ├── api/
 │   └── proxy.js                # proxy de streams para a versão Web (dev e VPS)
 ├── assets/                     # ícone, splash e banner da Android TV
@@ -134,8 +135,8 @@ dcast-player/
 │   └── withAndroidTV.js        # config plugin: leanback, banner e manifest da TV
 ├── supabase/
 │   └── migrations/             # SQL de RLS por conta e da tabela de perfis
-├── web/
-│   └── index.html              # HTML base da versão Web
+├── public/
+│   └── index.html              # HTML base da versão Web (com Content-Security-Policy)
 └── src/
     ├── @types/                 # tipagens (Xtream, storage, styled)
     ├── assets/                 # imagens usadas no código
@@ -162,6 +163,7 @@ dcast-player/
 | styled-components 6 | Estilização com tema de tokens |
 | React Navigation 7 | Navegação (native stack + `navigationRef`) |
 | expo-video + react-native-video | Reprodução de vídeo e PiP |
+| hls.js | TV ao vivo (HLS) no navegador, empacotado no app |
 | react-native-google-cast | Transmissão para Chromecast |
 | @shopify/flash-list | Listas virtualizadas no celular |
 | react-native-mmkv + expo-secure-store | Armazenamento local criptografado |
@@ -173,7 +175,7 @@ dcast-player/
 |------------|-----|
 | Supabase (REST) | Sincronização de perfis, favoritos, progresso, pastas e ocultos |
 | Row Level Security | Cada conta só enxerga as próprias linhas (chave SHA-256 no cabeçalho `x-dcast-key`) |
-| Node.js (`api/proxy.js`) | Proxy de streams para a Web, com bloqueio de hosts internos (SSRF) |
+| Node.js (`api/proxy.js`) | Proxy de streams para a Web, com bloqueio de hosts internos (SSRF), sandbox do conteúdo e limite por IP |
 | EAS Build / EAS Update | Builds nativos e publicação OTA |
 
 ### Testes
@@ -225,7 +227,12 @@ A aplicação abre em `http://localhost:8081`.
 
 ## 🌐 Web e proxy
 
-No navegador, os streams IPTV passam pelo `api/proxy.js`, que responde em `/api/proxy`. Ele evita bloqueios de CORS e conteúdo misto (HTTP dentro de HTTPS) e recusa URLs que apontem para a rede interna.
+No navegador, os streams IPTV passam pelo `api/proxy.js`, que responde em `/api/proxy`. Ele evita bloqueios de CORS e conteúdo misto (HTTP dentro de HTTPS) e tem estas proteções:
+
+- **Rede interna bloqueada (SSRF):** o IP é checado na hora da conexão, inclusive IPv4 escrito como IPv6 (`[::ffff:127.0.0.1]`), NAT64, 6to4 e redirecionamentos. Isso também cobre DNS rebinding.
+- **Conteúdo em sandbox:** toda resposta sai com `Content-Security-Policy: sandbox` e `X-Content-Type-Options: nosniff`, então um HTML de terceiros aberto pelo proxy não roda como página do app nem acessa o `localStorage`.
+- **Origem exata:** com `PROXY_ALLOWED_ORIGINS`, só a origem idêntica passa (`https://app.dominio.com.outro.net` é recusada).
+- **Limites:** requisições por minuto por IP, 20s para o servidor IPTV começar a responder e 5 MB por playlist `.m3u8`.
 
 ```bash
 # Gerar o build estático na pasta dist (servido pela VPS)
@@ -233,6 +240,27 @@ npm run build:web
 ```
 
 Na VPS, sirva a pasta `dist` e exponha o `api/proxy.js` em `/api/proxy`, configurando as variáveis da seção [Variáveis de ambiente](#️-variáveis-de-ambiente).
+
+As URLs do proxy levam usuário e senha do IPTV, então **desligue o log de acesso** dessa rota. Exemplo com nginx na frente do Node (use `PROXY_TRUST_PROXY=true`):
+
+```nginx
+location /api/proxy {
+    access_log off;
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_buffering off;
+}
+
+location / {
+    root /var/www/dcast/dist;
+    try_files $uri /index.html;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options DENY;
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+}
+```
+
+> A `Content-Security-Policy` da Web fica em `public/index.html` e libera conexões só para o próprio domínio e para `https://*.supabase.co`. Se o Supabase usar um domínio próprio, inclua-o em `connect-src`.
 
 ---
 
@@ -252,12 +280,13 @@ Todas as tabelas têm a coluna `user_key`, um hash SHA-256 de servidor + usuári
 
 ### Migrations
 
-Rode no **SQL Editor** do Supabase, nesta ordem. As duas podem ser executadas de novo sem problema.
+Rode no **SQL Editor** do Supabase, nesta ordem. Todas podem ser executadas de novo sem problema.
 
 | Arquivo | O que faz |
 |---------|-----------|
 | `supabase/migrations/20260926000000_isolar_dados_por_conta.sql` | Cria a função `dcast_request_key()`, remove dados no formato antigo, adiciona `hidden_from_continue` e aplica a RLS por conta |
 | `supabase/migrations/20260927000000_perfis.sql` | Cria a tabela `dcast_profiles` com a mesma RLS |
+| `supabase/migrations/20261001000000_limites_por_conta.sql` | Índices por `user_key`, chave no formato SHA-256, tamanho máximo dos campos e quantidade máxima de linhas por conta (contra quem inventa chaves para encher o banco) |
 
 > A primeira migration assume que `dcast_watch_progress`, `dcast_favorites`, `dcast_custom_folders` e `dcast_hidden_items` já existem no projeto Supabase.
 
@@ -286,12 +315,18 @@ PROXY_ALLOWED_ORIGINS=https://app.seudominio.com
 
 # Só se o servidor IPTV estiver na rede interna da VPS
 PROXY_ALLOW_PRIVATE_HOSTS=false
+
+# Atrás de nginx/CDN: usa o IP do X-Forwarded-For no limite por IP
+PROXY_TRUST_PROXY=true
 ```
 
 | Variável | Obrigatória | Descrição |
 |----------|:-----------:|-----------|
 | `PROXY_ALLOWED_ORIGINS` | ✅ em produção | Origens que podem usar o proxy. Vazia, qualquer site consegue usar |
 | `PROXY_ALLOW_PRIVATE_HOSTS` | ❌ | `true` libera hosts da rede interna (padrão: bloqueado) |
+| `PROXY_TRUST_PROXY` | ✅ atrás de nginx | `true` usa o último IP do `X-Forwarded-For` no limite por IP. Sem nginx, deixe desligado |
+| `PROXY_RATE_LIMIT_PER_MINUTE` | ❌ | Requisições por minuto por IP (padrão: `1200`) |
+| `PROXY_UPSTREAM_TIMEOUT_MS` | ❌ | Tempo para o servidor IPTV começar a responder (padrão: `20000`) |
 
 ---
 
@@ -328,7 +363,7 @@ npx eas-cli build --profile preview --platform android
 
 ### Atualizações OTA
 
-A versão nativa do app (`runtimeVersion`) acompanha o campo `version` do `app.json`. Mudanças só em JavaScript podem ser publicadas sem novo build:
+A versão nativa do app (`runtimeVersion`) acompanha o campo `version` do `app.json`. Mudanças nativas no `app.json` (como `android.allowBackup`) só valem a partir do próximo build. Mudanças só em JavaScript podem ser publicadas sem novo build:
 
 ```bash
 # Canal de testes

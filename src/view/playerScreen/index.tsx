@@ -41,6 +41,7 @@ import { IProgressBarHoverData } from '../../components/progressBarGlobal/types'
 import { CastButtonGlobal } from '../../components/castButtonGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { EpgModalGlobal } from '../../components/epgModalGlobal';
+import { getHls } from '../../utils/hls';
 import {
   Container,
   VideoWrapper,
@@ -1160,7 +1161,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       videoEl.style.backfaceVisibility = 'hidden';
       (videoEl.style as any).webkitBackfaceVisibility = 'hidden';
 
-      const Hls = (window as any).Hls;
+      const Hls = getHls();
       if (Hls && Hls.isSupported()) {
         try {
           if (hlsInstance) {
@@ -1250,20 +1251,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     };
 
-    if (!(window as any).Hls) {
-      let script = document.getElementById('hls-cdn-script') as HTMLScriptElement | null;
-      if (!script) {
-        script = document.createElement('script');
-        script.id = 'hls-cdn-script';
-        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
-        script.onload = () => attachHls();
-        document.head.appendChild(script);
-      } else {
-        script.addEventListener('load', attachHls);
-      }
-    } else {
-      attachHls();
-    }
+    attachHls();
 
     return () => {
       isCancelled = true;
@@ -2379,7 +2367,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       const v = previewVideoRef.current;
       if (!v) return;
 
-      const Hls = (window as any).Hls;
+      const Hls = getHls();
       if (Hls && Hls.isSupported()) {
         try {
           if (hlsPreview) hlsPreview.destroy();
@@ -2403,14 +2391,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       }
     };
 
-    if (!(window as any).Hls) {
-      const script = document.getElementById('hls-cdn-script');
-      if (script) {
-        script.addEventListener('load', initHlsPreview);
-      }
-    } else {
-      initHlsPreview();
-    }
+    initHlsPreview();
 
     return () => {
       isCancelled = true;

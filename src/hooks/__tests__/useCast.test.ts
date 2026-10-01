@@ -1,6 +1,14 @@
-import { renderHook, act } from '@testing-library/react-native';
+import React from 'react';
+import { renderHook as renderHookBase, act } from '@testing-library/react-native';
 import { useCast } from '../useCast';
 import { useRemoteMediaClient, useCastSession, useCastState } from 'react-native-google-cast';
+import { CastProvider } from '../../providers/CastProvider';
+
+// O useCast lê o CastProvider, que no app envolve todas as telas
+const renderHook = <T,>(hook: () => T) =>
+  renderHookBase(hook, {
+    wrapper: ({ children }: { children: React.ReactNode }) => React.createElement(CastProvider, null, children),
+  });
 
 describe('useCast hook', () => {
   const mockLoadMedia = jest.fn().mockResolvedValue(undefined);

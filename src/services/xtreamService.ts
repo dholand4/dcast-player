@@ -47,6 +47,11 @@ export function resolveUrlForPlatform(rawUrl: string): string {
   return directUrl;
 }
 
+// Usuário e senha vão no caminho da URL; caracteres como # ? / % quebrariam o endereço
+function credentialPath(creds: IAccountCredentials): string {
+  return `${encodeURIComponent(creds.username)}/${encodeURIComponent(creds.password)}`;
+}
+
 export function toArray<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
   if (data && typeof data === 'object') {
@@ -291,11 +296,10 @@ export const xtreamService = {
     const match = program.start?.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/);
     const seconds = program.stop_timestamp - program.start_timestamp;
     if (!match || !(seconds > 0)) return null;
-    const { serverUrl, username, password } = creds;
     const minutes = Math.ceil(seconds / 60);
     const start = `${match[1]}:${match[2]}-${match[3]}`;
     return resolveUrlForPlatform(
-      `${serverUrl}/timeshift/${username}/${password}/${minutes}/${start}/${streamId}.ts`
+      `${creds.serverUrl}/timeshift/${credentialPath(creds)}/${minutes}/${start}/${streamId}.ts`
     );
   },
 
@@ -304,13 +308,13 @@ export const xtreamService = {
     streamId: string | number,
     extension?: string
   ): string {
-    const { serverUrl, username, password } = creds;
+    const { serverUrl } = creds;
     const defaultExt = Platform.OS === 'web' ? 'm3u8' : 'ts';
     const chosenExt = extension !== undefined ? extension : defaultExt;
     const cleanExt = chosenExt ? chosenExt.replace(/^\./, '').trim() : '';
     const rawUrl = cleanExt
-      ? `${serverUrl}/live/${username}/${password}/${streamId}.${cleanExt}`
-      : `${serverUrl}/live/${username}/${password}/${streamId}`;
+      ? `${serverUrl}/live/${credentialPath(creds)}/${streamId}.${cleanExt}`
+      : `${serverUrl}/live/${credentialPath(creds)}/${streamId}`;
     return resolveUrlForPlatform(rawUrl);
   },
 
@@ -325,16 +329,14 @@ export const xtreamService = {
   },
 
   buildVodStreamUrl(creds: IAccountCredentials, streamId: string | number, extension: string = 'mp4'): string {
-    const { serverUrl, username, password } = creds;
     const ext = extension.replace(/^\./, '');
-    const rawUrl = `${serverUrl}/movie/${username}/${password}/${streamId}.${ext}`;
+    const rawUrl = `${creds.serverUrl}/movie/${credentialPath(creds)}/${streamId}.${ext}`;
     return resolveUrlForPlatform(rawUrl);
   },
 
   buildSeriesStreamUrl(creds: IAccountCredentials, episodeId: string | number, extension: string = 'mp4'): string {
-    const { serverUrl, username, password } = creds;
     const ext = extension.replace(/^\./, '');
-    const rawUrl = `${serverUrl}/series/${username}/${password}/${episodeId}.${ext}`;
+    const rawUrl = `${creds.serverUrl}/series/${credentialPath(creds)}/${episodeId}.${ext}`;
     return resolveUrlForPlatform(rawUrl);
   },
 

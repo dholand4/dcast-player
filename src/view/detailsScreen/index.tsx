@@ -449,7 +449,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   return (
     <Container testID="details-screen">
       <HeroContainer>
-        {backdropUri && (
+        {Boolean(backdropUri) && (
           <HeroBackdrop source={{ uri: backdropUri }} contentFit="cover" />
         )}
         <GradientOverlay

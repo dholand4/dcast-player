@@ -23,6 +23,16 @@ describe('xtreamService', () => {
     expect(url).toBe('http://my-iptv.com:8080/movie/user1/pass1/999.mkv');
   });
 
+  it('encodes special characters of user and password in stream URLs', () => {
+    const special = { ...creds, username: 'joão@x', password: 'a#b?c/d%e' };
+    const encoded = 'jo%C3%A3o%40x/a%23b%3Fc%2Fd%25e';
+
+    expect(xtreamService.buildLiveStreamUrl(special, 1)).toBe(`http://my-iptv.com:8080/live/${encoded}/1.ts`);
+    expect(xtreamService.buildVodStreamUrl(special, 2)).toBe(`http://my-iptv.com:8080/movie/${encoded}/2.mp4`);
+    expect(xtreamService.buildSeriesStreamUrl(special, 3)).toBe(`http://my-iptv.com:8080/series/${encoded}/3.mp4`);
+    expect(new URL(xtreamService.buildVodStreamUrl(special, 2)).pathname).toBe(`/movie/${encoded}/2.mp4`);
+  });
+
   it('swaps .ts and .m3u8 in getAlternativeLiveStreamUrl', () => {
     const tsUrl = 'http://my-iptv.com:8080/live/user1/pass1/12345.ts';
     const m3u8Url = 'http://my-iptv.com:8080/live/user1/pass1/12345.m3u8';

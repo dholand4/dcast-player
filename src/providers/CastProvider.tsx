@@ -43,7 +43,23 @@ export interface ICastContextData {
   mediaStatus?: any;
 }
 
-export const CastContext = createContext<ICastContextData>({} as ICastContextData);
+// Valor fora do CastProvider: nada transmitindo e ações sem efeito
+export const CastContext = createContext<ICastContextData>({
+  isCasting: false,
+  isPlaying: false,
+  isPaused: false,
+  isBuffering: false,
+  streamPosition: 0,
+  streamDuration: 0,
+  castMedia: async () => {},
+  play: () => {},
+  pause: () => {},
+  seek: () => {},
+  stopCast: () => {},
+  showExpandedControls: () => {},
+  currentMedia: null,
+  mediaStatus: null,
+});
 
 const isNativeCastModulePresent = Boolean(
   NativeModules.RNGoogleCast || NativeModules.RNGCSessionManager || NativeModules.RNGCCastContext
