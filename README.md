@@ -254,7 +254,7 @@ push na main ──► GitHub Actions (testes + expo export) ──► branch we
 | `deploy/Caddyfile` | HTTPS automático, arquivos do `dist`, cabeçalhos de segurança e sem log de acesso |
 | `deploy/dcast-proxy.service` | Serviço systemd do proxy, isolado do resto do sistema |
 
-**Criar a VM:** no console da Oracle, crie uma instância Ubuntu 24.04 (shape Always Free) numa sub-rede pública com as portas 80 e 443 liberadas na Security List, e cole o conteúdo de `deploy/cloud-init.sh` em *Advanced options → Management → cloud-init script*. Em alguns minutos o app abre em `https://<ip-com-hifens>.sslip.io` (ex.: `https://136-248-100-13.sslip.io`).
+**Criar a VM:** no console da Oracle, crie uma instância Ubuntu 24.04 (shape Always Free) numa sub-rede pública com as portas 80 e 443 liberadas na Security List, e cole o conteúdo de `deploy/cloud-init.sh` em *Advanced options → Management → cloud-init script*. Em alguns minutos o app abre em `https://<ip-com-hifens>.sslip.io` (ex.: `https://163-176-252-241.sslip.io`).
 
 **Atualizar:** basta fazer push na `main`. Com os testes passando, o job `deploy-web` publica o `web-dist` e a VM instala sozinha em até 3 minutos.
 
