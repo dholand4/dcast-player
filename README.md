@@ -130,6 +130,7 @@ dcast-player/
 ├── .github/workflows/ci.yml    # tsc + jest a cada push e pull request
 ├── api/
 │   └── proxy.js                # proxy de streams para a versão Web (dev e VPS)
+├── deploy/                     # cloud-init, Caddyfile e serviço da VM na Oracle Cloud
 ├── assets/                     # ícone, splash e banner da Android TV
 ├── plugins/
 │   └── withAndroidTV.js        # config plugin: leanback, banner e manifest da TV
@@ -234,31 +235,30 @@ No navegador, os streams IPTV passam pelo `api/proxy.js`, que responde em `/api/
 - **Origem exata:** com `PROXY_ALLOWED_ORIGINS`, só a origem idêntica passa (`https://app.dominio.com.outro.net` é recusada).
 - **Limites:** requisições por minuto por IP, 20s para o servidor IPTV começar a responder e 5 MB por playlist `.m3u8`.
 
-```bash
-# Gerar o build estático na pasta dist (servido pela VPS)
-npm run build:web
+### Deploy na Oracle Cloud (Always Free)
+
+A Web roda numa VM gratuita da Oracle (São Paulo), sem precisar de SSH:
+
+```
+push na main ──► GitHub Actions (testes + expo export) ──► branch web-dist
+                                                              │ a cada 3 min (HTTPS)
+                                         VM ◄─────────────────┘
+                     Caddy (HTTPS + dist)  ─►  /api/proxy  ─►  server.js (Node, 127.0.0.1:3000)
 ```
 
-Na VPS, sirva a pasta `dist` e exponha o `api/proxy.js` em `/api/proxy`, configurando as variáveis da seção [Variáveis de ambiente](#️-variáveis-de-ambiente).
+| Arquivo | O que faz |
+|---------|-----------|
+| `server.js` | Sobe o `api/proxy.js` em `127.0.0.1:3000` |
+| `deploy/cloud-init.sh` | Roda no primeiro boot: swap, firewall (80/443), Node 22, Caddy, usuário `dcast` e o timer de atualização |
+| `deploy/install.sh` | Roda a cada versão nova: instala o Caddyfile e o serviço e reinicia o proxy só se o código dele mudou |
+| `deploy/Caddyfile` | HTTPS automático, arquivos do `dist`, cabeçalhos de segurança e sem log de acesso |
+| `deploy/dcast-proxy.service` | Serviço systemd do proxy, isolado do resto do sistema |
 
-As URLs do proxy levam usuário e senha do IPTV, então **desligue o log de acesso** dessa rota. Exemplo com nginx na frente do Node (use `PROXY_TRUST_PROXY=true`):
+**Criar a VM:** no console da Oracle, crie uma instância Ubuntu 24.04 (shape Always Free) numa sub-rede pública com as portas 80 e 443 liberadas na Security List, e cole o conteúdo de `deploy/cloud-init.sh` em *Advanced options → Management → cloud-init script*. Em alguns minutos o app abre em `https://<ip-com-hifens>.sslip.io` (ex.: `https://136-248-100-13.sslip.io`).
 
-```nginx
-location /api/proxy {
-    access_log off;
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_buffering off;
-}
+**Atualizar:** basta fazer push na `main`. Com os testes passando, o job `deploy-web` publica o `web-dist` e a VM instala sozinha em até 3 minutos.
 
-location / {
-    root /var/www/dcast/dist;
-    try_files $uri /index.html;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-Frame-Options DENY;
-    add_header Referrer-Policy strict-origin-when-cross-origin;
-}
-```
+**Domínio próprio:** aponte o domínio para o IP da VM e troque `DCAST_DOMAIN` e `PROXY_ALLOWED_ORIGINS` em `/etc/dcast/env` (o Caddy emite o certificado novo na próxima versão instalada).
 
 > A `Content-Security-Policy` da Web fica em `public/index.html` e libera conexões só para o próprio domínio e para `https://*.supabase.co`. Se o Supabase usar um domínio próprio, inclua-o em `connect-src`.
 
@@ -316,7 +316,7 @@ PROXY_ALLOWED_ORIGINS=https://app.seudominio.com
 # Só se o servidor IPTV estiver na rede interna da VPS
 PROXY_ALLOW_PRIVATE_HOSTS=false
 
-# Atrás de nginx/CDN: usa o IP do X-Forwarded-For no limite por IP
+# Atrás de Caddy/nginx: usa o IP do X-Forwarded-For no limite por IP
 PROXY_TRUST_PROXY=true
 ```
 
@@ -324,7 +324,7 @@ PROXY_TRUST_PROXY=true
 |----------|:-----------:|-----------|
 | `PROXY_ALLOWED_ORIGINS` | ✅ em produção | Origens que podem usar o proxy. Vazia, qualquer site consegue usar |
 | `PROXY_ALLOW_PRIVATE_HOSTS` | ❌ | `true` libera hosts da rede interna (padrão: bloqueado) |
-| `PROXY_TRUST_PROXY` | ✅ atrás de nginx | `true` usa o último IP do `X-Forwarded-For` no limite por IP. Sem nginx, deixe desligado |
+| `PROXY_TRUST_PROXY` | ✅ atrás de proxy reverso | `true` usa o último IP do `X-Forwarded-For` no limite por IP (já ligado no `deploy/dcast-proxy.service`, atrás do Caddy) |
 | `PROXY_RATE_LIMIT_PER_MINUTE` | ❌ | Requisições por minuto por IP (padrão: `1200`) |
 | `PROXY_UPSTREAM_TIMEOUT_MS` | ❌ | Tempo para o servidor IPTV começar a responder (padrão: `20000`) |
 

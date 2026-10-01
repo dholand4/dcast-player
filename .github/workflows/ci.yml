@@ -24,3 +24,40 @@ jobs:
 
       - name: Rodar testes
         run: npx jest --ci
+
+  # Gera a versão Web e publica no branch web-dist; a VM busca esse branch a cada 3 minutos
+  deploy-web:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar a versão Web
+        run: npx expo export -p web --output-dir dist
+
+      - name: Publicar no branch web-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p out/api
+          cp -r dist out/dist
+          cp api/proxy.js out/api/
+          cp server.js out/
+          cp -r deploy out/deploy
+          cd out
+          git init -q -b web-dist
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Web ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" web-dist
