@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent, act, cleanup } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from 'styled-components/native';
 import { theme } from '../../../constants/theme';
@@ -713,6 +713,8 @@ describe('PlayerScreen', () => {
     });
 
     afterEach(() => {
+      // Desmonta ainda com os timers falsos; os timers pendentes da tela somem junto
+      cleanup();
       jest.useRealTimers();
     });
 
