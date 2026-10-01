@@ -4,7 +4,12 @@
 # Ele roda uma vez, no primeiro boot. Depois disso a VM se atualiza sozinha a partir do
 # branch web-dist, que o GitHub Actions gera a cada push na main com os testes passando.
 set -euxo pipefail
-export DEBIAN_FRONTEND=noninteractive
+export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
+
+# No primeiro boot o Ubuntu roda atualizações automáticas que seguram o apt;
+# espera o lock em vez de falhar, e repete os downloads se a rede oscilar
+apt_get() { apt-get -o DPkg::Lock::Timeout=900 "$@"; }
+retry() { for attempt in 1 2 3 4 5; do "$@" && return 0; sleep $((attempt * 10)); done; return 1; }
 
 # Swap: a VM.Standard.E2.1.Micro tem só 1 GB de RAM
 if [ ! -f /swapfile ]; then
@@ -28,15 +33,24 @@ for port in 443 80; do
 done
 netfilter-persistent save || true
 
+# Enquanto instala, publica o log em http://<ip>/log.txt para dar para acompanhar sem SSH.
+# Sai do ar antes do Caddy assumir a porta 80; se a instalação falhar, continua no ar.
+mkdir -p /run/dcast-status
+ln -sf /var/log/cloud-init-output.log /run/dcast-status/log.txt
+python3 -m http.server 80 --directory /run/dcast-status >/dev/null 2>&1 &
+status_server=$!
+
 # Node 22, git e Caddy
-apt-get update
-apt-get install -y ca-certificates curl gnupg git debian-keyring debian-archive-keyring apt-transport-https
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
-apt-get update
-apt-get install -y caddy
+retry apt_get update
+retry apt_get install -y ca-certificates curl gnupg git debian-keyring debian-archive-keyring apt-transport-https
+retry bash -c 'curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh'
+retry bash /tmp/nodesource_setup.sh
+retry apt_get install -y nodejs
+retry bash -c 'curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg'
+retry curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
+retry apt_get update
+kill "$status_server" || true
+retry apt_get install -y caddy
 
 # Usuário sem privilégios que roda o proxy
 id dcast >/dev/null 2>&1 || useradd --system --home /opt/dcast --shell /usr/sbin/nologin dcast
