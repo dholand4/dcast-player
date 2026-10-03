@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IPosterCardGlobalProps } from './types';
 import { BadgeGlobal } from '../badgeGlobal';
@@ -13,6 +14,9 @@ import {
   FavoriteBadge,
   ProgressWrapper,
   TitleText,
+  TVRemoveWrapper,
+  TVRemoveButton,
+  TVRemoveText,
 } from './style';
 import { FocusableGlobal } from '../focusableGlobal';
 
@@ -31,8 +35,9 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
   }) => {
     const cardHeight = width ? Math.round(width * 1.5) + 38 : undefined;
     const { isFocused, focusable, onFocus, onBlur } = useTVFocus();
+    const showTVRemove = Platform.isTV && !!onRemove;
 
-    return (
+    const card = (
       <CardContainer
         cardWidth={width}
         cardHeight={cardHeight}
@@ -45,6 +50,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
         onBlur={onBlur}
         accessibilityRole="button"
         accessibilityLabel={title}
+        style={showTVRemove ? { marginBottom: 4 } : undefined}
       >
         <ImageWrapper isFocused={isFocused}>
           <PlaceholderContainer>
@@ -69,7 +75,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
               <BadgeGlobal text={rating} variant="rating" />
             </BadgeWrapper>
           ) : null}
-          {onRemove && (
+          {onRemove && !showTVRemove && (
             <FocusableGlobal
               onPress={(e) => {
                 e.stopPropagation();
@@ -104,6 +110,24 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
         </ImageWrapper>
         <TitleText>{title}</TitleText>
       </CardContainer>
+    );
+
+    if (!showTVRemove) return card;
+
+    // Fora do CardContainer: um botão dentro de outro botão não recebe foco pelo controle
+    return (
+      <TVRemoveWrapper cardWidth={width}>
+        {card}
+        <TVRemoveButton
+          onPress={onRemove}
+          accessibilityRole="button"
+          accessibilityLabel={`Remover ${title} do continuar assistindo`}
+          testID={`tv-remove-${testID || title}`}
+        >
+          <MaterialIcons name="delete-outline" size={16} color="#AAAAAA" />
+          <TVRemoveText>Remover</TVRemoveText>
+        </TVRemoveButton>
+      </TVRemoveWrapper>
     );
   },
   (prev, next) =>

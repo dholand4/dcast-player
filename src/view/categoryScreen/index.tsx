@@ -694,7 +694,6 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         return (
           <View
             style={{
-              marginHorizontal: type === 'live' ? 16 : 0,
               marginBottom: 16,
               padding: 16,
               borderRadius: 12,
@@ -790,18 +789,11 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Alterar lista"
           testID="active-category-row"
-          style={
-            type !== 'live'
-              ? {
-                  paddingHorizontal: 0,
-                  paddingTop: Platform.OS === 'web' ? 12 : 6,
-                  paddingBottom: 12,
-                }
-              : {
-                  paddingTop: Platform.OS === 'web' ? 12 : 6,
-                  paddingBottom: 8,
-                }
-          }
+          style={{
+            paddingHorizontal: 0,
+            paddingTop: Platform.OS === 'web' ? 12 : 6,
+            paddingBottom: 12,
+          }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <MaterialIcons
@@ -843,7 +835,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
     ]
   );
 
-  const renderVodHeader = useCallback(
+  const renderListHeader = useCallback(
     () => (
       <View style={{ marginBottom: 4 }}>
         {renderCategoryFolderRow()}
@@ -1018,29 +1010,26 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         )}
       </SortBarContainer>
 
-      {/* Para Canais Ao Vivo, exibe o nome da categoria no topo */}
-      {type === 'live' && renderCategoryFolderRow()}
-
       <ContentArea>
         {isLoading ? (
           <LoadingGlobal message={loadingMessage} />
         ) : isSearching ? (
           <LoadingGlobal message="Buscando conteúdos..." />
         ) : type === 'live' ? (
-          filteredItems.length === 0 ? (
-            renderEmptyComponent()
-          ) : Platform.OS === 'web' || Platform.isTV ? (
-            // Na TV a FlashList perde o foco do controle e volta a lista para o início
-            // (Shopify/flash-list#1716), por isso os canais usam a FlatList lá também
+          // O título da categoria fica dentro da lista, como em filmes e séries: fora dela,
+          // ao descer com o controle até o primeiro canal o foco voltava para o topo da tela
+          Platform.OS === 'web' ? (
             <FlatList
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
               renderItem={renderLiveItem}
               refreshing={isLoading}
               onRefresh={handleRefresh}
+              ListHeaderComponent={renderListHeader}
+              ListEmptyComponent={renderEmptyComponent}
               initialNumToRender={40}
               maxToRenderPerBatch={40}
-              windowSize={Platform.isTV ? 11 : 41}
+              windowSize={41}
               updateCellsBatchingPeriod={25}
               removeClippedSubviews={false}
               style={{ flex: 1 }}
@@ -1055,6 +1044,8 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
               overScrollMode="never"
               refreshing={isLoading}
               onRefresh={handleRefresh}
+              ListHeaderComponent={renderListHeader}
+              ListEmptyComponent={renderEmptyComponent}
             />
           )
         ) : Platform.OS === 'web' ? (
@@ -1067,7 +1058,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             renderItem={renderVodItem}
             refreshing={isLoading}
             onRefresh={handleRefresh}
-            ListHeaderComponent={renderVodHeader}
+            ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyComponent}
             initialNumToRender={numColumns * 6}
             maxToRenderPerBatch={numColumns * 6}
@@ -1089,7 +1080,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             overScrollMode="never"
             refreshing={isLoading}
             onRefresh={handleRefresh}
-            ListHeaderComponent={renderVodHeader}
+            ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyComponent}
           />
         )}

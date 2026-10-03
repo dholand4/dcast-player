@@ -76,3 +76,26 @@ export const TitleText = styled.Text.attrs({
   height: 18px;
   line-height: 18px;
 `;
+
+// Na TV o "X" do canto fica dentro do card e o controle não chega nele,
+// então o Continuar Assistindo ganha este botão logo abaixo do card
+export const TVRemoveWrapper = styled.View<{ cardWidth?: number }>`
+  width: ${({ cardWidth }) => (cardWidth ? `${cardWidth}px` : '100%')};
+  margin-bottom: ${({ theme }) => theme.spacing.md}px;
+`;
+
+export const TVRemoveButton = styled(FocusableGlobal)`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border-radius: ${({ theme }) => theme.radii.sm}px;
+  background-color: ${({ theme }) => theme.colors.surfaceLight};
+`;
+
+export const TVRemoveText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.typography.sizes.xs}px;
+  font-weight: ${({ theme }) => theme.typography.weights.semiBold};
+  margin-left: ${({ theme }) => theme.spacing.xs}px;
+`;
