@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { prefetchService } from '../prefetchService';
 
 describe('prefetchService', () => {
@@ -58,5 +59,36 @@ describe('prefetchService', () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
     const success = await prefetchService.prefetchVod('http://invalid.url');
     expect(success).toBe(false);
+  });
+
+  it('fecha a resposta depois de ler o primeiro pedaço', async () => {
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 206,
+      body: {
+        getReader: () => ({
+          read: jest.fn().mockResolvedValue({ done: false, value: new Uint8Array(10) }),
+          cancel,
+        }),
+      },
+    });
+
+    await prefetchService.prefetchVod('http://stream.example.com/movie/user/pass/789.mp4');
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('não pré-carrega na Web, para não ocupar a tela da lista IPTV', async () => {
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { get: () => 'web', configurable: true });
+    global.fetch = jest.fn();
+    try {
+      const success = await prefetchService.prefetchVod('http://stream.example.com/movie/user/pass/1.mp4');
+      expect(success).toBe(false);
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { get: () => originalOS, configurable: true });
+    }
   });
 });

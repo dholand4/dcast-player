@@ -281,10 +281,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     clientX: number;
     timeSecs: number;
   } | null>(null);
-  const previewVideoRef = useRef<any>(null);
   const volumeTrackRef = useRef<any>(null);
-  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingPreviewSeekRef = useRef<number | null>(null);
 
   const [isBuffering, setIsBuffering] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -590,12 +587,10 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         const videoEls = document.querySelectorAll('video');
         videoEls.forEach((v) => {
-          if (v !== previewVideoRef.current) {
-            try {
-              v.volume = clamped;
-              v.muted = clamped === 0;
-            } catch {}
-          }
+          try {
+            v.volume = clamped;
+            v.muted = clamped === 0;
+          } catch {}
         });
       }
 
@@ -624,14 +619,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const videoEls = document.querySelectorAll('video');
       videoEls.forEach((v) => {
-        if (v !== previewVideoRef.current) {
-          try {
-            v.muted = nextMuted;
-            if (!nextMuted && volume === 0) {
-              v.volume = 1.0;
-            }
-          } catch {}
-        }
+        try {
+          v.muted = nextMuted;
+          if (!nextMuted && volume === 0) {
+            v.volume = 1.0;
+          }
+        } catch {}
       });
     }
   }, [isMuted, volume, player, resetHideTimer]);
@@ -1831,7 +1824,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                 const maxCons = parseInt(authData.user_info.max_connections || '1', 10);
                 if (activeCons >= maxCons && maxCons > 0) {
                   setPlaybackError(
-                    `Sua conta IPTV consta em uso em outro dispositivo (${activeCons}/${maxCons} telas). Feche o Chrome ou a TV e toque em "Reconectar Lista" para assistir aqui no celular.`
+                    `O servidor IPTV está contando ${activeCons} de ${maxCons} tela(s) em uso. Se tiver outro aparelho assistindo, feche-o; se não, espere alguns segundos para o servidor liberar a conexão e tente de novo.`
                   );
                 }
               }
@@ -1909,6 +1902,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
   }, [player, currentStreamUrl, type]);
 
+  // Um pré-carregamento ainda em andamento disputaria a conexão com o player
+  useEffect(() => {
+    prefetchService.clearPrefetchCache();
+  }, []);
+
   const handleRetry = useCallback(async () => {
     setIsRetrying(true);
     setPlaybackError(null);
@@ -1925,7 +1923,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           const maxCons = parseInt(authData.user_info.max_connections || '1', 10);
           if (activeCons >= maxCons && maxCons > 0) {
             setPlaybackError(
-              `Sua conta IPTV continua em uso em outro dispositivo (${activeCons}/${maxCons} telas). Feche o Chrome ou a TV e aguarde alguns segundos antes de tentar novamente.`
+              `O servidor IPTV ainda está contando ${activeCons} de ${maxCons} tela(s) em uso. Espere alguns segundos para ele liberar a conexão e tente de novo.`
             );
             setIsRetrying(false);
             return;
@@ -2292,117 +2290,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     [duration, player, resetHideTimer]
   );
 
-  const performPreviewSeek = useCallback(
-    (timeSecs: number) => {
-      const v = previewVideoRef.current;
-      if (!v) {
-        pendingPreviewSeekRef.current = timeSecs;
-        return;
-      }
-
-      const dur =
-        duration && Number.isFinite(duration) && duration > 0
-          ? duration
-          : v.duration && Number.isFinite(v.duration) && v.duration > 0
-          ? v.duration
-          : 0;
-
-      const target = dur > 0 ? Math.max(0, Math.min(dur - 0.5, timeSecs)) : Math.max(0, timeSecs);
-
-      if (v.readyState < 1) {
-        pendingPreviewSeekRef.current = target;
-        const onMeta = () => {
-          try {
-            v.pause();
-            if (pendingPreviewSeekRef.current !== null) {
-              const next = pendingPreviewSeekRef.current;
-              pendingPreviewSeekRef.current = null;
-              if ('fastSeek' in v && typeof v.fastSeek === 'function') {
-                v.fastSeek(next);
-              } else {
-                v.currentTime = next;
-              }
-            }
-          } catch {}
-        };
-        v.addEventListener('loadedmetadata', onMeta, { once: true });
-        return;
-      }
-
-      try {
-        v.pause();
-      } catch {}
-
-      if (!v.seeking) {
-        try {
-          if ('fastSeek' in v && typeof v.fastSeek === 'function') {
-            v.fastSeek(target);
-          } else {
-            v.currentTime = target;
-          }
-        } catch {
-          // ignore
-        }
-      } else {
-        pendingPreviewSeekRef.current = target;
-      }
-    },
-    [duration]
-  );
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !hoverScrub) return;
-    performPreviewSeek(hoverScrub.timeSecs);
-  }, [hoverScrub?.timeSecs, performPreviewSeek]);
-
-  // Suporte a HLS (.m3u8) no preview de timeline para Web
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    if (type === 'live') return;
-    if (!currentStreamUrl.includes('.m3u8')) return;
-
-    let hlsPreview: any = null;
-    let isCancelled = false;
-
-    const initHlsPreview = () => {
-      if (isCancelled) return;
-      const v = previewVideoRef.current;
-      if (!v) return;
-
-      const Hls = getHls();
-      if (Hls && Hls.isSupported()) {
-        try {
-          if (hlsPreview) hlsPreview.destroy();
-          hlsPreview = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,
-            maxBufferLength: 10,
-            maxMaxBufferLength: 20,
-          });
-          hlsPreview.loadSource(currentStreamUrl);
-          hlsPreview.attachMedia(v);
-          hlsPreview.on(Hls.Events.MANIFEST_PARSED, () => {
-            v.pause();
-            if (pendingPreviewSeekRef.current !== null) {
-              const next = pendingPreviewSeekRef.current;
-              pendingPreviewSeekRef.current = null;
-              v.currentTime = next;
-            }
-          });
-        } catch {}
-      }
-    };
-
-    initHlsPreview();
-
-    return () => {
-      isCancelled = true;
-      if (hlsPreview) {
-        hlsPreview.destroy();
-      }
-    };
-  }, [currentStreamUrl, type]);
-
   const handleProgressBarHover = useCallback(
     (data: IProgressBarHoverData | null) => {
       if (!data) {
@@ -2422,15 +2309,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         clientX: data.clientX,
         timeSecs,
       });
-
-      if (Platform.OS === 'web') {
-        if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
-        seekTimeoutRef.current = setTimeout(() => {
-          performPreviewSeek(timeSecs);
-        }, 30);
-      }
     },
-    [duration, player, performPreviewSeek]
+    [duration, player]
   );
 
   const handleBackgroundPress = useCallback(
@@ -3453,55 +3333,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                         />
                       )}
 
-                      {Platform.OS === 'web' && (
-                        <video
-                          ref={previewVideoRef}
-                          src={currentStreamUrl.includes('.m3u8') ? undefined : currentStreamUrl}
-                          muted
-                          preload="auto"
-                          playsInline
-                          onSeeked={() => {
-                            if (pendingPreviewSeekRef.current !== null && previewVideoRef.current) {
-                              const next = pendingPreviewSeekRef.current;
-                              pendingPreviewSeekRef.current = null;
-                              try {
-                                if (
-                                  'fastSeek' in previewVideoRef.current &&
-                                  typeof previewVideoRef.current.fastSeek === 'function'
-                                ) {
-                                  previewVideoRef.current.fastSeek(next);
-                                } else {
-                                  previewVideoRef.current.currentTime = next;
-                                }
-                              } catch {}
-                            }
-                          }}
-                          onLoadedMetadata={(e) => {
-                            try {
-                              const v = e.currentTarget;
-                              v.pause();
-                              if (pendingPreviewSeekRef.current !== null) {
-                                const next = pendingPreviewSeekRef.current;
-                                pendingPreviewSeekRef.current = null;
-                                if ('fastSeek' in v && typeof v.fastSeek === 'function') {
-                                  v.fastSeek(next);
-                                } else {
-                                  v.currentTime = next;
-                                }
-                              }
-                            } catch {}
-                          }}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            zIndex: 2,
-                          }}
-                        />
-                      )}
                     </TimelinePreviewVideoWrapper>
                     <TimelinePreviewBadge>
                       {hoverScrub

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { resolveUrlForPlatform } from './xtreamService';
 
 const prefetchedUrls = new Set<string>();
@@ -16,6 +17,9 @@ export const prefetchService = {
   },
 
   async prefetchVod(streamUrl: string, rangeBytes: number = 2 * 1024 * 1024): Promise<boolean> {
+    // Na Web o <video> não reaproveita este download, e a conexão a mais ocupa a
+    // "tela" da lista IPTV: com 1 tela, o servidor recusa o player logo em seguida
+    if (Platform.OS === 'web') return false;
     if (!streamUrl || typeof streamUrl !== 'string') return false;
     const cleanUrl = streamUrl.trim();
     if (!cleanUrl) return false;
@@ -51,7 +55,8 @@ export const prefetchService = {
           try {
             await reader.read();
           } finally {
-            reader.releaseLock?.();
+            // Encerra a resposta: deixada aberta, ela segura uma conexão no servidor IPTV
+            await reader.cancel().catch(() => {});
           }
         } else if (typeof res.blob === 'function') {
           await res.blob();
