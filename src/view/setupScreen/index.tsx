@@ -159,8 +159,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
     setAccountToRemove(acc);
   };
 
-  const [focusedSavedAction, setFocusedSavedAction] = useState<string | null>(null);
-  const [focusedTab, setFocusedTab] = useState<'m3u' | 'xtream' | null>(null);
 
   return (
     <KeyboardAvoidingGlobal>
@@ -203,10 +201,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
                     <SavedAccountConnectBtn
                       onPress={() => handleConnectSaved(acc)}
                       disabled={isLoading}
-                      focusable={!isLoading}
-                      isFocused={focusedSavedAction === `connect-${key}`}
-                      onFocus={() => setFocusedSavedAction(`connect-${key}`)}
-                      onBlur={() => setFocusedSavedAction(null)}
                       accessibilityRole="button"
                       accessibilityLabel={`Conectar à lista ${acc.label}`}
                       testID={`connect-saved-${acc.username}`}
@@ -221,10 +215,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
                     <SavedAccountDeleteBtn
                       onPress={() => handleRemoveSaved(acc)}
                       disabled={isLoading}
-                      focusable={!isLoading}
-                      isFocused={focusedSavedAction === `delete-${key}`}
-                      onFocus={() => setFocusedSavedAction(`delete-${key}`)}
-                      onBlur={() => setFocusedSavedAction(null)}
                       accessibilityRole="button"
                       accessibilityLabel={`Remover ${acc.label}`}
                       testID={`delete-saved-${acc.username}`}
@@ -252,10 +242,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
           <TabSelectorContainer testID="setup-tab-selector">
             <TabButton
               active={activeTab === 'm3u'}
-              isFocused={focusedTab === 'm3u'}
-              focusable={true}
-              onFocus={() => setFocusedTab('m3u')}
-              onBlur={() => setFocusedTab(null)}
               onPress={() => {
                 setActiveTab('m3u');
                 setFormError(null);
@@ -269,10 +255,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = () => {
 
             <TabButton
               active={activeTab === 'xtream'}
-              isFocused={focusedTab === 'xtream'}
-              focusable={true}
-              onFocus={() => setFocusedTab('xtream')}
-              onBlur={() => setFocusedTab(null)}
               onPress={() => {
                 setActiveTab('xtream');
                 setFormError(null);

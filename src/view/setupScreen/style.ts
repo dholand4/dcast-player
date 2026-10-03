@@ -73,7 +73,7 @@ export const TabSelectorContainer = styled.View`
   border-color: ${({ theme }) => theme.colors.border};
 `;
 
-export const TabButton = styled(FocusableGlobal).attrs({ focusRing: false })<{ active?: boolean; isFocused?: boolean }>`
+export const TabButton = styled(FocusableGlobal)<{ active?: boolean }>`
   flex: 1;
   padding-vertical: 9px;
   padding-horizontal: 12px;
@@ -82,9 +82,6 @@ export const TabButton = styled(FocusableGlobal).attrs({ focusRing: false })<{ a
   justify-content: center;
   background-color: ${({ active, theme }) =>
     active ? theme.colors.primary : 'transparent'};
-  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
-  border-color: #ffffff;
-  ${({ isFocused }) => (isFocused ? 'transform: scale(1.03);' : '')}
 `;
 
 export const TabButtonText = styled.Text<{ active?: boolean }>`
@@ -143,15 +140,12 @@ export const SavedAccountActions = styled.View`
   gap: 8px;
 `;
 
-export const SavedAccountConnectBtn = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
+export const SavedAccountConnectBtn = styled(FocusableGlobal)`
   background-color: ${({ theme }) => theme.colors.primary};
   border-radius: ${({ theme }) => theme.radii.sm}px;
   padding: 6px 14px;
   flex-direction: row;
   align-items: center;
-  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
-  border-color: #ffffff;
-  ${({ isFocused }) => (isFocused ? 'transform: scale(1.05);' : '')}
 `;
 
 export const SavedAccountConnectText = styled.Text`
@@ -160,14 +154,12 @@ export const SavedAccountConnectText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SavedAccountDeleteBtn = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
+export const SavedAccountDeleteBtn = styled(FocusableGlobal)`
   padding: 6px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
   align-items: center;
   justify-content: center;
   background-color: rgba(229, 9, 20, 0.1);
-  border-width: ${({ isFocused }) => (isFocused ? 2 : 0)}px;
-  border-color: #ffffff;
 `;
 
 export const OrDivider = styled.View`

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { INewEpisodesModalGlobalProps } from './types';
@@ -38,7 +38,6 @@ export const NewEpisodesModalGlobal: React.FC<INewEpisodesModalGlobalProps> = ({
   onDismiss,
   testID,
 }) => {
-  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -73,9 +72,6 @@ export const NewEpisodesModalGlobal: React.FC<INewEpisodesModalGlobalProps> = ({
                 <ItemRow
                   key={item.seriesId}
                   onPress={() => onSelect(item)}
-                  onFocus={() => setFocusedId(item.seriesId)}
-                  onBlur={() => setFocusedId(null)}
-                  isFocused={focusedId === item.seriesId}
                   hasTVPreferredFocus={index === 0}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.seriesTitle}, ${describeItem(item)}`}

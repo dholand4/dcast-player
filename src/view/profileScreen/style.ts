@@ -17,15 +17,14 @@ export const Container = styled.ScrollView.attrs(({ theme }) => ({
   flex: 1;
 `;
 
-export const GearButton = styled(FocusableGlobal)<{ insetTop: number; isFocused?: boolean }>`
+export const GearButton = styled(FocusableGlobal)<{ insetTop: number }>`
   position: absolute;
   top: ${({ insetTop, theme }) => insetTop + theme.spacing.sm}px;
   right: ${({ theme }) => theme.spacing.md}px;
   z-index: 1;
   padding: ${({ theme }) => theme.spacing.sm}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
-  background-color: ${({ isFocused }) =>
-    isFocused ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)'};
+  background-color: rgba(255, 255, 255, 0.06);
 `;
 
 export const Title = styled.Text`
@@ -49,14 +48,14 @@ export const ProfileList = styled.View`
   gap: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const ProfileRow = styled(FocusableGlobal)<{ isFocused?: boolean }>`
+export const ProfileRow = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   padding: ${({ theme }) => theme.spacing.sm}px ${({ theme }) => theme.spacing.md}px;
   border-radius: ${({ theme }) => theme.radii.md}px;
   background-color: ${({ theme }) => theme.colors.surface};
   border-width: 1px;
-  border-color: ${({ isFocused, theme }) => (isFocused ? '#FFFFFF' : theme.colors.border)};
+  border-color: ${({ theme }) => theme.colors.border};
 `;
 
 export const Avatar = styled.View<{ color: string; size?: number }>`

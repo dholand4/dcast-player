@@ -36,6 +36,7 @@ import {
   DrawerFooterExp,
 } from './style';
 import { FocusableGlobal } from '../focusableGlobal';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   visible,
@@ -143,6 +144,7 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
 
           {/* Lista de Categorias */}
           <FlatList
+            {...TV_LIST_PROPS}
             data={filteredCategories}
             keyExtractor={(item) => item.category_id}
             ListHeaderComponent={

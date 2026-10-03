@@ -1029,7 +1029,9 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
         ) : type === 'live' ? (
           filteredItems.length === 0 ? (
             renderEmptyComponent()
-          ) : Platform.OS === 'web' ? (
+          ) : Platform.OS === 'web' || Platform.isTV ? (
+            // Na TV a FlashList perde o foco do controle e volta a lista para o início
+            // (Shopify/flash-list#1716), por isso os canais usam a FlatList lá também
             <FlatList
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
@@ -1038,7 +1040,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
               onRefresh={handleRefresh}
               initialNumToRender={40}
               maxToRenderPerBatch={40}
-              windowSize={41}
+              windowSize={Platform.isTV ? 11 : 41}
               updateCellsBatchingPeriod={25}
               removeClippedSubviews={false}
               style={{ flex: 1 }}

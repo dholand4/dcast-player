@@ -31,6 +31,7 @@ import {
   EmptyWrapper,
   EmptyMessageText,
 } from './style';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 function parseTimestamp(val: number | string | undefined): number {
   if (!val) return 0;
@@ -267,6 +268,7 @@ export const EpgModalGlobal: React.FC<IEpgModalGlobalProps> = ({
             </EmptyWrapper>
           ) : (
             <FlatList
+              {...TV_LIST_PROPS}
               ref={flatListRef}
               data={epgList}
               keyExtractor={(item, idx) => `epg-${item.id || idx}-${idx}`}

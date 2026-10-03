@@ -134,6 +134,7 @@ import {
   TimelinePreviewBadge,
 } from './style';
 import { FocusableGlobal } from '../../components/focusableGlobal';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 async function safeReplacePlayerSource(playerInstance: any, source: any): Promise<void> {
   if (!playerInstance) return;
@@ -3607,6 +3608,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               />
 
               <FlatList
+                {...TV_LIST_PROPS}
                 data={filteredChannels}
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="handled"

@@ -6,7 +6,6 @@ interface IContainerProps {
   variant: ButtonVariant;
   size: ButtonSize;
   disabled?: boolean;
-  isFocused?: boolean;
 }
 
 interface ILabelProps {
@@ -63,7 +62,7 @@ const getHeight = (size: ButtonSize): number => {
   }
 };
 
-export const ButtonContainer = styled(FocusableGlobal).attrs({ focusRing: false })<IContainerProps>`
+export const ButtonContainer = styled(FocusableGlobal)<IContainerProps>`
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -72,10 +71,8 @@ export const ButtonContainer = styled(FocusableGlobal).attrs({ focusRing: false 
   padding-horizontal: ${({ size, theme }) => getPadding(size, theme).h}px;
   border-radius: ${({ theme }) => theme.radii.md}px;
   opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
-  border-width: ${({ isFocused, variant }) => (isFocused ? 2 : variant === 'ghost' ? 1 : 0)}px;
-  border-color: ${({ isFocused, variant, theme }) =>
-    isFocused ? '#FFFFFF' : variant === 'ghost' ? theme.colors.border : theme.colors.transparent};
-  ${({ isFocused }) => (isFocused ? 'transform: scale(1.04);' : '')}
+  border-width: ${({ variant }) => (variant === 'ghost' ? 1 : 0)}px;
+  border-color: ${({ variant, theme }) => (variant === 'ghost' ? theme.colors.border : theme.colors.transparent)};
 `;
 
 export const ButtonLabel = styled.Text.attrs({

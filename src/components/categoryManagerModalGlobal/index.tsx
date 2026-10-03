@@ -46,6 +46,7 @@ import {
   EmptyContainer,
   EmptyText,
 } from './style';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalProps> = ({
   visible,
@@ -324,6 +325,7 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                     </SearchWrapper>
 
                     <FlatList
+                      {...TV_LIST_PROPS}
                       data={filteredCategories}
                       keyExtractor={(c) => String(c.category_id)}
                       showsVerticalScrollIndicator={false}
@@ -383,6 +385,7 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                     </CreateFolderBanner>
 
                     <FlatList
+                      {...TV_LIST_PROPS}
                       data={customFolders}
                       keyExtractor={(f) => f.id}
                       showsVerticalScrollIndicator={false}
@@ -450,6 +453,7 @@ export const CategoryManagerModalGlobal: React.FC<ICategoryManagerModalGlobalPro
                     </SearchWrapper>
 
                     <FlatList
+                      {...TV_LIST_PROPS}
                       data={filteredStreams}
                       keyExtractor={(s) => getStreamId(s)}
                       showsVerticalScrollIndicator={false}

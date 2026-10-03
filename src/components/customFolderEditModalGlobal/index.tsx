@@ -29,6 +29,7 @@ import {
   EmptySearchText,
   ModalFooter,
 } from './style';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 export const CustomFolderEditModalGlobal: React.FC<ICustomFolderEditModalGlobalProps> = ({
   visible,
@@ -184,6 +185,7 @@ export const CustomFolderEditModalGlobal: React.FC<ICustomFolderEditModalGlobalP
             </FormBody>
 
             <FlatList
+              {...TV_LIST_PROPS}
               data={filteredStreams}
               keyExtractor={(item) => getStreamId(item)}
               style={{ flex: 1, paddingHorizontal: 16 }}

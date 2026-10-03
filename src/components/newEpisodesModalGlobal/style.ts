@@ -54,7 +54,7 @@ export const List = styled.ScrollView`
   flex-grow: 0;
 `;
 
-export const ItemRow = styled(FocusableGlobal)<{ isFocused?: boolean }>`
+export const ItemRow = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   padding: ${({ theme }) => theme.spacing.sm}px;
@@ -62,7 +62,7 @@ export const ItemRow = styled(FocusableGlobal)<{ isFocused?: boolean }>`
   border-radius: ${({ theme }) => theme.radii.md}px;
   background-color: ${({ theme }) => theme.colors.surface};
   border-width: 1px;
-  border-color: ${({ isFocused, theme }) => (isFocused ? '#FFFFFF' : theme.colors.border)};
+  border-color: ${({ theme }) => theme.colors.border};
 `;
 
 export const Poster = styled(ExpoImage)`

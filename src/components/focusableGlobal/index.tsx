@@ -1,12 +1,22 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { theme } from '../../constants/theme';
 import { IFocusableGlobalProps } from './types';
 import { FocusRing } from './style';
 
 // Substituto do TouchableOpacity para navegação por controle remoto: o TouchableOpacity
 // descarta onFocus/onBlur no Android, então nenhum destaque de foco aparecia na TV.
-// No web o navegador já cuida do foco, por isso o contorno fica só no nativo.
-const showRing = Platform.OS !== 'web';
+// O destaque fica só na TV: no celular o hasTVPreferredFocus também dá foco a um item,
+// e no web o navegador já cuida do foco.
+
+// Itens largos (linhas de lista) crescem menos para não vazar pelas laterais
+const WIDE_ITEM_WIDTH = 400;
+const SCALE_SMALL = 1.05;
+const SCALE_WIDE = 1.02;
+
+const RED_BACKGROUNDS = [theme.colors.primary, theme.colors.primaryDark, theme.colors.primaryLight].map(
+  (color) => color.toLowerCase()
+);
 
 export const FocusableGlobal = forwardRef<View, IFocusableGlobalProps>(
   (
@@ -17,16 +27,38 @@ export const FocusableGlobal = forwardRef<View, IFocusableGlobalProps>(
       focusRing = true,
       focusable,
       disabled,
+      hasTVPreferredFocus,
       onPress,
       onLongPress,
       onFocus,
       onBlur,
+      onLayout,
       ...rest
     },
     ref
   ) => {
     const [isFocused, setIsFocused] = useState(false);
-    const radius = StyleSheet.flatten(style)?.borderRadius;
+    const widthRef = useRef(0);
+    const isTV = Platform.isTV;
+    const showFocus = isTV && focusRing && isFocused;
+
+    let focusStyle = null;
+    let ring = null;
+    if (showFocus) {
+      const flat = StyleSheet.flatten(style) ?? {};
+      const background = typeof flat.backgroundColor === 'string' ? flat.backgroundColor.toLowerCase() : '';
+      // Contorno vermelho da marca; em botões que já são vermelhos ele sumiria, então vira branco
+      const ringColor = RED_BACKGROUNDS.includes(background) ? theme.colors.white : theme.colors.primary;
+      const scale = widthRef.current > WIDE_ITEM_WIDTH ? SCALE_WIDE : SCALE_SMALL;
+      focusStyle = { transform: [{ scale }] };
+      ring = (
+        <FocusRing
+          pointerEvents="none"
+          radius={typeof flat.borderRadius === 'number' ? flat.borderRadius : 0}
+          color={ringColor}
+        />
+      );
+    }
 
     return (
       <Pressable
@@ -35,6 +67,7 @@ export const FocusableGlobal = forwardRef<View, IFocusableGlobalProps>(
         disabled={disabled}
         onPress={onPress}
         onLongPress={onLongPress}
+        hasTVPreferredFocus={isTV ? hasTVPreferredFocus : undefined}
         // Mesmo critério do TouchableOpacity: só recebe foco se for clicável
         focusable={focusable !== false && !disabled && (onPress != null || onLongPress != null)}
         onFocus={(e) => {
@@ -45,12 +78,14 @@ export const FocusableGlobal = forwardRef<View, IFocusableGlobalProps>(
           setIsFocused(false);
           onBlur?.(e);
         }}
-        style={({ pressed }) => [style, pressed && { opacity: activeOpacity }]}
+        onLayout={(e) => {
+          widthRef.current = e.nativeEvent.layout.width;
+          onLayout?.(e);
+        }}
+        style={({ pressed }) => [style, focusStyle, pressed && { opacity: activeOpacity }]}
       >
         {children}
-        {showRing && focusRing && isFocused ? (
-          <FocusRing pointerEvents="none" radius={typeof radius === 'number' ? radius : 0} />
-        ) : null}
+        {ring}
       </Pressable>
     );
   }

@@ -37,6 +37,7 @@ import {
   EmptySubtitle,
   LoadingWrapper,
 } from './style';
+import { TV_LIST_PROPS } from '../../constants/tv';
 
 type SearchFilterType = 'all' | 'live' | 'movie' | 'series';
 
@@ -335,6 +336,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
           </EmptyContainer>
         ) : (
           <FlatList
+            {...TV_LIST_PROPS}
             key={`grid-${numColumns}`}
             data={filteredResults}
             keyExtractor={(item) => `${item.type}-${item.id}`}

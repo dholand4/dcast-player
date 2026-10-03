@@ -49,7 +49,6 @@ export const ProfileScreen: React.FC = () => {
   const [editor, setEditor] = useState<EditorState>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(PROFILE_COLORS[0]);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
 
   const canAddProfile = profiles.length < MAX_PROFILES;
@@ -110,9 +109,6 @@ export const ProfileScreen: React.FC = () => {
       <GearButton
         insetTop={insets.top}
         onPress={() => setIsManaging((prev) => !prev)}
-        onFocus={() => setFocusedId('gear')}
-        onBlur={() => setFocusedId(null)}
-        isFocused={focusedId === 'gear'}
         accessibilityRole="button"
         accessibilityLabel={isManaging ? 'Concluir gerenciamento de perfis' : 'Gerenciar perfis'}
         testID="profile-manage-toggle"
@@ -129,9 +125,6 @@ export const ProfileScreen: React.FC = () => {
             <ProfileRow
               key={profile.id}
               onPress={() => handleProfilePress(profile)}
-              onFocus={() => setFocusedId(profile.id)}
-              onBlur={() => setFocusedId(null)}
-              isFocused={focusedId === profile.id}
               hasTVPreferredFocus={index === 0}
               accessibilityRole="button"
               accessibilityLabel={
@@ -154,9 +147,6 @@ export const ProfileScreen: React.FC = () => {
           {isManaging && canAddProfile && (
             <ProfileRow
               onPress={openCreate}
-              onFocus={() => setFocusedId('add')}
-              onBlur={() => setFocusedId(null)}
-              isFocused={focusedId === 'add'}
               accessibilityRole="button"
               accessibilityLabel="Adicionar perfil"
               testID="profile-add"
