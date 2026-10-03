@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import styled from 'styled-components/native';
 
 export const Container = styled.View`
@@ -23,6 +24,8 @@ export const ScrollList = styled.ScrollView.attrs(({ theme }) => ({
   showsHorizontalScrollIndicator: false,
   contentContainerStyle: {
     paddingHorizontal: theme.spacing.md,
+    // Na TV o pôster focado cresce; sem folga vertical o zoom era cortado em cima e embaixo
+    paddingVertical: Platform.isTV ? theme.spacing.sm : 0,
   },
 }))``;
 

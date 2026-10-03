@@ -9,10 +9,10 @@ import { FocusRing } from './style';
 // O destaque fica só na TV: no celular o hasTVPreferredFocus também dá foco a um item,
 // e no web o navegador já cuida do foco.
 
-// Itens largos (linhas de lista) crescem menos para não vazar pelas laterais
-const WIDE_ITEM_WIDTH = 400;
-const SCALE_SMALL = 1.05;
-const SCALE_WIDE = 1.02;
+// Itens largos (linhas de lista, botões de largura total) não crescem: encostam nas bordas
+// da lista e o zoom seria cortado. Ficam só com o contorno, que é desenhado por dentro
+const WIDE_ITEM_WIDTH = 240;
+const FOCUS_SCALE = 1.05;
 
 const RED_BACKGROUNDS = [theme.colors.primary, theme.colors.primaryDark, theme.colors.primaryLight].map(
   (color) => color.toLowerCase()
@@ -49,8 +49,9 @@ export const FocusableGlobal = forwardRef<View, IFocusableGlobalProps>(
       const background = typeof flat.backgroundColor === 'string' ? flat.backgroundColor.toLowerCase() : '';
       // Contorno vermelho da marca; em botões que já são vermelhos ele sumiria, então vira branco
       const ringColor = RED_BACKGROUNDS.includes(background) ? theme.colors.white : theme.colors.primary;
-      const scale = widthRef.current > WIDE_ITEM_WIDTH ? SCALE_WIDE : SCALE_SMALL;
-      focusStyle = { transform: [{ scale }] };
+      if (widthRef.current <= WIDE_ITEM_WIDTH) {
+        focusStyle = { transform: [{ scale: FOCUS_SCALE }] };
+      }
       ring = (
         <FocusRing
           pointerEvents="none"

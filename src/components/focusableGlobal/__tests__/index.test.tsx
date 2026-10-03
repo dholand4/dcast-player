@@ -68,9 +68,9 @@ describe('FocusableGlobal', () => {
     expect(UNSAFE_getByType(FocusRing).props.color).toBe(theme.colors.white);
   });
 
-  it('scales wide rows less', () => {
+  it('keeps wide rows at their size, with the ring only', () => {
     setIsTV(true);
-    const { getByTestId } = wrap(
+    const { getByTestId, UNSAFE_queryAllByType } = wrap(
       <FocusableGlobal testID="item" onPress={() => {}}>
         <Text>Item</Text>
       </FocusableGlobal>
@@ -80,7 +80,8 @@ describe('FocusableGlobal', () => {
       nativeEvent: { layout: { x: 0, y: 0, width: 800, height: 60 } },
     });
     fireEvent(getByTestId('item'), 'focus');
-    expect(StyleSheet.flatten(getByTestId('item').props.style).transform).toEqual([{ scale: 1.02 }]);
+    expect(StyleSheet.flatten(getByTestId('item').props.style).transform).toBeUndefined();
+    expect(UNSAFE_queryAllByType(FocusRing)).toHaveLength(1);
   });
 
   it('shows no highlight off TV, even when focused', () => {

@@ -96,9 +96,10 @@ export const CategoryPillText = styled.Text<{ isSelected: boolean }>`
     isSelected ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
+// O padding lateral fica no contentContainerStyle das listas (LIST_CONTENT_STYLE), não aqui:
+// fora da lista, o zoom de foco dos cards da primeira e da última coluna era cortado na TV
 export const ContentArea = styled.View`
   flex: 1;
-  padding-horizontal: ${({ theme }) => theme.spacing.md}px;
   ${Platform.OS === 'web' ? 'overflow: hidden;' : ''}
 `;
 

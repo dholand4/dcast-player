@@ -45,6 +45,7 @@ import { FocusableGlobal } from '../../components/focusableGlobal';
 type SortMode = 'default' | 'name_asc' | 'name_desc' | 'recent' | 'rating';
 
 const HORIZONTAL_PADDING = 32;
+const LIST_CONTENT_STYLE = { paddingHorizontal: HORIZONTAL_PADDING / 2 };
 const GAP = 12;
 
 export const CategoryScreen: React.FC<CategoryScreenProps> = ({
@@ -1020,6 +1021,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           // ao descer com o controle até o primeiro canal o foco voltava para o topo da tela
           Platform.OS === 'web' ? (
             <FlatList
+              contentContainerStyle={LIST_CONTENT_STYLE}
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
               renderItem={renderLiveItem}
@@ -1036,6 +1038,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
             />
           ) : (
             <FlashList
+              contentContainerStyle={LIST_CONTENT_STYLE}
               data={filteredItems as IXtreamLiveStream[]}
               keyExtractor={keyExtractorLive}
               renderItem={renderLiveItem}
@@ -1050,6 +1053,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           )
         ) : Platform.OS === 'web' ? (
           <FlatList
+            contentContainerStyle={LIST_CONTENT_STYLE}
             key={`vod-grid-${numColumns}`}
             data={filteredItems as Array<IXtreamVodStream | IXtreamSeries>}
             numColumns={numColumns}
@@ -1069,6 +1073,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
           />
         ) : (
           <FlashList
+            contentContainerStyle={LIST_CONTENT_STYLE}
             key={`vod-grid-${numColumns}`}
             data={filteredItems as Array<IXtreamVodStream | IXtreamSeries>}
             numColumns={numColumns}

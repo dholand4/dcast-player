@@ -160,38 +160,3 @@ export const EmptySearchText = styled.Text`
   text-align: center;
   padding: ${({ theme }) => theme.spacing.lg}px;
 `;
-
-export const DrawerFooter = styled.View`
-  padding: ${({ theme }) => theme.spacing.md}px;
-  border-top-width: 1px;
-  border-top-color: ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.radii.sm}px;
-  margin: ${({ theme }) => theme.spacing.sm}px;
-`;
-
-export const DrawerFooterTitle = styled.Text.attrs({
-  numberOfLines: 1,
-})`
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.typography.sizes.sm}px;
-  font-weight: ${({ theme }) => theme.typography.weights.bold};
-`;
-
-export const DrawerFooterSub = styled.Text.attrs({
-  numberOfLines: 1,
-})`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.typography.sizes.xs}px;
-  margin-top: 2px;
-`;
-
-export const DrawerFooterExp = styled.Text.attrs({
-  numberOfLines: 1,
-})`
-  color: ${({ theme }) => theme.colors.primaryLight};
-  font-size: ${({ theme }) => theme.typography.sizes.xs}px;
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
-  margin-top: 4px;
-`;
-

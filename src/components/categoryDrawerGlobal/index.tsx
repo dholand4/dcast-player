@@ -1,16 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, FlatList, Platform, Alert, Text, View } from 'react-native';
+import { Modal, FlatList } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { useAppInsets } from '../../hooks/useAppInsets';
-import { useAuth } from '../../hooks/useAuth';
 import { useCategoryManager } from '../../hooks/useCategoryManager';
-import { clearXtreamCache } from '../../hooks/useXtream';
-import { storageService } from '../../services/storageService';
-import { formatExpirationDate } from '../../utils/formatters';
 import { ICategoryDrawerGlobalProps } from './types';
 import { InputGlobal } from '../inputGlobal';
-import { ConfirmModalGlobal } from '../confirmModalGlobal';
 import {
   ModalOverlay,
   DrawerContainer,
@@ -30,12 +25,7 @@ import {
   CategoryItemContent,
   CategoryItemText,
   EmptySearchText,
-  DrawerFooter,
-  DrawerFooterTitle,
-  DrawerFooterSub,
-  DrawerFooterExp,
 } from './style';
-import { FocusableGlobal } from '../focusableGlobal';
 import { TV_LIST_PROPS } from '../../constants/tv';
 
 export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
@@ -51,23 +41,8 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
 }) => {
   const theme = useTheme();
   const insets = useAppInsets();
-  const { account, userInfo, logout } = useAuth();
   const { hiddenCategories, customFolders } = useCategoryManager(type || 'live');
   const [filterText, setFilterText] = useState('');
-  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
-
-  const handleConfirmLogout = () => {
-    setIsLogoutModalVisible(true);
-  };
-
-  const handleExecuteLogout = () => {
-    setIsLogoutModalVisible(false);
-    onClose();
-    clearXtreamCache();
-    storageService.clearCatalogCache();
-    logout();
-  };
-
 
   const filteredCategories = useMemo(() => {
     const q = filterText.trim().toLowerCase();
@@ -333,52 +308,8 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
               <EmptySearchText>Nenhuma lista encontrada com esse nome.</EmptySearchText>
             }
           />
-
-          {account && (
-            <DrawerFooter testID="drawer-account-footer">
-              <DrawerFooterTitle>{account.label || 'DCast Player'}</DrawerFooterTitle>
-              <DrawerFooterSub>@{account.username}</DrawerFooterSub>
-              <DrawerFooterExp>
-                📅 {formatExpirationDate(userInfo?.exp_date)}
-              </DrawerFooterExp>
-
-              <FocusableGlobal
-                onPress={handleConfirmLogout}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginTop: 10,
-                  paddingTop: 8,
-                  borderTopWidth: 1,
-                  borderTopColor: 'rgba(255, 255, 255, 0.08)',
-                  gap: 6,
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Sair ou trocar lista"
-                testID="drawer-logout-button"
-              >
-                <MaterialIcons name="logout" size={16} color="#E50914" />
-                <Text style={{ color: '#E50914', fontSize: 12, fontWeight: 'bold' }}>
-                  Trocar / Sair da Lista
-                </Text>
-              </FocusableGlobal>
-            </DrawerFooter>
-          )}
         </DrawerContainer>
       </ModalOverlay>
-
-      <ConfirmModalGlobal
-        visible={isLogoutModalVisible}
-        title="Sair da Lista"
-        description={`Deseja sair de "${account?.label || account?.username || 'esta lista'}"? Suas listas continuarão salvas para você alternar quando quiser.`}
-        confirmText="Sair e Trocar"
-        cancelText="Cancelar"
-        variant="danger"
-        iconName="logout"
-        onConfirm={handleExecuteLogout}
-        onCancel={() => setIsLogoutModalVisible(false)}
-        testID="drawer-logout-modal"
-      />
     </Modal>
   );
 };
