@@ -133,6 +133,7 @@ import {
   TimelinePreviewVideoWrapper,
   TimelinePreviewBadge,
 } from './style';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 async function safeReplacePlayerSource(playerInstance: any, source: any): Promise<void> {
   if (!playerInstance) return;
@@ -2724,14 +2725,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             <MaterialIcons name="skip-next" size={16} color="#E50914" style={{ marginRight: 4 }} />
             <NextEpisodeCountdown>Próximo em {nextEpisodeCountdown}s</NextEpisodeCountdown>
           </View>
-          <TouchableOpacity
+          <FocusableGlobal
             onPress={handleCancelNextEpisode}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Fechar aviso de próximo episódio"
           >
             <MaterialIcons name="close" size={18} color="rgba(255,255,255,0.6)" />
-          </TouchableOpacity>
+          </FocusableGlobal>
         </NextEpisodeHeader>
         <NextEpisodeTitle numberOfLines={1}>
           {nextEpisode.title || `Episódio ${nextEpisode.episodeNumber}`}
@@ -3107,7 +3108,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
               <PlayerTitle>{activeTitle}</PlayerTitle>
               <TopRightActions pointerEvents="box-none">
                 {sleepTimer !== 'off' && (
-                  <TouchableOpacity
+                  <FocusableGlobal
                     onPress={() => {
                       resetHideTimer();
                       setShowSettingsModal(true);
@@ -3124,23 +3125,26 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                           : `${Math.ceil((sleepTimerRemainingSecs || 0) / 60)}m`}
                       </SleepTimerBadgeText>
                     </SleepTimerBadge>
-                  </TouchableOpacity>
+                  </FocusableGlobal>
                 )}
 
-                <ControlButton
-                  onPress={() => {
-                    setIsScreenLocked(true);
-                    isScreenLockedRef.current = true;
-                    setShowControls(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Bloquear tela"
-                  testID="lock-screen-button"
-                  style={{ marginRight: 8 }}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <MaterialIcons name="lock-outline" size={22} color="#FFFFFF" />
-                </ControlButton>
+                {/* Bloqueio de toque não faz sentido no controle remoto */}
+                {!Platform.isTV && (
+                  <ControlButton
+                    onPress={() => {
+                      setIsScreenLocked(true);
+                      isScreenLockedRef.current = true;
+                      setShowControls(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Bloquear tela"
+                    testID="lock-screen-button"
+                    style={{ marginRight: 8 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <MaterialIcons name="lock-outline" size={22} color="#FFFFFF" />
+                  </ControlButton>
+                )}
 
                 {type === 'live' && liveChannelsList.length > 0 && (
                   <ControlButton
@@ -3394,6 +3398,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Próximo Episódio"
                   testID="next-episode-button"
+                  focusable={showControls}
+                  isFocused={focusedPlayerBtn === 'next'}
+                  onFocus={() => {
+                    setFocusedPlayerBtn('next');
+                    resetHideTimer();
+                  }}
+                  onBlur={() => setFocusedPlayerBtn(null)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <MaterialIcons name="skip-next" size={28} color="#FFFFFF" />
@@ -3648,6 +3659,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             <TouchableOpacity
               style={StyleSheet.absoluteFill}
               activeOpacity={1}
+              focusable={false}
               onPress={() => setShowSettingsModal(false)}
             />
             <SettingsModalContent

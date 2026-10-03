@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 import { VideoView } from 'expo-video';
 
@@ -91,7 +92,7 @@ export const TopRightActions = styled.View`
   align-items: center;
 `;
 
-export const ControlButton = styled.TouchableOpacity`
+export const ControlButton = styled(FocusableGlobal)`
   width: 44px;
   height: 44px;
   border-radius: 22px;
@@ -123,7 +124,7 @@ export const CenterControls = styled.View`
   gap: ${({ theme }) => theme.spacing.md}px;
 `;
 
-export const BigPlayButton = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const BigPlayButton = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
   width: 68px;
   height: 68px;
   border-radius: 34px;
@@ -141,7 +142,7 @@ export const BigPlayText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SeekButton = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const SeekButton = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
   width: 48px;
   height: 48px;
   border-radius: 24px;
@@ -299,7 +300,7 @@ export const ErrorButtonGroup = styled.View`
 `;
 
 /* --- EPG (Guia de TV) --- */
-export const EpgContainer = styled.TouchableOpacity`
+export const EpgContainer = styled(FocusableGlobal)`
   background-color: rgba(18, 18, 18, 0.88);
   border-radius: ${({ theme }) => theme.radii.md}px;
   padding: ${({ theme }) => theme.spacing.md}px;
@@ -373,7 +374,8 @@ export const EpgNextText = styled.Text`
 `;
 
 /* --- GAVETA LATERAL DE CANAIS (ZAPPING) --- */
-export const DrawerBackdrop = styled.TouchableOpacity`
+// Sem foco do controle: na TV a gaveta fecha pelo botão Voltar
+export const DrawerBackdrop = styled.TouchableOpacity.attrs({ focusable: false })`
   position: absolute;
   top: 0;
   left: 0;
@@ -419,7 +421,7 @@ export const DrawerSearchInput = styled.TextInput`
   margin-bottom: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const DrawerItem = styled.TouchableOpacity<{ isActive?: boolean; isFocused?: boolean }>`
+export const DrawerItem = styled(FocusableGlobal).attrs({ focusRing: false })<{ isActive?: boolean; isFocused?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding: 10px;
@@ -492,7 +494,7 @@ export const SpeedRow = styled.View`
   flex-wrap: wrap;
 `;
 
-export const SpeedButton = styled.TouchableOpacity<{ isSelected?: boolean }>`
+export const SpeedButton = styled(FocusableGlobal)<{ isSelected?: boolean }>`
   padding: 8px 14px;
   border-radius: 20px;
   border-width: 1px;
@@ -508,7 +510,7 @@ export const SpeedButtonText = styled.Text<{ isSelected?: boolean }>`
   font-weight: bold;
 `;
 
-export const TrackItem = styled.TouchableOpacity<{ isSelected?: boolean }>`
+export const TrackItem = styled(FocusableGlobal)<{ isSelected?: boolean }>`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -568,7 +570,7 @@ export const NextEpisodeButtonRow = styled.View`
   gap: 10px;
 `;
 
-export const NextEpisodePlayBtn = styled.TouchableOpacity`
+export const NextEpisodePlayBtn = styled(FocusableGlobal)`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.primary};
   flex-direction: row;
@@ -586,7 +588,7 @@ export const NextEpisodePlayBtnText = styled.Text`
   margin-left: 6px;
 `;
 
-export const NextEpisodeCancelBtn = styled.TouchableOpacity`
+export const NextEpisodeCancelBtn = styled(FocusableGlobal)`
   padding-vertical: 8px;
   padding-horizontal: 12px;
   border-radius: 6px;
@@ -611,7 +613,7 @@ export const LockScreenBackdrop = styled.TouchableOpacity`
   justify-content: center;
 `;
 
-export const UnlockButton = styled.TouchableOpacity`
+export const UnlockButton = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   background-color: rgba(18, 18, 18, 0.92);

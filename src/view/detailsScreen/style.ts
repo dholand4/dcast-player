@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -42,7 +43,7 @@ export const TopBar = styled.View<{ insetTop?: number }>`
   z-index: 10;
 `;
 
-export const CircleButton = styled.TouchableOpacity`
+export const CircleButton = styled(FocusableGlobal)`
   width: 40px;
   height: 40px;
   border-radius: 20px;
@@ -120,7 +121,7 @@ export const SeasonScroll = styled.ScrollView.attrs(({ theme }) => ({
   margin-bottom: ${({ theme }) => theme.spacing.md}px;
 `;
 
-export const SeasonPill = styled.TouchableOpacity<{ isSelected: boolean }>`
+export const SeasonPill = styled(FocusableGlobal)<{ isSelected: boolean }>`
   background-color: ${({ isSelected, theme }) =>
     isSelected ? theme.colors.primary : theme.colors.surfaceLight};
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
@@ -136,7 +137,7 @@ export const SeasonPillText = styled.Text<{ isSelected: boolean }>`
     isSelected ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
-export const EpisodeItem = styled.TouchableOpacity<{ isWatched?: boolean }>`
+export const EpisodeItem = styled(FocusableGlobal)<{ isWatched?: boolean }>`
   flex-direction: row;
   align-items: center;
   background-color: ${({ theme }) => theme.colors.surface};
@@ -182,12 +183,12 @@ export const EpisodeSub = styled.Text`
   margin-top: 2px;
 `;
 
-export const WatchedToggle = styled.TouchableOpacity`
+export const WatchedToggle = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.sm}px;
   margin-left: ${({ theme }) => theme.spacing.xs}px;
 `;
 
-export const SeasonActionButton = styled.TouchableOpacity`
+export const SeasonActionButton = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   align-self: flex-start;

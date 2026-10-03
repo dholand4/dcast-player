@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Platform } from 'react-native';
 
 export const ModalBackdrop = styled.View`
@@ -45,7 +46,7 @@ export const ModalSubtitle = styled.Text`
   display: none;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: 4px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
@@ -65,7 +66,7 @@ export const TabBar = styled.ScrollView.attrs({
   flex-grow: 0;
 `;
 
-export const TabButton = styled.TouchableOpacity<{ isActive: boolean }>`
+export const TabButton = styled(FocusableGlobal)<{ isActive: boolean }>`
   flex-direction: row;
   align-items: center;
   padding-vertical: 5px;
@@ -119,7 +120,7 @@ export const BannerInfoText = styled.Text`
   display: none;
 `;
 
-export const CreateFolderBanner = styled.TouchableOpacity`
+export const CreateFolderBanner = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -180,7 +181,7 @@ export const StatusBadgeText = styled.Text<{ isHidden: boolean }>`
   font-weight: bold;
 `;
 
-export const ToggleButton = styled.TouchableOpacity<{ isHidden: boolean }>`
+export const ToggleButton = styled(FocusableGlobal)<{ isHidden: boolean }>`
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -248,7 +249,7 @@ export const FolderActions = styled.View`
   gap: 6px;
 `;
 
-export const ActionIconButton = styled.TouchableOpacity`
+export const ActionIconButton = styled(FocusableGlobal)`
   padding: 6px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};

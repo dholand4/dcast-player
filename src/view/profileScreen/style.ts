@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 export const Screen = styled.View`
   flex: 1;
@@ -16,7 +17,7 @@ export const Container = styled.ScrollView.attrs(({ theme }) => ({
   flex: 1;
 `;
 
-export const GearButton = styled.TouchableOpacity<{ insetTop: number; isFocused?: boolean }>`
+export const GearButton = styled(FocusableGlobal)<{ insetTop: number; isFocused?: boolean }>`
   position: absolute;
   top: ${({ insetTop, theme }) => insetTop + theme.spacing.sm}px;
   right: ${({ theme }) => theme.spacing.md}px;
@@ -48,7 +49,7 @@ export const ProfileList = styled.View`
   gap: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const ProfileRow = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const ProfileRow = styled(FocusableGlobal)<{ isFocused?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding: ${({ theme }) => theme.spacing.sm}px ${({ theme }) => theme.spacing.md}px;
@@ -147,7 +148,7 @@ export const ColorRow = styled.View`
   margin-bottom: ${({ theme }) => theme.spacing.lg}px;
 `;
 
-export const ColorSwatch = styled.TouchableOpacity<{ color: string; isSelected: boolean }>`
+export const ColorSwatch = styled(FocusableGlobal)<{ color: string; isSelected: boolean }>`
   width: 36px;
   height: 36px;
   border-radius: 18px;

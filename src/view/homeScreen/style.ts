@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 export const Container = styled.View`
   flex: 1;
@@ -89,7 +90,7 @@ export const QuickActionsRow = styled.View`
   gap: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const QuickActionButton = styled.TouchableOpacity`
+export const QuickActionButton = styled(FocusableGlobal)`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.radii.md}px;

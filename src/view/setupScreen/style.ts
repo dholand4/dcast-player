@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 export const Container = styled.ScrollView.attrs<{ insetTop?: number }>(({ theme, insetTop }) => ({
   keyboardShouldPersistTaps: 'handled',
@@ -72,7 +73,7 @@ export const TabSelectorContainer = styled.View`
   border-color: ${({ theme }) => theme.colors.border};
 `;
 
-export const TabButton = styled.TouchableOpacity<{ active?: boolean; isFocused?: boolean }>`
+export const TabButton = styled(FocusableGlobal).attrs({ focusRing: false })<{ active?: boolean; isFocused?: boolean }>`
   flex: 1;
   padding-vertical: 9px;
   padding-horizontal: 12px;
@@ -93,7 +94,7 @@ export const TabButtonText = styled.Text<{ active?: boolean }>`
     active ? theme.typography.weights.bold : theme.typography.weights.medium};
 `;
 
-export const PasswordToggleBtn = styled.TouchableOpacity`
+export const PasswordToggleBtn = styled(FocusableGlobal)`
   padding: 8px;
   align-items: center;
   justify-content: center;
@@ -142,7 +143,7 @@ export const SavedAccountActions = styled.View`
   gap: 8px;
 `;
 
-export const SavedAccountConnectBtn = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const SavedAccountConnectBtn = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
   background-color: ${({ theme }) => theme.colors.primary};
   border-radius: ${({ theme }) => theme.radii.sm}px;
   padding: 6px 14px;
@@ -159,7 +160,7 @@ export const SavedAccountConnectText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SavedAccountDeleteBtn = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const SavedAccountDeleteBtn = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean }>`
   padding: 6px;
   border-radius: ${({ theme }) => theme.radii.sm}px;
   align-items: center;

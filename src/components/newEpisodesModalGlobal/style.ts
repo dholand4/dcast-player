@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 
 export const ModalOverlay = styled.View`
@@ -43,7 +44,7 @@ export const ModalSubtitle = styled.Text`
   margin-top: 2px;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
@@ -53,7 +54,7 @@ export const List = styled.ScrollView`
   flex-grow: 0;
 `;
 
-export const ItemRow = styled.TouchableOpacity<{ isFocused?: boolean }>`
+export const ItemRow = styled(FocusableGlobal)<{ isFocused?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding: ${({ theme }) => theme.spacing.sm}px;
@@ -88,7 +89,7 @@ export const ItemSubtitle = styled.Text.attrs({ numberOfLines: 2 })`
   margin-top: 4px;
 `;
 
-export const DismissButton = styled.TouchableOpacity`
+export const DismissButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
 `;
 

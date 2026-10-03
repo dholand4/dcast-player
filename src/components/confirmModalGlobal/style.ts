@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const Overlay = styled.View`
   flex: 1;
@@ -57,7 +58,7 @@ export const ActionsRow = styled.View`
   width: 100%;
 `;
 
-export const CancelButton = styled.TouchableOpacity`
+export const CancelButton = styled(FocusableGlobal)`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
   border-radius: ${({ theme }) => theme.radii.md}px;
@@ -74,7 +75,7 @@ export const CancelButtonText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.semiBold};
 `;
 
-export const ConfirmButton = styled.TouchableOpacity<{ btnColor: string }>`
+export const ConfirmButton = styled(FocusableGlobal)<{ btnColor: string }>`
   flex: 1;
   background-color: ${({ btnColor }) => btnColor};
   border-radius: ${({ theme }) => theme.radii.md}px;

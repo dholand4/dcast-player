@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 import { Platform } from 'react-native';
 
@@ -31,7 +32,7 @@ export const ProgressBarFill = styled.View<{ progressPercent: number }>`
   background-color: ${({ theme }) => theme.colors.primary};
 `;
 
-export const InnerRow = styled.TouchableOpacity`
+export const InnerRow = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
@@ -76,7 +77,7 @@ export const ActionButtons = styled.View`
   gap: 4px;
 `;
 
-export const IconButton = styled.TouchableOpacity`
+export const IconButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   align-items: center;

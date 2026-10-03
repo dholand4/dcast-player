@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const Container = styled.View<{ insetTop: number }>`
   width: 100%;
@@ -19,7 +20,7 @@ export const LeftSection = styled.View`
   flex: 1;
 `;
 
-export const BackButton = styled.TouchableOpacity`
+export const BackButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   margin-right: ${({ theme }) => theme.spacing.sm}px;
   justify-content: center;
@@ -33,7 +34,7 @@ export const BackIconText = styled.Text`
 `;
 
 // Ocupa o lado esquerdo todo: o TitleContainer usa flex: 1 e sumiria num pai sem largura
-export const TitleButton = styled.TouchableOpacity`
+export const TitleButton = styled(FocusableGlobal)`
   flex: 1;
   flex-direction: row;
   align-items: center;
@@ -71,7 +72,7 @@ export const RightSection = styled.View`
   align-items: center;
 `;
 
-export const SearchButton = styled.TouchableOpacity`
+export const SearchButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   margin-right: ${({ theme }) => theme.spacing.xs}px;
   justify-content: center;

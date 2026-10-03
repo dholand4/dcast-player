@@ -1,16 +1,19 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Dimensions } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 340);
 
-export const ModalOverlay = styled.TouchableOpacity`
+// Fundo e corpo da gaveta não recebem foco do controle: seriam áreas enormes sem destaque.
+// Na TV a gaveta fecha pelo botão Voltar (onRequestClose)
+export const ModalOverlay = styled.TouchableOpacity.attrs({ focusable: false })`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.overlayDark};
   flex-direction: row;
 `;
 
-export const DrawerContainer = styled.TouchableOpacity<{ insetTop: number; insetBottom: number }>`
+export const DrawerContainer = styled.TouchableOpacity.attrs({ focusable: false })<{ insetTop: number; insetBottom: number }>`
   width: ${DRAWER_WIDTH}px;
   height: 100%;
   background-color: ${({ theme }) => theme.colors.surfaceCard};
@@ -38,13 +41,13 @@ export const DrawerTitle = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
 `;
 
-export const ManageBannerButton = styled.TouchableOpacity`
+export const ManageBannerButton = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -119,7 +122,7 @@ export const DrawerSearchWrapper = styled.View`
   padding-bottom: ${({ theme }) => theme.spacing.xs}px;
 `;
 
-export const CategoryItem = styled.TouchableOpacity<{ isSelected: boolean }>`
+export const CategoryItem = styled(FocusableGlobal)<{ isSelected: boolean }>`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Platform, Alert, TouchableOpacity, Text } from 'react-native';
+import { View, Platform, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreenProps } from '../../routes/types';
 import { useAuth } from '../../hooks/useAuth';
@@ -42,6 +42,7 @@ import {
   QuickActionButton,
   QuickActionText,
 } from './style';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 // Mesmo espaço entre os cards de Filmes/Séries/TV e a primeira fileira e entre as fileiras.
 // O pôster já tem 16px de margem embaixo; o carrossel completa com 4px.
@@ -287,7 +288,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               data={collapsedContinueWatching}
               keyExtractor={(item) => `home-cw-${item.id}`}
               rightAction={
-                <TouchableOpacity
+                <FocusableGlobal
                   onPress={handleConfirmClearHistory}
                   accessibilityRole="button"
                   accessibilityLabel="Limpar todo o continuar assistindo"
@@ -312,7 +313,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   <Text style={{ color: '#E50914', fontSize: 11, fontWeight: 'bold' }}>
                     Limpar Tudo
                   </Text>
-                </TouchableOpacity>
+                </FocusableGlobal>
               }
               renderItem={(item) => (
                 <PosterCardGlobal

@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const ModalOverlay = styled.View`
   flex: 1;
@@ -46,7 +47,7 @@ export const ModalSubtitle = styled.Text`
   margin-top: 2px;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
@@ -178,7 +179,7 @@ export const ActionRow = styled.View`
   margin-top: ${({ theme }) => theme.spacing.xs}px;
 `;
 
-export const RetryButton = styled.TouchableOpacity`
+export const RetryButton = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   gap: 6px;
@@ -196,7 +197,7 @@ export const RetryButtonText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.semiBold};
 `;
 
-export const DoneButton = styled.TouchableOpacity`
+export const DoneButton = styled(FocusableGlobal)`
   padding-horizontal: ${({ theme }) => theme.spacing.lg}px;
   padding-vertical: ${({ theme }) => theme.spacing.sm}px;
   background-color: ${({ theme }) => theme.colors.primary};

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 export const Container = styled.View`
   flex: 1;
@@ -14,7 +15,7 @@ export const SearchRow = styled.View`
   margin-bottom: ${Platform.OS === 'web' ? 14 : 6}px;
 `;
 
-export const HamburgerButton = styled.TouchableOpacity`
+export const HamburgerButton = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -40,7 +41,7 @@ export const SearchInputContainer = styled.View`
   justify-content: center;
 `;
 
-export const CategoryTitleRow = styled.TouchableOpacity`
+export const CategoryTitleRow = styled(FocusableGlobal)`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -77,7 +78,7 @@ export const CategoryScroll = styled.ScrollView.attrs(({ theme }) => ({
   max-height: 48px;
 `;
 
-export const CategoryPill = styled.TouchableOpacity<{ isSelected: boolean }>`
+export const CategoryPill = styled(FocusableGlobal)<{ isSelected: boolean }>`
   background-color: ${({ isSelected, theme }) =>
     isSelected ? theme.colors.primary : theme.colors.surfaceLight};
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
@@ -115,7 +116,7 @@ export const EmptyText = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.sm}px;
 `;
 
-export const EmptyActionButton = styled.TouchableOpacity`
+export const EmptyActionButton = styled(FocusableGlobal)`
   margin-top: ${({ theme }) => theme.spacing.md}px;
   background-color: ${({ theme }) => theme.colors.primary};
   padding-horizontal: ${({ theme }) => theme.spacing.lg}px;
@@ -137,7 +138,7 @@ export const SortBarContainer = styled.ScrollView.attrs({
   flex-grow: 0;
 `;
 
-export const SortPill = styled.TouchableOpacity<{ isSelected?: boolean }>`
+export const SortPill = styled(FocusableGlobal)<{ isSelected?: boolean }>`
   flex-direction: row;
   align-items: center;
   padding-horizontal: 12px;

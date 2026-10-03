@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const Overlay = styled.View`
   flex: 1;
@@ -62,7 +63,7 @@ export const HeaderSubtitle = styled.Text`
   margin-top: 1px;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: 6px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
@@ -167,7 +168,7 @@ export const ActionsContainer = styled.View`
   margin-top: ${({ theme }) => theme.spacing.lg}px;
 `;
 
-export const PrimaryButton = styled.TouchableOpacity<{ btnColor?: string }>`
+export const PrimaryButton = styled(FocusableGlobal)<{ btnColor?: string }>`
   background-color: ${({ btnColor }) => btnColor || '#29B6F6'};
   border-radius: ${({ theme }) => theme.radii.md}px;
   padding-vertical: 13px;
@@ -183,7 +184,7 @@ export const PrimaryButtonText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const SecondaryButton = styled.TouchableOpacity`
+export const SecondaryButton = styled(FocusableGlobal)`
   background-color: ${({ theme }) => theme.colors.surfaceLight};
   border-radius: ${({ theme }) => theme.radii.md}px;
   border-width: 1px;

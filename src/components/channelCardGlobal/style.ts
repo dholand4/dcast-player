@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 
 export const Container = styled.View<{ isFocused?: boolean }>`
@@ -14,7 +15,7 @@ export const Container = styled.View<{ isFocused?: boolean }>`
   ${({ isFocused }) => (isFocused ? 'transform: scale(1.02);' : '')}
 `;
 
-export const ContentPressable = styled.TouchableOpacity`
+export const ContentPressable = styled(FocusableGlobal).attrs({ focusRing: false })`
   flex: 1;
   flex-direction: row;
   align-items: center;
@@ -65,7 +66,7 @@ export const ActionsContainer = styled.View`
   align-items: center;
 `;
 
-export const IconButton = styled.TouchableOpacity`
+export const IconButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   margin-left: ${({ theme }) => theme.spacing.xs}px;
 `;

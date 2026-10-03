@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 interface IInputWrapperProps {
   hasError: boolean;
@@ -42,7 +43,7 @@ export const StyledTextInput = styled.TextInput.attrs(({ theme }) => ({
   height: 100%;
 `;
 
-export const ActionButton = styled.TouchableOpacity`
+export const ActionButton = styled(FocusableGlobal)`
   padding-left: ${({ theme }) => theme.spacing.sm}px;
   padding-vertical: ${({ theme }) => theme.spacing.xs}px;
   justify-content: center;

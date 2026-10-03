@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, FlatList, Platform, Alert, TouchableOpacity, Text, View } from 'react-native';
+import { Modal, FlatList, Platform, Alert, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
 import { useAppInsets } from '../../hooks/useAppInsets';
@@ -35,6 +35,7 @@ import {
   DrawerFooterSub,
   DrawerFooterExp,
 } from './style';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
   visible,
@@ -339,7 +340,7 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                 📅 {formatExpirationDate(userInfo?.exp_date)}
               </DrawerFooterExp>
 
-              <TouchableOpacity
+              <FocusableGlobal
                 onPress={handleConfirmLogout}
                 style={{
                   flexDirection: 'row',
@@ -358,7 +359,7 @@ export const CategoryDrawerGlobal: React.FC<ICategoryDrawerGlobalProps> = ({
                 <Text style={{ color: '#E50914', fontSize: 12, fontWeight: 'bold' }}>
                   Trocar / Sair da Lista
                 </Text>
-              </TouchableOpacity>
+              </FocusableGlobal>
             </DrawerFooter>
           )}
         </DrawerContainer>

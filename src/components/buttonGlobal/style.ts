@@ -1,4 +1,5 @@
 import styled, { DefaultTheme } from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { ButtonVariant, ButtonSize } from './types';
 
 interface IContainerProps {
@@ -62,7 +63,7 @@ const getHeight = (size: ButtonSize): number => {
   }
 };
 
-export const ButtonContainer = styled.TouchableOpacity<IContainerProps>`
+export const ButtonContainer = styled(FocusableGlobal).attrs({ focusRing: false })<IContainerProps>`
   flex-direction: row;
   align-items: center;
   justify-content: center;

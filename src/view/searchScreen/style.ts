@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 
 export const Container = styled.View`
@@ -17,7 +18,7 @@ export const SearchHeader = styled.View<{ insetTop?: number }>`
   border-bottom-color: rgba(255, 255, 255, 0.08);
 `;
 
-export const IconButton = styled.TouchableOpacity`
+export const IconButton = styled(FocusableGlobal)`
   width: 40px;
   height: 40px;
   border-radius: 20px;
@@ -53,7 +54,7 @@ export const TabsContainer = styled.ScrollView.attrs({
   border-bottom-color: rgba(255, 255, 255, 0.05);
 `;
 
-export const TabButton = styled.TouchableOpacity<{ isSelected?: boolean }>`
+export const TabButton = styled(FocusableGlobal)<{ isSelected?: boolean }>`
   padding-horizontal: 14px;
   padding-vertical: 7px;
   border-radius: 20px;
@@ -74,7 +75,7 @@ export const ResultsListWrapper = styled.View`
   flex: 1;
 `;
 
-export const ResultCard = styled.TouchableOpacity`
+export const ResultCard = styled(FocusableGlobal)`
   flex: 1;
   margin: 6px;
   background-color: rgba(255, 255, 255, 0.04);

@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { CastButton } from 'react-native-google-cast';
 
 export const CastContainer = styled.View`
@@ -14,7 +15,7 @@ export const StyledCastButton = styled(CastButton)<{ tintColor?: string }>`
   tint-color: ${({ tintColor, theme }) => tintColor || theme.colors.text};
 `;
 
-export const CastPressable = styled.TouchableOpacity`
+export const CastPressable = styled(FocusableGlobal)`
   width: 40px;
   height: 40px;
   align-items: center;

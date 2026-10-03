@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Platform, useWindowDimensions, Alert, TouchableOpacity, Text, View, FlatList, BackHandler } from 'react-native';
+import { Platform, useWindowDimensions, Alert, Text, View, FlatList, BackHandler } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
@@ -40,6 +40,7 @@ import {
   SortPill,
   SortPillText,
 } from './style';
+import { FocusableGlobal } from '../../components/focusableGlobal';
 
 type SortMode = 'default' | 'name_asc' | 'name_desc' | 'recent' | 'rating';
 
@@ -746,7 +747,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
               </View>
 
               {filteredItems.length > 0 && (
-                <TouchableOpacity
+                <FocusableGlobal
                   onPress={handleConfirmClearHistory}
                   accessibilityRole="button"
                   accessibilityLabel="Limpar histórico"
@@ -776,7 +777,7 @@ export const CategoryScreen: React.FC<CategoryScreenProps> = ({
                   >
                     Limpar Tudo
                   </Text>
-                </TouchableOpacity>
+                </FocusableGlobal>
               )}
             </View>
           </View>

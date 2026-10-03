@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 import { Platform } from 'react-native';
 
@@ -65,7 +66,7 @@ export const ChannelSubText = styled.Text`
   margin-top: 2px;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   width: 36px;
   height: 36px;
   border-radius: 18px;
@@ -93,7 +94,7 @@ export const SubtitleBarText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.medium};
 `;
 
-export const ProgramItemContainer = styled.TouchableOpacity<{ isCurrent: boolean }>`
+export const ProgramItemContainer = styled(FocusableGlobal)<{ isCurrent: boolean }>`
   padding: ${({ theme }) => theme.spacing.md}px;
   border-bottom-width: 1px;
   border-bottom-color: rgba(255, 255, 255, 0.06);

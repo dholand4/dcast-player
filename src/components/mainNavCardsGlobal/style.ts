@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const Container = styled.View<{ isRow?: boolean }>`
   padding-horizontal: ${({ theme }) => theme.spacing.md}px;
@@ -6,7 +7,7 @@ export const Container = styled.View<{ isRow?: boolean }>`
   ${({ isRow }) => (isRow ? 'flex-direction: row;' : '')}
 `;
 
-export const BigCard = styled.TouchableOpacity<{ isFocused?: boolean; isRow?: boolean }>`
+export const BigCard = styled(FocusableGlobal).attrs({ focusRing: false })<{ isFocused?: boolean; isRow?: boolean }>`
   flex-direction: row;
   align-items: center;
   background-color: ${({ isFocused, theme }) => (isFocused ? theme.colors.surfaceCard : theme.colors.surface)};

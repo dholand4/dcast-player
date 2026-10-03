@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -48,7 +49,7 @@ export const ModalSubtitle = styled.Text`
   margin-top: 2px;
 `;
 
-export const CloseButton = styled.TouchableOpacity`
+export const CloseButton = styled(FocusableGlobal)`
   padding: ${({ theme }) => theme.spacing.xs}px;
   border-radius: ${({ theme }) => theme.radii.round}px;
   background-color: ${({ theme }) => theme.colors.surfaceLight};
@@ -87,7 +88,7 @@ export const ClearSelectionText = styled.Text`
   font-weight: ${({ theme }) => theme.typography.weights.bold};
 `;
 
-export const StreamItem = styled.TouchableOpacity<{ isSelected: boolean }>`
+export const StreamItem = styled(FocusableGlobal)<{ isSelected: boolean }>`
   flex-direction: row;
   align-items: center;
   padding: 10px 12px;

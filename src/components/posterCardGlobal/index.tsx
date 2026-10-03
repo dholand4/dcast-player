@@ -1,5 +1,4 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IPosterCardGlobalProps } from './types';
 import { BadgeGlobal } from '../badgeGlobal';
@@ -15,6 +14,7 @@ import {
   ProgressWrapper,
   TitleText,
 } from './style';
+import { FocusableGlobal } from '../focusableGlobal';
 
 export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
   ({
@@ -70,7 +70,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
             </BadgeWrapper>
           ) : null}
           {onRemove && (
-            <TouchableOpacity
+            <FocusableGlobal
               onPress={(e) => {
                 e.stopPropagation();
                 onRemove();
@@ -94,7 +94,7 @@ export const PosterCardGlobal: React.FC<IPosterCardGlobalProps> = React.memo(
               }}
             >
               <MaterialIcons name="close" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
+            </FocusableGlobal>
           )}
           {typeof percentage === 'number' && percentage > 0 ? (
             <ProgressWrapper>

@@ -1,4 +1,5 @@
 import styled from 'styled-components/native';
+import { FocusableGlobal } from '../focusableGlobal';
 import { Image as ExpoImage } from 'expo-image';
 
 interface ICardContainerProps {
@@ -6,7 +7,7 @@ interface ICardContainerProps {
   cardHeight?: number;
 }
 
-export const CardContainer = styled.TouchableOpacity<ICardContainerProps>`
+export const CardContainer = styled(FocusableGlobal).attrs({ focusRing: false })<ICardContainerProps>`
   width: ${({ cardWidth }) => (cardWidth ? `${cardWidth}px` : '100%')};
   ${({ cardHeight }) => (cardHeight ? `height: ${cardHeight}px;` : '')}
   margin-bottom: ${({ theme }) => theme.spacing.md}px;
