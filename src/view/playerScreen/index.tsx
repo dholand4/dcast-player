@@ -42,6 +42,7 @@ import { CastButtonGlobal } from '../../components/castButtonGlobal';
 import { ButtonGlobal } from '../../components/buttonGlobal';
 import { EpgModalGlobal } from '../../components/epgModalGlobal';
 import { getHls } from '../../utils/hls';
+import { toggleWebFullscreen } from '../../utils/webFullscreen';
 import {
   Container,
   VideoWrapper,
@@ -700,16 +701,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
   }, [isMuted, volume]);
 
   const handleToggleFullscreen = useCallback(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    try {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen?.();
-      } else {
-        document.exitFullscreen?.();
-      }
-    } catch {
-      // ignore
-    }
+    if (Platform.OS !== 'web') return;
+    toggleWebFullscreen();
   }, []);
 
   const cycleContentFit = useCallback(() => {

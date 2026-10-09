@@ -3,6 +3,7 @@ import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { setStatusBarHidden } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as NavigationBar from 'expo-navigation-bar';
+import { enterWebFullscreen, exitWebFullscreen, isTouchOnlyWebDevice } from '../utils/webFullscreen';
 
 interface IUsePlayerSystemUIParams {
   isCasting: boolean;
@@ -13,8 +14,30 @@ interface IUsePlayerSystemUIParams {
 /**
  * Na reprodução local: trava em paisagem e esconde a barra de status e a barra de
  * navegação do Android. Ao transmitir ou sair do player, restaura tudo.
+ * No celular/tablet pela Web (PWA no iPad), entra em tela cheia para sumir a barra de status.
  */
 export function usePlayerSystemUI({ isCasting, showControls, navigation }: IUsePlayerSystemUIParams) {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || isCasting || !isTouchOnlyWebDevice()) return;
+
+    // O navegador só libera a tela cheia logo após um toque: tenta ao abrir (ainda vale o
+    // toque em "Assistir") e, se não der, no primeiro toque dentro do player
+    enterWebFullscreen();
+    const onFirstTouch = () => {
+      enterWebFullscreen();
+      document.removeEventListener('touchend', onFirstTouch, true);
+      document.removeEventListener('click', onFirstTouch, true);
+    };
+    document.addEventListener('touchend', onFirstTouch, true);
+    document.addEventListener('click', onFirstTouch, true);
+
+    return () => {
+      document.removeEventListener('touchend', onFirstTouch, true);
+      document.removeEventListener('click', onFirstTouch, true);
+      exitWebFullscreen();
+    };
+  }, [isCasting]);
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
