@@ -1,0 +1,28 @@
+[Unit]
+Description=DCast Player - proxy de streams da Web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dcast
+Group=dcast
+EnvironmentFile=/etc/dcast/env
+Environment=NODE_ENV=production PORT=3000 HOST=127.0.0.1 PROXY_TRUST_PROXY=true
+ExecStart=/usr/bin/node /opt/dcast/app/server.js
+Restart=always
+RestartSec=3
+
+# O proxy só precisa de rede: o resto do sistema fica fora de alcance
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=600M
+
+[Install]
+WantedBy=multi-user.target

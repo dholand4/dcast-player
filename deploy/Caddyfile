@@ -1,0 +1,33 @@
+# Instalado em /etc/caddy/Caddyfile pelo deploy/install.sh (__DCAST_DOMAIN__ vem de /etc/dcast/env).
+# O Caddy emite o certificado HTTPS sozinho e não grava log de acesso, então as
+# URLs do proxy (que levam usuário e senha do IPTV) não ficam salvas em disco.
+
+__DCAST_DOMAIN__ {
+	handle /api/proxy {
+		reverse_proxy 127.0.0.1:3000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /opt/dcast/app/dist
+		encode zstd gzip
+
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy strict-origin-when-cross-origin
+			Strict-Transport-Security "max-age=31536000"
+			-Server
+		}
+
+		@static path /_expo/static/* /assets/*
+		header @static Cache-Control "public, max-age=31536000, immutable"
+
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
+}

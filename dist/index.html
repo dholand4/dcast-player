@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Só scripts do próprio app; vídeos e listas IPTV passam pelo /api/proxy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
+    <title>DCast Player</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#121212" />
+    <!-- Instalado na tela inicial do iPhone/iPad: abre sem a interface do Safari e a barra
+         de hora/bateria fica transparente sobre o app (o espaço dela vem dos safe-area insets) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DCast Player" />
+    <!-- The `react-native-web` recommended style reset -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background-color: #121212;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      video {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain;
+        background-color: #000000;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        contain: strict;
+      }
+    </style>
+  <meta name="theme-color" content="#E50914">
+<link rel="icon" href="/favicon.ico"/></head>
+
+  <body>
+    <noscript>
+      Você precisa habilitar o JavaScript para executar o DCast Player.
+    </noscript>
+    <div id="root"></div>
+  <script src="/_expo/static/js/web/index-d7d1348db03e41201f3615090dddbe28.js" defer></script>
+</body>
+</html>
